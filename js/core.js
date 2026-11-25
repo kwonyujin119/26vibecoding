@@ -2,7 +2,7 @@
 (function () {
   'use strict';
 
-  const VERSION = '1.0.0';
+  const VERSION = '1.1.0';
   const DEFAULT_TITLE = '공마일';
   const DEFAULT_SUBTITLE = '0MILE - 업무의 출발점 / 공무원이 마음껏 일할 수 있는 플랫폼';
 
