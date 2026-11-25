@@ -418,7 +418,7 @@
     if (!src) {
       if (!opts.edit) return '';
       return '<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:rgba(127,127,127,.14);border:3px dashed rgba(127,127,127,.55);color:rgba(110,110,110,1);font-family:' + FONT + ';font-size:26px;box-sizing:border-box">' +
-        '<svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/></svg><span>사진 넣기 — 두 번 눌러 고르기</span></div>';
+        '<svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/></svg><span>두 번 눌러 사진 넣기</span></div>';
     }
     return '<img alt="" src="' + src + '" draggable="false" style="position:absolute;inset:0;width:100%;height:100%;display:block;object-fit:' + (e.fit === 'contain' ? 'contain' : 'cover') + ';border-radius:' + (e.radius || 0) + 'px">';
   }
@@ -514,7 +514,7 @@
     { id: 'meeting', name: '회의 안건', desc: '안건 → 논의 → 역할 → 결정', theme: 'navy', slides: [
       ['cover', { title: '주간 업무 회의', body: '안건 및 논의 사항', meta: '2026. 11. 25.(수) 10:00 · 소회의실' }],
       ['toc', { title: '안건', body: '지난 회의 후속 조치\n이번 주 주요 일정\n역할 분담\n결정 사항' }],
-      ['titleBody', { title: '지난 회의 후속 조치', body: '자료 취합 양식 확정 — 완료\n시스템 점검 일정 조율 — 진행 중\n  업체 회신 대기(금요일까지)' }],
+      ['titleBody', { title: '지난 회의 후속 조치', body: '자료 취합 양식 확정: 완료\n시스템 점검 일정 조율: 진행 중\n  업체 회신 대기(금요일까지)' }],
       ['table', { title: '역할 분담', rows: [['과제', '담당', '기한', '상태'], ['자료 취합', '', '11. 28.', '진행'], ['현장 점검', '', '12. 2.', '예정'], ['결과 보고', '', '12. 5.', '예정']] }],
       ['titleBody', { title: '결정 사항 및 다음 일정', body: '결정 1:\n결정 2:\n다음 회의: 12. 2.(화) 10:00' }]
     ] },
@@ -732,15 +732,15 @@
           if (e.list) items += listLines(tx).filter((l) => l.t.trim() && l.lvl === 0).length;
           if (e.role === 'title') {
             hasTitle = true;
-            if (tx.replace(/\s/g, '').length > 40) add('info', '제목이 깁니다 — 한 줄 메시지(20자 안팎)로 줄여 보세요.', e.id);
+            if (tx.replace(/\s/g, '').length > 40) add('info', '제목이 깁니다. 20자 안팎 한 줄로 줄여 보세요.', e.id);
           }
-          if (e.size < 18) add('warn', '글자 크기 ' + e.size + 'pt — 뒷자리에서도 읽히도록 18pt 이상을 권장합니다.', e.id);
+          if (e.size < 18) add('warn', '글자 크기 ' + e.size + 'pt. 18pt 이상을 권장합니다.', e.id);
           let behind = bg, known = !s.bgAsset;
           if (e.type === 'shape' && col(e.fill, p) && (e.opacity == null || e.opacity >= 0.6)) { behind = col(e.fill, p); known = true; }
           else if (e.type === 'shape' && col(e.fill, p) && e.opacity > 0) { behind = mix(bg, col(e.fill, p), e.opacity); known = !images.length; }
           else if (images.some((im) => im.x < e.x + e.w && im.x + im.w > e.x && im.y < e.y + e.h && im.y + im.h > e.y)) {
             known = false;
-            add('info', '사진 위에 글자가 있습니다 — 반투명 띠(도형)를 깔면 읽기 쉽습니다.', e.id);
+            add('info', '사진 위에 글자가 있습니다. 반투명 띠를 깔면 읽기 쉽습니다.', e.id);
           }
           if (known) {
             const fg = col(e.color, p) || p.text;
@@ -748,18 +748,18 @@
             const need = e.size >= 24 || (e.bold && e.size >= 18.5) ? 3 : 4.5;
             if (ratio < need) add('warn', '글자와 배경의 대비가 낮습니다 (' + ratio.toFixed(1) + ':1, 기준 ' + need + ':1).', e.id);
           }
-          if (over[s.id] && over[s.id].has(e.id)) add('warn', '글이 상자를 넘칩니다 — 글을 줄이거나 상자를 키우세요.', e.id);
+          if (over[s.id] && over[s.id].has(e.id)) add('warn', '글이 상자를 넘칩니다. 글을 줄이거나 상자를 키우세요.', e.id);
         }
         if (e.type === 'table') {
           sizes.add(e.size);
-          if (e.size < 18) add('warn', '표 글자 크기 ' + e.size + 'pt — 18pt 이상을 권장합니다.', e.id);
+          if (e.size < 18) add('warn', '표 글자 크기 ' + e.size + 'pt. 18pt 이상을 권장합니다.', e.id);
           const cells = (e.rows || []).reduce((a, r) => a + r.length, 0);
-          if ((e.rows || []).length > 8 || cells > 40) add('warn', '표가 큽니다(' + (e.rows || []).length + '행) — 핵심 행만 남기고 나머지는 자료로 배포하세요.', e.id);
+          if ((e.rows || []).length > 8 || cells > 40) add('warn', '표가 큽니다(' + (e.rows || []).length + '행). 핵심 행만 남기세요.', e.id);
           chars += (e.rows || []).reduce((a, r) => a + r.join('').replace(/\s/g, '').length, 0) * 0.5;
         }
         if (e.type === 'chart') {
-          if ((e.labels || []).length > 8) add('info', '차트 항목이 ' + e.labels.length + '개입니다 — 7개 이하로 묶으면 한눈에 보입니다.', e.id);
-          if ((e.size || 18) < 18) add('warn', '차트 글자 크기 ' + e.size + 'pt — 18pt 이상을 권장합니다.', e.id);
+          if ((e.labels || []).length > 8) add('info', '차트 항목이 ' + e.labels.length + '개입니다. 7개 이하로 묶어 보세요.', e.id);
+          if ((e.size || 18) < 18) add('warn', '차트 글자 크기 ' + e.size + 'pt. 18pt 이상을 권장합니다.', e.id);
         }
         if (e.type === 'image' && !e.asset) add('warn', '비어 있는 사진 자리가 있습니다.', e.id);
         if (e.x < -2 || e.y < -2 || e.x + e.w > W + 2 || e.y + e.h > H + 2) add('warn', '슬라이드 밖으로 나간 요소가 있습니다.', e.id);
@@ -768,15 +768,15 @@
       for (let a = 0; a < boxes.length; a++) for (let b = a + 1; b < boxes.length; b++) {
         const A = boxes[a], B = boxes[b];
         const ix = Math.min(A.x + A.w, B.x + B.w) - Math.max(A.x, B.x), iy = Math.min(A.y + A.h, B.y + B.h) - Math.max(A.y, B.y);
-        if (ix > 0 && iy > 0 && ix * iy > 0.2 * Math.min(A.w * A.h, B.w * B.h)) { add('warn', '글·표·차트가 서로 겹칩니다 — 겹친 요소를 옮기세요.', B.id); a = boxes.length; break; }
+        if (ix > 0 && iy > 0 && ix * iy > 0.2 * Math.min(A.w * A.h, B.w * B.h)) { add('warn', '글·표·차트가 서로 겹칩니다.', B.id); a = boxes.length; break; }
       }
       chars = Math.round(chars);
-      if (chars > 200) add('warn', '글자가 많습니다(' + chars + '자) — 핵심 문장만 남기고 설명은 발표자 노트로 옮기세요(중복 원리).');
-      else if (chars > 140) add('info', '글자가 다소 많습니다(' + chars + '자) — 말로 할 내용은 노트로 옮겨 보세요.');
-      if (items > 6) add('warn', '항목이 ' + items + '개입니다 — 한 장에 6개 이하로 나누세요.');
-      if (!hasTitle && ['titleBody', 'twoCol', 'table', 'timeline', 'chart', 'toc'].includes(s.layout)) add('info', '제목이 비어 있습니다 — 제목으로 이 장의 핵심을 알려 주세요(신호 원리).');
-      if (sizes.size > 4) add('info', '글자 크기가 ' + sizes.size + '가지입니다 — 3~4가지로 통일하면 깔끔합니다.');
-      if (s.els.length > 14) add('info', '요소가 ' + s.els.length + '개입니다 — 한 장에 한 메시지만 담아 보세요(일관성 원리).');
+      if (chars > 200) add('warn', '글자가 많습니다(' + chars + '자). 설명은 발표자 노트로 옮기세요.');
+      else if (chars > 140) add('info', '글자가 다소 많습니다(' + chars + '자). 말로 할 내용은 노트로 옮겨 보세요.');
+      if (items > 6) add('warn', '항목이 ' + items + '개입니다. 한 장에 6개 이하로 나누세요.');
+      if (!hasTitle && ['titleBody', 'twoCol', 'table', 'timeline', 'chart', 'toc'].includes(s.layout)) add('info', '제목이 비어 있습니다.');
+      if (sizes.size > 4) add('info', '글자 크기가 ' + sizes.size + '가지입니다. 3~4가지로 줄여 보세요.');
+      if (s.els.length > 14) add('info', '요소가 ' + s.els.length + '개입니다. 한 장에 한 메시지만 담아 보세요.');
     });
     const warn = issues.filter((i) => i.level === 'warn').length;
     const info = issues.length - warn;
@@ -1054,6 +1054,16 @@
     openPop = null;
     return true;
   }
+  function relTime(iso) {
+    const t = Date.parse(iso);
+    if (!t) return '';
+    const sec = Math.round((Date.now() - t) / 1000);
+    if (sec < 60) return '방금 전';
+    if (sec < 3600) return Math.floor(sec / 60) + '분 전';
+    if (sec < 86400) return Math.floor(sec / 3600) + '시간 전';
+    if (sec < 86400 * 7) return Math.floor(sec / 86400) + '일 전';
+    return fmtDate(iso);
+  }
   function fmtDate(iso) {
     if (!iso) return '';
     const d = new Date(iso);
@@ -1138,20 +1148,21 @@
     let alive = true;
     let items = [];
     root.innerHTML = '<div class="page slides-list">' +
-      '<div class="page-head"><div><h1>PT</h1><p>교안·보고용 발표 자료를 만들고, 바로 발표하고, 파워포인트(PPTX)·PDF로 내보냅니다.</p></div>' +
-      '<div class="toolbar"><button type="button" class="btn btn-primary" data-a="new">' + I.plus + '새 PT</button>' +
-      '<button type="button" class="btn" data-a="outline">' + I.outline + '개요로 만들기</button>' +
-      '<button type="button" class="btn" data-a="photos">' + I.image + '사진으로 만들기</button>' +
-      '<button type="button" class="btn btn-ghost" data-a="import" title="PT 파일(.json) 열기">' + I.upload + '파일 열기</button></div></div>' +
-      '<section class="slides-sec"><div class="slides-list-head"><h2 class="slides-h2">내 PT</h2><label class="p-search">' + P.icons.search + '<input type="search" placeholder="제목으로 찾기" aria-label="PT 찾기"></label></div><div class="slides-cards"></div></section>' +
-      '<section class="slides-sec"><h2 class="slides-h2">서식으로 시작</h2><div class="slides-tpls"></div></section></div>';
+      '<div class="page-head"><div><h1>PT</h1></div>' +
+      '<div class="toolbar slides-list-acts"><button type="button" class="btn btn-ghost" data-a="import" title="PT 파일(.json) 열기">' + I.upload + '<span>파일 열기</span></button>' +
+      '<button type="button" class="btn" data-a="photos" title="사진으로 만들기">' + I.image + '<span>사진으로</span></button>' +
+      '<button type="button" class="btn" data-a="outline" title="개요로 만들기">' + I.outline + '<span>개요로</span></button>' +
+      '<button type="button" class="btn btn-primary" data-a="new">' + I.plus + '새 PT</button></div></div>' +
+      '<section class="slides-sec slides-sec-tpl" aria-label="서식으로 시작"><h2 class="section-title">서식</h2><div class="slides-tpls"></div></section>' +
+      '<section class="slides-sec"><div class="slides-list-head"><h2 class="slides-h2">내 PT <span class="slides-count"></span></h2><label class="p-search">' + P.icons.search + '<input type="search" placeholder="제목 검색" aria-label="PT 찾기"></label></div><div class="slides-cards"></div></section></div>';
     const tplBox = root.querySelector('.slides-tpls');
     TEMPLATES.forEach((t) => {
       const d = deckFromTemplate(t);
       const b = document.createElement('button');
       b.type = 'button';
-      b.className = 'slides-tpl card';
-      b.innerHTML = miniHTML(d, d.slides[0], { edit: t.id === 'blank' }) + '<b>' + esc(t.name) + '</b><small>' + esc(t.desc) + ' · ' + d.slides.length + '장</small>';
+      b.className = 'slides-tpl';
+      b.title = t.desc;
+      b.innerHTML = miniHTML(d, d.slides[0], { edit: t.id === 'blank' }) + '<span class="slides-tpl-txt"><b>' + esc(t.name) + '</b><small>' + d.slides.length + '장</small></span>';
       b.addEventListener('click', () => createDeck(deckFromTemplate(t)));
       tplBox.appendChild(b);
     });
@@ -1169,19 +1180,21 @@
     function render() {
       const q = search.value.trim().toLowerCase();
       const list = items.filter((it) => !q || String(it.data.title || '').toLowerCase().includes(q));
+      root.querySelector('.slides-count').textContent = items.length ? String(items.length) : '';
       if (!items.length) {
-        cards.innerHTML = '<div class="empty card slides-empty"><h3>아직 만든 PT가 없습니다</h3><p>아래 서식을 고르거나, 개요 글을 붙여 넣어 바로 만들어 보세요.</p></div>';
+        cards.innerHTML = '<div class="empty slides-empty"><p>아직 PT가 없습니다.</p><button type="button" class="btn btn-primary" data-a="new-empty">' + I.plus + '새 PT</button></div>';
+        cards.querySelector('[data-a="new-empty"]').addEventListener('click', () => createDeck(blankDeck()));
         return;
       }
-      if (!list.length) { cards.innerHTML = '<div class="empty">찾는 PT가 없습니다.</div>'; return; }
+      if (!list.length) { cards.innerHTML = '<div class="empty slides-empty"><p>검색 결과 없음</p></div>'; return; }
       cards.innerHTML = '';
       list.forEach((it) => {
         const d = normalizeDeck(it.data);
         const card = document.createElement('div');
-        card.className = 'slides-card card';
-        card.innerHTML = '<a class="slides-card-open" href="#/' + APP_ID + '/' + encodeURIComponent(it.id) + '">' + miniHTML(d, d.slides[0], {}) + '</a>' +
+        card.className = 'slides-card';
+        card.innerHTML = '<a class="slides-card-open" href="#/' + APP_ID + '/' + encodeURIComponent(it.id) + '" aria-label="' + esc(d.title || '제목 없음') + ' 열기">' + miniHTML(d, d.slides[0], {}) + '</a>' +
           '<div class="slides-card-meta"><a class="slides-card-title" href="#/' + APP_ID + '/' + encodeURIComponent(it.id) + '">' + esc(d.title || '제목 없음') + '</a>' +
-          '<small class="muted">' + d.slides.length + '장 · ' + esc(THEMES[d.theme].name) + ' · ' + esc(fmtDate(it.updatedAt)) + '</small></div>' +
+          '<small>' + d.slides.length + '장 · ' + esc(relTime(it.updatedAt)) + '</small></div>' +
           '<div class="slides-card-acts"><button type="button" class="btn btn-ghost btn-sm p-icon-btn" data-a="rename" title="이름 변경" aria-label="이름 변경">' + I.edit + '</button>' +
           '<button type="button" class="btn btn-ghost btn-sm p-icon-btn" data-a="dup" title="복제" aria-label="복제">' + I.copy + '</button>' +
           '<button type="button" class="btn btn-ghost btn-sm p-icon-btn" data-a="del" title="삭제" aria-label="삭제">' + I.trash + '</button></div>';
@@ -1279,13 +1292,13 @@
     ov.tabIndex = -1;
     ov.setAttribute('role', 'dialog');
     ov.setAttribute('aria-label', '발표 모드');
-    ov.innerHTML = '<div class="slides-pv-main"><div class="slides-pv-stage"></div><div class="slides-pv-cover"></div>' +
+    ov.innerHTML = '<div class="slides-pv-main"><div class="slides-pv-stage"></div><div class="slides-pv-cover"></div><div class="slides-pv-progress" aria-hidden="true"><i></i></div>' +
       '<div class="slides-pv-bar"><button type="button" data-k="prev" aria-label="이전">' + I.prev + '</button><span class="slides-pv-count"></span><button type="button" data-k="next" aria-label="다음">' + I.next + '</button>' +
       '<span class="slides-pv-sep"></span><button type="button" data-k="black" title="검은 화면 (B)" aria-label="검은 화면">' + I.screen + '</button><button type="button" data-k="panel" title="발표자 보기 (S)" aria-label="발표자 보기">' + I.notes + '</button>' +
       '<button type="button" data-k="full" title="전체 화면 (F)" aria-label="전체 화면">' + I.full + '</button><button type="button" data-k="exit" title="끝내기 (Esc)" aria-label="끝내기">' + I.close + '</button></div></div>' +
       '<aside class="slides-pv-side"><div class="slides-pv-timer"><span class="slides-pv-time">00:00</span><button type="button" data-k="pause">일시정지</button><button type="button" data-k="reset">다시</button></div>' +
       '<div class="slides-pv-label slides-pv-nl">다음 슬라이드</div><div class="slides-pv-next"></div><div class="slides-pv-label">발표자 노트</div><div class="slides-pv-notes"></div>' +
-      '<div class="slides-pv-help">→ 스페이스 다음 · ← 이전 · B 검은 화면 · W 흰 화면 · S 발표자 보기 · Esc 끝내기</div></aside>';
+      '<div class="slides-pv-help"><span><kbd>→</kbd> 다음</span><span><kbd>←</kbd> 이전</span><span><kbd>B</kbd> 검은 화면</span><span><kbd>W</kbd> 흰 화면</span><span><kbd>S</kbd> 발표자 보기</span><span><kbd>Esc</kbd> 끝내기</span></div></aside>';
     document.body.appendChild(ov);
     const stage = ov.querySelector('.slides-pv-stage');
     const main = ov.querySelector('.slides-pv-main');
@@ -1310,6 +1323,7 @@
       const s = deck.slides[i];
       stage.innerHTML = '<div class="slides-pv-in' + (anim ? ' slides-pv-fade' : '') + '">' + slideMarkup(deck, s, {}) + '</div>';
       countEl.textContent = (i + 1) + ' / ' + deck.slides.length;
+      ov.querySelector('.slides-pv-progress i').style.width = ((i + 1) / deck.slides.length * 100) + '%';
       const nx = deck.slides[i + 1];
       nextEl.innerHTML = nx ? miniHTML(deck, nx, {}) : '<div class="slides-pv-end">마지막 슬라이드입니다</div>';
       notesEl.textContent = s.notes || '(노트 없음)';
@@ -1460,7 +1474,7 @@
         '<aside class="slides-rail" aria-label="슬라이드 목록"><div class="slides-thumbs" role="listbox" aria-label="슬라이드"></div><button type="button" class="btn btn-sm slides-rail-add" data-a="addSlide">' + I.plus + '<span>새 슬라이드</span></button></aside>' +
         '<section class="slides-center">' +
           '<div class="slides-canvas-wrap"><div class="slides-frame"><div class="slides-stage"></div><div class="slides-overlay"><div class="slides-ovl"></div></div></div></div>' +
-          '<div class="slides-notes"><label for="slides-notes-ta">발표자 노트</label><textarea id="slides-notes-ta" rows="3" placeholder="발표할 때 말할 내용, 근거 숫자, 질문 대비 메모를 적으세요. 화면에는 나오지 않습니다."></textarea></div>' +
+          '<div class="slides-notes"><label for="slides-notes-ta">발표자 노트</label><textarea id="slides-notes-ta" rows="3" placeholder="발표할 때 볼 메모"></textarea></div>' +
         '</section>' +
         '<aside class="slides-props" aria-label="속성"></aside>' +
       '</div></div>';
@@ -1485,7 +1499,7 @@
     /* ----- 저장 ----- */
     function setStatus(s) {
       statusEl.dataset.s = s;
-      statusEl.textContent = s === 'saving' ? '저장 중…' : s === 'error' ? '저장 실패 — 다시 시도 중' : s === 'dirty' ? '수정됨' : '저장됨';
+      statusEl.textContent = s === 'saving' ? '저장 중…' : s === 'error' ? '저장 실패 · 다시 시도 중' : s === 'dirty' ? '수정됨' : '저장됨';
     }
     setStatus('saved');
     let saveTimer = null;
@@ -2131,7 +2145,7 @@
           '<div class="slides-row"><button type="button" class="btn btn-sm" data-act="bgimg">' + I.image + (s.bgAsset ? '배경 사진 바꾸기' : '배경 사진 넣기') + '</button>' + (s.bgAsset ? '<button type="button" class="btn btn-sm btn-ghost" data-act="bgimg-x">배경 사진 빼기</button>' : '') + '</div>' +
           '<label class="slides-check"><input type="checkbox" data-sp="deco"' + (s.deco !== false ? ' checked' : '') + '> 테마 장식 보이기</label></div>' +
           '<div class="slides-pg"><h4>슬라이드</h4><div class="slides-row"><button type="button" class="btn btn-sm" data-act="dupSlide">' + I.copy + '복제</button><button type="button" class="btn btn-sm" data-act="delSlide">' + I.trash + '삭제</button></div>' +
-          '<p class="muted slides-tip">요소를 누르면 글자·색·위치를 바꿀 수 있습니다. 두 번 누르면 글을 고칩니다. 사진은 끌어다 놓거나 붙여 넣으세요.</p></div>';
+          '</div>';
       } else {
         const name = { text: '글상자', shape: '도형', image: '사진', table: '표', chart: '차트' }[e.type];
         h += '<div class="slides-pg slides-pg-head"><h4>' + name + '</h4><div class="slides-row">' +
@@ -2167,7 +2181,7 @@
         if (e.type === 'chart') {
           h += '<div class="slides-pg"><h4>차트</h4>' + seg('kind', e.kind || 'bar', [['bar', '', '막대'], ['line', '', '꺾은선'], ['pie', '', '원형']]) +
             '<label class="slides-lab">제목</label><input type="text" data-p="title" value="' + esc(e.title || '') + '" placeholder="(선택) 차트 제목">' +
-            '<label class="slides-lab">데이터 <small class="muted">한 줄에 "항목, 값" — 엑셀 두 열 붙여넣기 가능</small></label><textarea class="slides-cdata" rows="6">' + esc((e.labels || []).map((l, i) => l + ', ' + ((e.values || [])[i] == null ? '' : e.values[i])).join('\n')) + '</textarea>' +
+            '<label class="slides-lab">데이터 <small class="muted">한 줄에 "항목, 값"</small></label><textarea class="slides-cdata" rows="6">' + esc((e.labels || []).map((l, i) => l + ', ' + ((e.values || [])[i] == null ? '' : e.values[i])).join('\n')) + '</textarea>' +
             '<label class="slides-check"><input type="checkbox" data-p="showValues"' + (e.showValues ? ' checked' : '') + '> 값 표시</label>' +
             '<label class="slides-inl">글자 크기 <input type="number" min="8" max="48" data-p="size" value="' + (e.size || 18) + '"> pt</label></div>';
         }
@@ -2254,7 +2268,7 @@
       else if (a === 'fit') {
         const size = fitSize(e);
         if (size === e.size) P.ui.toast('글이 상자 안에 들어갑니다(' + size + 'pt).', 'info');
-        else { change(() => { e.size = size; }, null, { props: true }); P.ui.toast('글자 크기를 ' + size + 'pt로 맞췄습니다.' + (size < 18 ? ' 글이 많습니다 — 줄이거나 나누는 것을 권장합니다.' : ''), size < 18 ? 'warn' : 'ok'); }
+        else { change(() => { e.size = size; }, null, { props: true }); P.ui.toast('글자 크기를 ' + size + 'pt로 맞췄습니다.' + (size < 18 ? ' 글을 줄이거나 나눠 보세요.' : ''), size < 18 ? 'warn' : 'ok'); }
       }
       else if (a === 'size-' || a === 'size+') change(() => { e.size = clamp(e.size + (a === 'size+' ? 2 : -2), 6, 300); }, 'size:' + e.id, { props: true });
       else if (a === 'img') replaceImage(e);

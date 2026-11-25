@@ -1,11 +1,30 @@
-/* 레퍼런스 모음: data/references.json 섹터 + 내 레퍼런스(store 'refs-user') */
+/* 레퍼런스: data/references.json 묶음 + 내 레퍼런스(store 'refs-user') — 왼쪽 모음·분류, 오른쪽 목록/격자 */
 (function () {
   const ICON = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z"/><path d="M5 17a3 3 0 0 1 3-3h11M9 8h6"/></svg>';
+  const IC_LIST = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>';
+  const IC_GRID = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1"/><rect x="13" y="4" width="7" height="7" rx="1"/><rect x="4" y="13" width="7" height="7" rx="1"/><rect x="13" y="13" width="7" height="7" rx="1"/></svg>';
   const COL = 'refs-user';
   const MINE = '__mine';
   const CATS = ['UI/UX', 'PT', '문서', '엑셀', '디자인', '공공AI', '기타'];
+  const TINTS = ['#4C63B6', '#13897B', '#B7791F', '#7C5CC4', '#C0497A', '#2F86B5', '#5E8F32', '#8A6A4E', '#5B6B7F', '#3F7F9F'];
   const esc = (s) => P.esc(s);
   const safeUrl = (u) => (/^https?:\/\//i.test(String(u || '').trim()) ? String(u).trim() : '');
+  const tidy = (s) => String(s || '').replace(/\s*—\s*/g, ' · ');
+  function domainOf(u) {
+    try { return new URL(u).hostname.replace(/^www\./, ''); } catch (e) { return ''; }
+  }
+  function tintOf(s) {
+    let h = 0;
+    for (const ch of String(s)) h = (h * 31 + ch.codePointAt(0)) >>> 0;
+    return TINTS[h % TINTS.length];
+  }
+  /* 검색어 강조: 글자를 이스케이프한 뒤 태그 밖에서만 <mark> */
+  function hl(text, ts) {
+    const out = esc(text);
+    if (!ts.length) return out;
+    const re = new RegExp('(' + ts.map((t) => esc(t).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')', 'gi');
+    return out.replace(/(<[^>]*>)|([^<]+)/g, (m, tag, txt) => tag || txt.replace(re, '<mark>$1</mark>'));
+  }
 
   async function fetchRefs() {
     try {
@@ -18,86 +37,107 @@
     }
   }
 
-  function itemHtml(it, mine) {
+  function itemHtml(it, mine, ts) {
     const url = safeUrl(it.url);
+    const dom = url ? domainOf(url) : '';
     const tags = Array.isArray(it.tags) ? it.tags : [];
-    return '<article class="refs-item' + (mine ? ' refs-mine' : '') + '">' +
-      '<div class="refs-item-head">' +
-      (url ? '<a href="' + esc(url) + '" target="_blank" rel="noopener noreferrer">' + esc(it.title || url) + P.icons.external + '</a>' : '<b>' + esc(it.title || '제목 없음') + '</b>') +
-      (mine ? '<span class="refs-item-acts"><button type="button" class="btn btn-ghost" data-edit="' + esc(it._id) + '" aria-label="수정">' + P.icons.edit + '</button><button type="button" class="btn btn-ghost" data-del="' + esc(it._id) + '" aria-label="삭제">' + P.icons.trash + '</button></span>' : '') +
-      '</div>' +
-      (it.note ? '<p>' + esc(it.note) + '</p>' : '') +
-      '<div class="refs-item-meta">' +
-      (it.source ? '<span class="refs-src">' + esc(it.source) + '</span>' : '') +
-      (it.category ? '<span class="chip">' + esc(it.category) + '</span>' : '') +
-      tags.slice(0, 5).map((t) => '<span class="refs-tag">#' + esc(t) + '</span>').join(' ') +
-      '</div></article>';
+    const mono = (dom.match(/[a-z0-9]/i) || [it.title ? Array.from(String(it.title))[0] : '?'])[0].toUpperCase();
+    return '<article class="rf-row' + (mine ? ' rf-mine' : '') + '">' +
+      '<span class="rf-mono" style="--c:' + tintOf(dom || it.title) + '" aria-hidden="true">' + esc(mono) + '</span>' +
+      '<div class="rf-row-main">' +
+      (url ? '<a class="rf-title" href="' + esc(url) + '" target="_blank" rel="noopener noreferrer"' + (it.source ? ' title="출처: ' + esc(it.source) + '"' : '') + '>' + hl(tidy(it.title) || url, ts) + '</a>' : '<b class="rf-title">' + hl(it.title || '제목 없음', ts) + '</b>') +
+      (it.note ? '<p class="rf-note">' + hl(tidy(it.note), ts) + '</p>' : '') +
+      '<div class="rf-meta">' +
+      (dom ? '<span class="rf-domain">' + hl(dom, ts) + '</span>' : '') +
+      (it.category ? '<span class="rf-cat">' + hl(it.category, ts) + '</span>' : '') +
+      tags.slice(0, 4).map((t) => '<span class="rf-tag">#' + hl(t, ts) + '</span>').join('') +
+      '</div></div>' +
+      (mine ? '<span class="rf-acts"><button type="button" class="btn btn-ghost btn-sm p-icon-btn" data-edit="' + esc(it._id) + '" aria-label="수정" title="수정">' + P.icons.edit + '</button><button type="button" class="btn btn-ghost btn-sm p-icon-btn" data-del="' + esc(it._id) + '" aria-label="삭제" title="삭제">' + P.icons.trash + '</button></span>' : '') +
+      (url ? '<span class="rf-go" aria-hidden="true">' + P.icons.external + '</span>' : '') +
+      '</article>';
   }
 
-  function matches(it, q, cat) {
+  function matches(it, ts, cat) {
     if (cat && it.category !== cat) return false;
-    if (!q) return true;
+    if (!ts.length) return true;
     const hay = [it.title, it.note, it.source, it.category, it.url].concat(it.tags || []).join(' ').toLowerCase();
-    return q.split(/\s+/).every((w) => hay.includes(w));
+    return ts.every((w) => hay.includes(w));
   }
 
   function mount(el) {
-    const state = { sectors: [], mine: [], q: '', cat: '', open: P.settings.get('refs.open', {}) };
+    const state = { sectors: [], mine: [], q: '', cat: '', sec: '', layout: P.settings.get('refs.layout', 'list'), open: P.settings.get('refs.open', {}) };
     let alive = true;
 
     el.innerHTML =
-      '<div class="page">' +
-      '<div class="page-head"><div><h1>레퍼런스 모음</h1><p>업무 품질을 높이는 자료·디자인·도구 링크를 분류별로 모았습니다.</p></div>' +
-      '<button type="button" class="btn btn-primary" data-act="add">' + P.icons.plus + '내 레퍼런스 추가</button></div>' +
-      '<div class="refs-tools">' +
-      '<label class="p-search">' + P.icons.search + '<span class="sr-only">검색</span><input type="search" placeholder="제목·설명·태그 검색"></label>' +
-      '<span class="refs-count" aria-live="polite"></span></div>' +
-      '<div class="chips refs-cats" role="group" aria-label="분류 필터" style="margin-bottom:16px"></div>' +
-      '<div class="refs-list"><div class="empty">불러오는 중…</div></div>' +
-      '</div>';
-    const list = el.querySelector('.refs-list');
-    const catsBox = el.querySelector('.refs-cats');
-    const count = el.querySelector('.refs-count');
+      '<div class="page rf-page">' +
+      '<div class="page-head"><div><h1>레퍼런스</h1></div>' +
+      '<button type="button" class="btn btn-primary" data-act="add">' + P.icons.plus + '추가</button></div>' +
+      '<div class="rf-layout">' +
+      '<nav class="rf-side" aria-label="레퍼런스 모음"><div class="rf-side-group rf-secs"></div><div class="rf-side-group rf-cats"></div></nav>' +
+      '<div class="rf-main">' +
+      '<div class="rf-tools">' +
+      '<label class="p-search rf-search">' + P.icons.search + '<span class="sr-only">검색</span><input type="search" placeholder="제목·설명·태그·사이트 검색"></label>' +
+      '<span class="rf-count num" aria-live="polite"></span>' +
+      '<div class="seg rf-layout-seg" role="radiogroup" aria-label="보기">' +
+      '<button type="button" role="radio" data-layout="list" aria-label="목록" title="목록" aria-checked="' + (state.layout !== 'grid') + '">' + IC_LIST + '</button>' +
+      '<button type="button" role="radio" data-layout="grid" aria-label="격자" title="격자" aria-checked="' + (state.layout === 'grid') + '">' + IC_GRID + '</button></div>' +
+      '</div>' +
+      '<div class="rf-list"><div class="empty">불러오는 중…</div></div>' +
+      '</div></div></div>';
+    const list = el.querySelector('.rf-list');
+    const secsBox = el.querySelector('.rf-secs');
+    const catsBox = el.querySelector('.rf-cats');
+    const count = el.querySelector('.rf-count');
     const search = el.querySelector('input[type="search"]');
+    const terms = () => state.q.trim().toLowerCase().split(/\s+/).filter(Boolean);
 
     function allSectors() {
-      const mineSector = { id: MINE, title: '내 레퍼런스', desc: '직접 추가한 링크 — 현재 저장 위치에 저장됩니다.', items: state.mine };
+      const mineSector = { id: MINE, title: '내 레퍼런스', desc: '직접 추가한 링크. 지금 저장 위치에 저장됩니다.', items: state.mine };
       return [mineSector].concat(state.sectors);
     }
+    const sid = (s) => String(s.id || s.title);
 
-    function renderCats() {
+    function renderSide() {
+      const ts = terms();
       const seen = new Set();
       allSectors().forEach((s) => (s.items || []).forEach((it) => it.category && seen.add(it.category)));
       const cats = CATS.filter((c) => seen.has(c)).concat(Array.from(seen).filter((c) => !CATS.includes(c)));
       if (state.cat && !seen.has(state.cat)) state.cat = '';
-      catsBox.innerHTML = ['', ...cats].map((c) => '<button type="button" class="chip" aria-pressed="' + (state.cat === c) + '" data-cat="' + esc(c) + '">' + esc(c || '전체') + '</button>').join('');
+      if (state.sec && !allSectors().some((s) => sid(s) === state.sec)) state.sec = '';
+      const nSec = (s) => (s.items || []).filter((it) => matches(it, ts, state.cat)).length;
+      const total = allSectors().reduce((a, s) => a + nSec(s), 0);
+      const nav = (attr, val, label, n, cur) => '<button type="button" class="rf-nav' + (n ? '' : ' zero') + '" ' + attr + '="' + esc(val) + '"' + (cur ? ' aria-current="true"' : '') + '><span class="rf-nav-l">' + esc(label) + '</span><span class="rf-nav-n num">' + n + '</span></button>';
+      secsBox.innerHTML = '<h2 class="rf-side-title">모음</h2>' + nav('data-sec', '', '전체', total, !state.sec) +
+        allSectors().map((s) => nav('data-sec', sid(s), s.title || '분류 없음', nSec(s), state.sec === sid(s))).join('');
+      const inSec = allSectors().filter((s) => !state.sec || sid(s) === state.sec).flatMap((s) => s.items || []).filter((it) => matches(it, ts, ''));
+      catsBox.innerHTML = '<h2 class="rf-side-title">분류</h2>' + nav('data-cat', '', '모든 분류', inSec.length, !state.cat) +
+        cats.map((c) => nav('data-cat', c, c, inSec.filter((it) => it.category === c).length, state.cat === c)).join('');
     }
 
     function render() {
-      const q = state.q.trim().toLowerCase();
-      const filtering = !!(q || state.cat);
+      const ts = terms();
+      const filtering = !!(ts.length || state.cat);
       let total = 0;
-      let collected = 0;
-      const parts = allSectors().map((s) => {
-        const items = (s.items || []).filter((it) => matches(it, q, state.cat));
+      const grid = state.layout === 'grid';
+      const html = allSectors().filter((s) => !state.sec || sid(s) === state.sec).map((s) => {
+        const items = (s.items || []).filter((it) => matches(it, ts, state.cat));
         total += items.length;
         const isMine = s.id === MINE;
-        if (!isMine) collected += items.length;
         if (!items.length && (filtering || !isMine)) return '';
-        const sid = String(s.id || s.title);
-        const open = filtering || state.open[sid] !== false;
-        return '<details class="card refs-sector" data-sid="' + esc(sid) + '"' + (open ? ' open' : '') + '>' +
-          '<summary><span class="refs-sector-title"><b>' + esc(s.title || '분류 없음') + '</b>' + (s.desc ? '<small>' + esc(s.desc) + '</small>' : '') + '</span>' +
-          '<span class="refs-badge">' + items.length + '</span><span class="refs-chev">' + P.icons.chevron + '</span></summary>' +
-          (items.length ? '<div class="refs-items">' + items.map((it) => itemHtml(it, isMine)).join('') + '</div>'
-            : '<div class="empty" style="padding:4px 18px 22px">아직 추가한 링크가 없습니다. 오른쪽 위 <b>내 레퍼런스 추가</b>를 눌러 보세요.</div>') +
-          '</details>';
-      });
-      const rest = parts.slice(1).join('');
-      const html = parts[0] + (rest ? '<div class="refs-group"><h2>수집한 레퍼런스</h2><span class="muted">' + collected + '개 · 이전 작업에서 다시 모은 자료와 이번에 새로 모은 자료를 분류별로 담았습니다. 링크를 누르면 새 창으로 열립니다.</span></div>' + rest : '');
-      list.innerHTML = html || '<div class="card empty"><h3>' + (filtering ? '검색 결과가 없습니다' : '레퍼런스가 아직 없습니다') + '</h3><p>' + (filtering ? '다른 검색어나 분류를 골라 보세요.' : '자료가 준비되면 이곳에 표시됩니다.') + '</p></div>';
+        const id = sid(s);
+        const open = filtering || !!state.sec || state.open[id] !== false;
+        return '<section class="rf-sec' + (open ? '' : ' closed') + '" data-sid="' + esc(id) + '">' +
+          '<button type="button" class="rf-sec-head" data-toggle="' + esc(id) + '" aria-expanded="' + open + '"' + (s.desc ? ' title="' + esc(tidy(s.desc)) + '"' : '') + '>' +
+          '<span class="rf-chev" aria-hidden="true">' + P.icons.chevron + '</span><span class="rf-sec-title">' + esc(s.title || '분류 없음') + '</span><span class="rf-sec-n num">' + items.length + '</span>' +
+          (s.desc ? '<span class="rf-sec-desc">' + esc(tidy(s.desc)) + '</span>' : '') + '</button>' +
+          (open ? (items.length ? '<div class="rf-items' + (grid ? ' is-grid' : '') + '">' + items.map((it) => itemHtml(it, isMine, ts)).join('') + '</div>'
+            : '<div class="rf-mine-empty"><span>직접 추가한 링크가 없습니다.</span><button type="button" class="btn btn-sm" data-act="add">' + P.icons.plus + '추가</button></div>') : '') +
+          '</section>';
+      }).join('');
+      list.innerHTML = html || '<div class="empty card"><p>' + (filtering ? '검색 결과가 없습니다.' : '레퍼런스가 아직 없습니다.') + '</p>' + (filtering ? '<button type="button" class="btn btn-sm" data-act="reset">조건 지우기</button>' : '') + '</div>';
       count.textContent = total + '개';
     }
+    const refresh = () => { renderSide(); render(); };
 
     async function loadMine() {
       try {
@@ -146,16 +186,28 @@
     async function refreshMine() {
       await loadMine();
       if (!alive) return;
-      renderCats();
-      render();
+      refresh();
     }
 
     el.addEventListener('click', async (e) => {
       const t = e.target.closest('button');
       if (!t) return;
       if (t.dataset.act === 'add') editForm(null);
-      else if (t.dataset.cat !== undefined) { state.cat = t.dataset.cat; renderCats(); render(); }
-      else if (t.dataset.edit) editForm(state.mine.find((x) => x._id === t.dataset.edit));
+      else if (t.dataset.act === 'reset') { state.q = ''; state.cat = ''; search.value = ''; refresh(); }
+      else if (t.dataset.sec !== undefined) { state.sec = t.dataset.sec; refresh(); el.querySelector('.rf-main').scrollIntoView({ block: 'nearest' }); }
+      else if (t.dataset.cat !== undefined) { state.cat = state.cat === t.dataset.cat ? '' : t.dataset.cat; refresh(); }
+      else if (t.dataset.layout) {
+        state.layout = t.dataset.layout;
+        P.settings.set('refs.layout', state.layout);
+        el.querySelectorAll('[data-layout]').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.layout === state.layout)));
+        render();
+      } else if (t.dataset.toggle !== undefined) {
+        if (state.q.trim() || state.cat || state.sec) return;
+        const id = t.dataset.toggle;
+        state.open[id] = state.open[id] === false;
+        P.settings.set('refs.open', state.open);
+        render();
+      } else if (t.dataset.edit) editForm(state.mine.find((x) => x._id === t.dataset.edit));
       else if (t.dataset.del) {
         const it = state.mine.find((x) => x._id === t.dataset.del);
         if (it && await P.ui.confirm('"' + (it.title || '') + '" 링크를 삭제할까요?', { danger: true, okLabel: '삭제' })) {
@@ -163,23 +215,17 @@
         }
       }
     });
-    list.addEventListener('toggle', (e) => {
-      const d = e.target;
-      if (!d.matches || !d.matches('details[data-sid]') || state.q || state.cat) return;
-      state.open[d.dataset.sid] = d.open;
-      P.settings.set('refs.open', state.open);
-    }, true);
     let timer = 0;
     search.addEventListener('input', () => {
       clearTimeout(timer);
-      timer = setTimeout(() => { state.q = search.value; render(); }, 120);
+      timer = setTimeout(() => { state.q = search.value; refresh(); }, 120);
     });
+    search.addEventListener('keydown', (e) => { if (e.key === 'Escape' && search.value) { e.stopPropagation(); search.value = ''; state.q = ''; refresh(); } });
 
     Promise.all([fetchRefs(), loadMine()]).then(([sectors]) => {
       if (!alive) return;
       state.sectors = sectors;
-      renderCats();
-      render();
+      refresh();
     });
 
     return () => { alive = false; clearTimeout(timer); };

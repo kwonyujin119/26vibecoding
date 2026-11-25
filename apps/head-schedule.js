@@ -24,13 +24,15 @@
   const nowHM = () => { const d = new Date(); return pad(d.getHours()) + ':' + pad(d.getMinutes()); };
   const stamp = () => today().replace(/-/g, '');
 
-  const PALETTE = ['#2747c7', '#0d9488', '#d97706', '#c2410c', '#7c3aed', '#db2777', '#0284c7', '#65a30d', '#b91c1c', '#475569'];
+  /* 사람·구분 색: 밝은 화면·어두운 화면 모두에서 읽히는 중간 밝기. 인주색(--signal)과 겹치는 주홍은 뺌 */
+  const PALETTE = ['#4C63B6', '#13897B', '#B7791F', '#7C5CC4', '#C0497A', '#2F86B5', '#5E8F32', '#8A6A4E', '#5B6B7F', '#3F7F9F'];
   function colorFor(name) {
     let h = 0;
     for (const ch of String(name)) h = (h * 31 + ch.codePointAt(0)) >>> 0;
     return PALETTE[h % PALETTE.length];
   }
-  const safeColor = (c, fallback) => (/^#[0-9a-f]{6}$/i.test(c || '') ? c : fallback || '#475569');
+  const NEUTRAL = '#737985';
+  const safeColor = (c, fallback) => (/^#[0-9a-f]{6}$/i.test(c || '') ? c : fallback || NEUTRAL);
 
   /* 검색: 띄어쓰기로 나눈 단어가 모두 들어간 항목만 (AND) */
   const terms = (q) => String(q || '').toLowerCase().split(/\s+/).filter(Boolean);
@@ -277,7 +279,7 @@
 
   window.SchedKit = {
     DOW, pad, parse, isDate, today, addDays, addMonths, diffDays, dow, md, longDate, weekStart, monthCells, nowHM, stamp,
-    PALETTE, colorFor, safeColor, terms, matchAll, mark, isTyping, shareText, printHTML, makeRepo, statusBar, autoRefresh, readJSONFile, popMenu, IC
+    PALETTE, NEUTRAL, colorFor, safeColor, terms, matchAll, mark, isTyping, shareText, printHTML, makeRepo, statusBar, autoRefresh, readJSONFile, popMenu, IC
   };
 
   /* ================= 부서장 일정 앱 ================= */
@@ -325,10 +327,76 @@
       const end = e.end && e.end > e.start ? e.end : K.pad(Math.min(23, Number(e.start.slice(0, 2)) + 1)) + e.start.slice(2);
       return n < end ? 'now' : 'past';
     }
+    const COMMON = K.NEUTRAL;
     const headChips = (e) => (e.heads || []).map((id) => {
       const p = personById(id);
       return p ? '<span class="sch-who" style="--c:' + K.safeColor(p.color) + '"><i></i>' + P.esc(personLabel(p)) + '</span>' : '';
     }).join('');
+    const colorOf = (e) => { const p = personById((e.heads || [])[0]); return K.safeColor(p && p.color, COMMON); };
+    const headNames = (e) => (e.heads || []).map((id) => { const x = personById(id); return x ? x.name : ''; }).filter(Boolean).join(', ') || '공통';
+    const initial = (name) => P.esc(Array.from(String(name || '').trim())[0] || '?');
+    const av = (p, sm) => '<span class="avatar sch-av' + (sm ? ' avatar-sm' : '') + '" style="--c:' + K.safeColor(p.color, COMMON) + '" aria-hidden="true">' + initial(p.name) + '</span>';
+
+    /* ---------- 시간 격자 도구 ---------- */
+    const HH = 48; // 한 시간 높이(px)
+    const toMin = (v) => { const a = String(v || '').split(':'); return Number(a[0]) * 60 + (Number(a[1]) || 0); };
+    const hm = (m) => K.pad(Math.floor(m / 60) % 24) + ':' + K.pad(m % 60);
+    const isTimed = (e) => !e.allDay && !!e.start && endOf(e) === e.date;
+    const span = (e) => { const s = toMin(e.start); const x = e.end ? toMin(e.end) : NaN; return { s, en: x > s ? x : Math.min(s + 60, 1440) }; };
+    /* 겹치는 일정은 옆으로 나란히 */
+    function lanes(d) {
+      const list = dayEvents(d).filter(isTimed).map((e) => Object.assign({ e }, span(e))).sort((a, b) => a.s - b.s || b.en - a.en);
+      let cols = [];
+      let group = [];
+      let gEnd = -1;
+      const flush = () => { group.forEach((x) => { x.n = cols.length; }); group = []; cols = []; };
+      list.forEach((x) => {
+        if (group.length && x.s >= gEnd) { flush(); gEnd = -1; }
+        let c = cols.findIndex((end) => end <= x.s);
+        if (c < 0) { c = cols.length; cols.push(x.en); } else cols[c] = x.en;
+        x.c = c;
+        group.push(x);
+        gEnd = Math.max(gEnd, x.en);
+      });
+      flush();
+      return list;
+    }
+    function timeGrid(days) {
+      const t = K.today();
+      const per = days.map(lanes);
+      const n = toMin(K.nowHM());
+      const hasToday = days.includes(t);
+      let h0 = 8;
+      let h1 = 19;
+      per.forEach((l) => l.forEach((x) => { h0 = Math.min(h0, Math.floor(x.s / 60)); h1 = Math.max(h1, Math.ceil(x.en / 60)); }));
+      if (hasToday) { h0 = Math.min(h0, Math.floor(n / 60)); h1 = Math.max(h1, Math.min(24, Math.floor(n / 60) + 1)); }
+      const y = (m) => (m - h0 * 60) / 60 * HH;
+      const showNow = hasToday && n >= h0 * 60 && n <= h1 * 60;
+      let gut = '';
+      for (let h = h0; h < h1; h++) {
+        if (showNow && Math.abs(y(h * 60) - y(n)) < 12) continue;
+        gut += '<span style="top:' + y(h * 60) + 'px">' + K.pad(h) + ':00</span>';
+      }
+      if (showNow) gut += '<span class="hs-now-t" style="top:' + y(n) + 'px">' + K.nowHM() + '</span>';
+      const wide = days.length === 1;
+      const block = (x, d) => {
+        const e = x.e;
+        const ph = phase(e, d);
+        const h = Math.max(22, (x.en - x.s) / 60 * HH - 2);
+        const time = e.start + (e.end ? '–' + e.end : '');
+        const size = h < 34 ? ' xs' : h < 58 ? ' sm' : '';
+        return '<div class="hs-card hs-blk ' + ph + size + '" role="button" tabindex="0" data-id="' + P.esc(e.id) + '" aria-label="' + P.esc(time + ' ' + e.title) + '"' +
+          ' title="' + P.esc(time + ' ' + e.title + (e.place ? ' · ' + e.place : '') + ' · ' + headNames(e)) + '"' +
+          ' style="--c:' + colorOf(e) + ';top:' + (y(x.s) + 1) + 'px;height:' + h + 'px;left:calc(' + x.c + ' * 100% / ' + x.n + ');width:calc(100% / ' + x.n + ' - 3px)">' +
+          '<b>' + P.esc(e.title) + '</b>' +
+          '<span class="hs-blk-m">' + (ph === 'now' ? '<i class="hs-live" aria-hidden="true"></i>' : '') + '<span class="num">' + time + '</span>' + (e.place && wide ? '<span class="hs-blk-p">' + P.esc(e.place) + '</span>' : '') + '</span>' +
+          (wide && !size ? '<span class="hs-blk-who">' + headChips(e) + '</span>' : '') + '</div>';
+      };
+      const cols = days.map((d, i) => '<div class="hs-col' + (d === t ? ' today' : '') + (K.dow(d) % 6 === 0 ? ' weekend' : '') + '" data-col-day="' + d + '" data-h0="' + h0 + '" title="빈 시간을 누르면 새 일정">' +
+        per[i].map((x) => block(x, d)).join('') +
+        (d === t && showNow ? '<div class="hs-now" style="top:' + y(n) + 'px" aria-hidden="true"></div><i class="hs-now-dot" style="top:' + y(n) + 'px" aria-hidden="true"></i>' : '') + '</div>').join('');
+      return '<div class="hs-tg" style="--cols:' + days.length + ';height:' + ((h1 - h0) * HH) + 'px"><div class="hs-tg-gut" aria-hidden="true">' + gut + '</div>' + cols + '</div>';
+    }
 
     /* ---------- 그리기 ---------- */
     function render() {
@@ -336,27 +404,26 @@
       st.narrow = window.matchMedia('(max-width: 760px)').matches;
       const ps = people();
       page.innerHTML =
-        '<div class="page-head sch-head"><div><h1>부서장 일정</h1><p>전 직원이 함께 보는 부서장 일정입니다. 일정을 누르면 고칠 수 있습니다.</p></div>' +
+        '<div class="page-head sch-head"><div><h1>부서장 일정</h1></div>' +
         '<div class="toolbar sch-actions">' +
-        '<button type="button" class="btn" data-act="copy" aria-label="텍스트 복사" title="일정을 메신저용 글로 복사">' + K.IC.copy + '<span>텍스트 복사</span></button>' +
-        '<button type="button" class="btn sch-hide-sm" data-act="print">' + K.IC.print + '<span>주간표 인쇄</span></button>' +
+        '<button type="button" class="btn" data-act="copy" aria-label="텍스트 복사" title="메신저용 글로 복사">' + K.IC.copy + '<span>텍스트 복사</span></button>' +
+        '<button type="button" class="btn sch-hide-sm" data-act="print" title="주간표 인쇄 (A4 가로)">' + K.IC.print + '<span>인쇄</span></button>' +
         '<button type="button" class="btn btn-ghost p-icon-btn" data-act="more" aria-label="더보기" title="더보기">' + K.IC.more + '</button>' +
         '<button type="button" class="btn btn-primary" data-act="new" aria-label="일정 추가" title="새 일정 (N)">' + P.icons.plus + '<span>일정 추가</span></button>' +
         '</div></div>' +
-        (ps.length ? '' : '<div class="card sch-onboard"><h2>먼저 부서장을 등록하세요</h2><p class="muted">이름·직위·색을 정하면 일정을 부서장별로 보고 거를 수 있습니다. 처음이라면 예시 데이터로 둘러볼 수 있습니다.</p><div class="toolbar"><button type="button" class="btn btn-primary" data-act="people">' + K.IC.users + '부서장 등록</button><button type="button" class="btn" data-act="sample">예시 데이터 넣기</button></div></div>') +
-        '<section class="sch-glance" aria-label="오늘의 일정 한눈에"></section>' +
+        (ps.length ? '' : '<div class="sch-onboard"><p>등록된 부서장이 없습니다.</p><div class="toolbar"><button type="button" class="btn btn-sm btn-primary" data-act="people">' + K.IC.users + '부서장 등록</button><button type="button" class="btn btn-sm" data-act="sample">예시 데이터</button></div></div>') +
         '<div class="sch-bar">' +
-        '<div class="p-seg sch-views" role="radiogroup" aria-label="보기">' +
-        [['today', '오늘', 'T'], ['week', '주간', 'W'], ['month', '월간', 'M']].map(([v, l, k]) => '<button type="button" role="radio" aria-checked="' + (st.view === v) + '" data-view="' + v + '" title="' + l + ' (' + k + ')">' + l + '</button>').join('') +
-        '</div>' +
         '<div class="sch-nav"><button type="button" class="btn btn-ghost p-icon-btn" data-nav="-1" aria-label="이전" title="이전 (←)">' + K.IC.left + '</button>' +
         '<button type="button" class="btn btn-sm" data-nav="0">오늘</button>' +
         '<button type="button" class="btn btn-ghost p-icon-btn" data-nav="1" aria-label="다음" title="다음 (→)">' + K.IC.right + '</button>' +
-        '<strong class="sch-range"></strong></div>' +
+        '<strong class="sch-range" aria-live="polite"></strong></div>' +
+        '<div class="seg sch-views" role="radiogroup" aria-label="보기">' +
+        [['today', '일', 'T'], ['week', '주', 'W'], ['month', '월', 'M']].map(([v, l, k]) => '<button type="button" role="radio" aria-checked="' + (st.view === v) + '" data-view="' + v + '" title="' + l + ' 보기 (' + k + ')">' + l + '</button>').join('') +
+        '</div>' +
         '</div>' +
         '<div class="chips sch-filter" role="group" aria-label="부서장 거르기"></div>' +
-        '<div class="sch-body"></div>';
-      page.querySelector('.sch-bar').appendChild(bar.el);
+        '<div class="hs-layout"><div class="sch-body"></div><section class="sch-glance" aria-label="오늘 한눈에"></section></div>';
+      page.querySelector('.sch-bar').insertBefore(bar.el, page.querySelector('.sch-views'));
       renderGlance();
       renderFilter();
       renderBody();
@@ -371,23 +438,23 @@
       const all = dayEvents(t, true);
       const rows = ps.map((p) => ({ p, list: all.filter((e) => (e.heads || []).includes(p.id)) }));
       const common = all.filter((e) => !(e.heads || []).length);
-      if (common.length) rows.push({ p: { id: NONE, name: '공통', title: '', color: '#64748b' }, list: common });
-      const nowCount = all.filter((e) => phase(e, t) === 'now').length;
+      if (common.length) rows.push({ p: { id: NONE, name: '공통', title: '', color: COMMON }, list: common });
+      if (!rows.length) { box.innerHTML = ''; return; }
       box.innerHTML =
-        '<div class="sch-glance-head"><h2>오늘의 일정 한눈에</h2><span class="muted">' + K.longDate(t) + ' · 전체 ' + all.length + '건' + (nowCount ? ' · <b class="sch-live">진행 중 ' + nowCount + '건</b>' : '') + '</span></div>' +
-        (rows.length ? '<div class="sch-glance-grid">' + rows.map(({ p, list }) => {
+        '<div class="sch-glance-head"><h2>오늘 한눈에</h2><span class="num">' + K.md(t) + ' · ' + all.length + '건</span></div>' +
+        '<div class="sch-glance-grid">' + rows.map(({ p, list }) => {
           const now = list.find((e) => phase(e, t) === 'now');
           const next = list.find((e) => phase(e, t) === 'future');
           const allDay = list.find((e) => phase(e, t) === 'now-day');
           let line;
-          if (now) line = '<span class="sch-dot-live"></span><b>진행 중</b> ' + P.esc(now.title) + (now.end ? ' <span class="muted">~' + now.end + '</span>' : '');
-          else if (next) line = '<b>다음</b> ' + next.start + ' ' + P.esc(next.title);
+          if (now) line = '<span class="sch-dot-live" aria-hidden="true"></span><b>진행 중</b> ' + P.esc(now.title) + (now.end ? ' <span class="num">~' + now.end + '</span>' : '');
+          else if (next) line = '<b class="num">' + next.start + '</b> ' + P.esc(next.title);
           else if (allDay) line = '<b>종일</b> ' + P.esc(allDay.title);
-          else line = list.length ? '<span class="muted">오늘 일정 종료</span>' : '<span class="muted">일정 없음</span>';
-          return '<button type="button" class="sch-glance-card" data-who="' + P.esc(p.id) + '" style="--c:' + K.safeColor(p.color) + '">' +
-            '<span class="sch-glance-name"><i></i>' + P.esc(personLabel(p)) + '<em>' + list.length + '건</em></span>' +
-            '<span class="sch-glance-line">' + line + '</span></button>';
-        }).join('') + '</div>' : '');
+          else line = list.length ? '오늘 일정 끝' : '일정 없음';
+          return '<button type="button" class="sch-glance-card' + (now ? ' live' : '') + (list.length ? '' : ' idle') + '" data-who="' + P.esc(p.id) + '" aria-pressed="' + (st.who === p.id) + '" style="--c:' + K.safeColor(p.color, COMMON) + '">' +
+            av(p) + '<span class="sch-glance-txt"><span class="sch-glance-name">' + P.esc(p.name) + (p.title ? '<small>' + P.esc(p.title) + '</small>' : '') + '</span>' +
+            '<span class="sch-glance-line">' + line + '</span></span><em class="num" title="오늘 ' + list.length + '건">' + list.length + '</em></button>';
+        }).join('') + '</div>';
     }
 
     function renderFilter() {
@@ -397,83 +464,81 @@
       const hasCommon = events().some((e) => !(e.heads || []).length);
       if (st.who !== ALL && st.who !== NONE && !personById(st.who)) st.who = ALL;
       box.innerHTML = '<button type="button" class="chip" data-who="' + ALL + '" aria-pressed="' + (st.who === ALL) + '">전체</button>' +
-        ps.map((p) => '<button type="button" class="chip sch-chip-who" style="--c:' + K.safeColor(p.color) + '" data-who="' + P.esc(p.id) + '" aria-pressed="' + (st.who === p.id) + '"><i></i>' + P.esc(personLabel(p)) + '</button>').join('') +
-        (hasCommon ? '<button type="button" class="chip" data-who="' + NONE + '" aria-pressed="' + (st.who === NONE) + '">공통</button>' : '');
+        ps.map((p) => '<button type="button" class="chip sch-chip-who" style="--c:' + K.safeColor(p.color) + '" data-who="' + P.esc(p.id) + '" aria-pressed="' + (st.who === p.id) + '">' + av(p, true) + P.esc(personLabel(p)) + '</button>').join('') +
+        (hasCommon ? '<button type="button" class="chip sch-chip-who" style="--c:' + COMMON + '" data-who="' + NONE + '" aria-pressed="' + (st.who === NONE) + '"><span class="avatar avatar-sm sch-av" aria-hidden="true">공</span>공통</button>' : '');
+    }
+
+    function rangeText() {
+      if (st.view === 'today') { const d = K.parse(st.date); return (d.getMonth() + 1) + '월 ' + d.getDate() + '일 <span>' + K.DOW[d.getDay()] + '요일 · ' + d.getFullYear() + '</span>'; }
+      if (st.view === 'week') {
+        const s = K.parse(K.weekStart(st.date));
+        const e = K.parse(K.addDays(K.weekStart(st.date), 6));
+        return (s.getMonth() + 1) + '월 ' + s.getDate() + '일 – ' + (e.getMonth() !== s.getMonth() ? (e.getMonth() + 1) + '월 ' : '') + e.getDate() + '일 <span>' + e.getFullYear() + '</span>';
+      }
+      const d = K.parse(st.date);
+      return (d.getMonth() + 1) + '월 <span>' + d.getFullYear() + '</span>';
     }
 
     function renderBody() {
       const body = page.querySelector('.sch-body');
       const range = page.querySelector('.sch-range');
       if (!body) return;
-      if (st.view === 'today') {
-        range.textContent = K.longDate(st.date);
-        body.innerHTML = dayView(st.date);
-      } else if (st.view === 'week') {
+      range.innerHTML = rangeText();
+      page.querySelector('.hs-layout').classList.toggle('is-today', st.view === 'today');
+      if (st.view === 'today') body.innerHTML = dayView(st.date);
+      else if (st.view === 'week') {
         const s = K.weekStart(st.date);
-        range.textContent = K.md(s) + ' ~ ' + K.md(K.addDays(s, 6));
-        body.innerHTML = st.narrow ? weekList(s) : weekTable(s);
-      } else {
-        const d = K.parse(st.date);
-        range.textContent = d.getFullYear() + '년 ' + (d.getMonth() + 1) + '월';
-        body.innerHTML = monthView(st.date);
-      }
+        body.innerHTML = st.narrow ? weekList(s) : weekGrid(s);
+      } else body.innerHTML = monthView(st.date);
     }
+
+    const pill = (e, d) => '<button type="button" class="hs-card hs-pill ' + phase(e, d) + '" data-id="' + P.esc(e.id) + '" style="--c:' + colorOf(e) + '">' +
+      '<b>' + P.esc(e.title) + '</b><span>' + P.esc(timeText(e, d)) + ' · ' + P.esc(headNames(e)) + (e.place ? ' · ' + P.esc(e.place) : '') + '</span></button>';
 
     function dayView(d) {
       const list = dayEvents(d);
-      if (!list.length) {
-        return '<div class="empty card"><h3>' + (d === K.today() ? '오늘' : K.md(d)) + ' 일정이 없습니다</h3><p>일정을 추가하면 전 직원이 바로 볼 수 있습니다.</p><button type="button" class="btn btn-primary" data-new="' + d + '">' + P.icons.plus + '일정 추가</button></div>';
-      }
-      let nextMarked = false;
-      return '<div class="hs-day">' + list.map((e) => {
-        const ph = phase(e, d);
-        let badge = '';
-        if (ph === 'now') badge = '<span class="hs-badge live">진행 중</span>';
-        else if (ph === 'future' && d === K.today() && !nextMarked) { nextMarked = true; badge = '<span class="hs-badge next">다음 일정</span>'; }
-        const p = personById((e.heads || [])[0]);
-        return '<article class="hs-card ' + ph + '" style="--c:' + K.safeColor(p && p.color, '#64748b') + '" data-id="' + P.esc(e.id) + '" tabindex="0" role="button" aria-label="' + P.esc(e.title) + ' 수정">' +
-          '<div class="hs-card-time">' + P.esc(timeText(e, d)) + badge + '</div>' +
-          '<div class="hs-card-main"><h3>' + P.esc(e.title) + '</h3>' +
-          '<div class="hs-card-meta">' + headChips(e) + (e.kind ? '<span class="chip">' + P.esc(e.kind) + '</span>' : '') +
-          (e.place ? '<span class="hs-place">' + K.IC.pin + P.esc(e.place) + '</span>' : '') + '</div>' +
-          (e.memo ? '<p class="hs-memo">' + P.esc(e.memo) + '</p>' : '') + '</div></article>';
-      }).join('') + '</div>';
+      const allDay = list.filter((e) => !isTimed(e));
+      return '<div class="hs-panel hs-dayview">' +
+        (list.length ? '' : '<div class="hs-empty"><span>' + (d === K.today() ? '오늘' : K.md(d)) + ' 일정이 없습니다.</span><button type="button" class="btn btn-sm" data-new="' + d + '">' + P.icons.plus + '일정 추가</button></div>') +
+        (allDay.length ? '<div class="hs-allday"><span class="hs-allday-l">종일</span><div class="hs-allday-items">' + allDay.map((e) => pill(e, d)).join('') + '</div></div>' : '') +
+        '<div class="hs-tg-wrap">' + timeGrid([d]) + '</div></div>';
     }
 
     function weekRows() {
       const ps = people().filter((p) => st.who === ALL || st.who === p.id);
       const rows = ps.map((p) => ({ p, has: (e) => (e.heads || []).includes(p.id) }));
       if ((st.who === ALL || st.who === NONE) && (st.who === NONE || !people().length || events().some((e) => !(e.heads || []).length))) {
-        rows.push({ p: { id: '', name: '공통', title: '', color: '#64748b' }, has: (e) => !(e.heads || []).length });
+        rows.push({ p: { id: '', name: '공통', title: '', color: COMMON }, has: (e) => !(e.heads || []).length });
       }
       return rows;
     }
-    const itemHTML = (e, d) => '<button type="button" class="hs-item' + (e.allDay ? ' allday' : '') + '" data-id="' + P.esc(e.id) + '"><b>' + P.esc(timeText(e, d)) + '</b> ' + P.esc(e.title) +
-      (e.place ? '<small>' + P.esc(e.place) + '</small>' : '') + '</button>';
+    const lanePill = (e, d, first) => '<button type="button" class="hs-item allday' + (e.date < d ? ' cont-l' + (first ? '' : ' silent') : '') + (endOf(e) > d ? ' cont-r' : '') + '" data-id="' + P.esc(e.id) + '" title="' + P.esc(timeText(e, d) + ' ' + e.title + (e.place ? ' · ' + e.place : '')) + '">' + P.esc(e.title) + '</button>';
 
-    function weekTable(s) {
+    function weekGrid(s) {
       const days = Array.from({ length: 7 }, (_, i) => K.addDays(s, i));
       const t = K.today();
       const rows = weekRows();
-      return '<div class="hs-week-wrap"><table class="hs-week"><thead><tr><th class="hs-who-col">부서장</th>' +
-        days.map((d) => '<th class="' + (d === t ? 'today ' : '') + (K.dow(d) % 6 === 0 ? 'weekend' : '') + '">' + K.md(d) + '</th>').join('') + '</tr></thead><tbody>' +
-        (rows.length ? rows.map(({ p, has }) => '<tr style="--c:' + K.safeColor(p.color) + '"><th scope="row" class="hs-who-col"><i></i>' + P.esc(p.name) + (p.title ? '<small>' + P.esc(p.title) + '</small>' : '') + '</th>' +
-          days.map((d) => '<td class="' + (d === t ? 'today' : '') + '" data-day="' + d + '" data-head="' + P.esc(p.id) + '">' +
-            events().filter((e) => onDay(e, d) && has(e)).sort(byTime).map((e) => itemHTML(e, d)).join('') + '</td>').join('') + '</tr>').join('')
-          : '<tr><td colspan="8" class="muted">등록된 부서장이 없습니다.</td></tr>') +
-        '</tbody></table></div><p class="muted sch-hint">빈 칸을 누르면 그 날짜·부서장으로 새 일정을 만듭니다.</p>';
+      const dcls = (d) => (d === t ? 'today' : '') + (K.dow(d) % 6 === 0 ? ' weekend' : '');
+      return '<div class="hs-panel hs-weekgrid"><table class="hs-week"><colgroup><col class="hs-gcol">' + days.map(() => '<col>').join('') + '</colgroup>' +
+        '<thead><tr><th class="hs-who-col" scope="col"><span class="hs-corner">종일</span></th>' +
+        days.map((d) => '<th scope="col" class="' + dcls(d) + '"><span class="hs-dow">' + K.DOW[K.dow(d)] + '</span><span class="hs-dnum num">' + K.parse(d).getDate() + '</span></th>').join('') + '</tr></thead><tbody>' +
+        (rows.length ? rows.map(({ p, has }) => '<tr style="--c:' + K.safeColor(p.color, COMMON) + '"><th scope="row" class="hs-who-col" title="' + P.esc(personLabel(p)) + '">' + av(p, true) + '<span class="hs-who-name">' + P.esc(p.name) + '</span></th>' +
+          days.map((d) => '<td class="' + dcls(d) + '" data-day="' + d + '" data-head="' + P.esc(p.id) + '">' +
+            events().filter((e) => onDay(e, d) && has(e) && !isTimed(e)).sort(byTime).map((e) => lanePill(e, d, d === days[0])).join('') + '</td>').join('') + '</tr>').join('')
+          : '<tr><th class="hs-who-col"></th><td colspan="7" class="muted">등록된 부서장이 없습니다.</td></tr>') +
+        '</tbody></table><div class="hs-tg-wrap">' + timeGrid(days) + '</div></div>';
     }
+
+    const agendaRow = (e, d) => '<button type="button" class="hs-item hs-arow ' + phase(e, d) + '" style="--c:' + colorOf(e) + '" data-id="' + P.esc(e.id) + '">' +
+      '<span class="hs-arow-t num">' + (isTimed(e) ? e.start + (e.end ? '<small>' + e.end + '</small>' : '') : P.esc(timeText(e, d))) + '</span>' +
+      '<span class="hs-arow-m"><b>' + P.esc(e.title) + '</b><small>' + P.esc(headNames(e)) + (e.place ? ' · ' + P.esc(e.place) : '') + '</small></span></button>';
 
     function weekList(s) {
       const t = K.today();
-      return '<div class="hs-weeklist">' + Array.from({ length: 7 }, (_, i) => K.addDays(s, i)).map((d) => {
+      return '<div class="hs-panel hs-weeklist">' + Array.from({ length: 7 }, (_, i) => K.addDays(s, i)).map((d) => {
         const list = dayEvents(d);
-        return '<section class="hs-wday' + (d === t ? ' today' : '') + '"><h3>' + K.md(d) + (d === t ? ' <span class="hs-badge next">오늘</span>' : '') + '</h3>' +
-          (list.length ? list.map((e) => {
-            const p = personById((e.heads || [])[0]);
-            return '<button type="button" class="hs-item" style="--c:' + K.safeColor(p && p.color, '#64748b') + '" data-id="' + P.esc(e.id) + '"><b>' + P.esc(timeText(e, d)) + '</b> ' + P.esc(e.title) +
-              '<small>' + P.esc((e.heads || []).map((id) => { const x = personById(id); return x ? x.name : ''; }).filter(Boolean).join(', ') || '공통') + (e.place ? ' · ' + P.esc(e.place) : '') + '</small></button>';
-          }).join('') : '<p class="muted hs-none">일정 없음</p>') + '</section>';
+        return '<section class="hs-wday' + (d === t ? ' today' : '') + (K.dow(d) % 6 === 0 ? ' weekend' : '') + '"><h3><span class="hs-dnum num">' + K.parse(d).getDate() + '</span><span class="hs-dow">' + K.DOW[K.dow(d)] + '</span>' + (d === t ? '<span class="hs-today-tag">오늘</span>' : '') + '</h3>' +
+          '<div class="hs-wday-list">' + (list.length ? list.map((e) => agendaRow(e, d)).join('') : '<p class="hs-none">일정 없음</p>') + '</div></section>';
       }).join('') + '</div>';
     }
 
@@ -481,18 +546,20 @@
       const cells = K.monthCells(base);
       const m = K.parse(base).getMonth();
       const t = K.today();
-      return '<div class="sch-cal" role="grid">' + K.DOW.map((_, i) => '<div class="sch-cal-dow">' + K.DOW[(i + 1) % 7] + '</div>').join('') +
+      const sel = dayEvents(st.date);
+      return '<div class="hs-month"><div class="sch-cal" role="grid">' + K.DOW.map((_, i) => '<div class="sch-cal-dow">' + K.DOW[(i + 1) % 7] + '</div>').join('') +
         cells.map((d) => {
           const list = dayEvents(d);
           const cls = ['sch-cal-day', K.parse(d).getMonth() !== m ? 'out' : '', d === t ? 'today' : '', d === st.date ? 'sel' : '', K.dow(d) === 0 ? 'sun' : K.dow(d) === 6 ? 'sat' : ''].join(' ');
-          return '<div class="' + cls + '" data-day="' + d + '" role="gridcell" tabindex="-1"><span class="sch-cal-num">' + K.parse(d).getDate() + '</span>' +
-            '<div class="sch-cal-items">' + list.slice(0, 3).map((e) => {
-              const p = personById((e.heads || [])[0]);
-              return '<button type="button" class="sch-cal-ev" style="--c:' + K.safeColor(p && p.color, '#64748b') + '" data-id="' + P.esc(e.id) + '" title="' + P.esc(timeText(e, d) + ' ' + e.title) + '">' + (e.start && !e.allDay ? '<b>' + e.start + '</b> ' : '') + P.esc(e.title) + '</button>';
-            }).join('') + (list.length > 3 ? '<span class="sch-cal-more">+' + (list.length - 3) + '</span>' : '') + '</div>' +
-            '<span class="sch-cal-dots">' + list.slice(0, 4).map((e) => { const p = personById((e.heads || [])[0]); return '<i style="--c:' + K.safeColor(p && p.color, '#64748b') + '"></i>'; }).join('') + '</span></div>';
+          return '<div class="' + cls + '" data-day="' + d + '" role="gridcell" tabindex="-1"><span class="sch-cal-num num">' + K.parse(d).getDate() + '</span>' +
+            '<div class="sch-cal-items">' + list.slice(0, 3).map((e) => '<button type="button" class="sch-cal-ev' + (isTimed(e) ? ' timed' : '') + '" style="--c:' + colorOf(e) + '" data-id="' + P.esc(e.id) + '" title="' + P.esc(timeText(e, d) + ' ' + e.title) + '">' + (isTimed(e) ? '<b class="num">' + e.start + '</b>' : '') + '<span>' + P.esc(e.title) + '</span></button>').join('') +
+            (list.length > 3 ? '<span class="sch-cal-more">+' + (list.length - 3) + '건</span>' : '') + '</div>' +
+            '<span class="sch-cal-dots">' + list.slice(0, 4).map((e) => '<i style="--c:' + colorOf(e) + '"></i>').join('') + '</span></div>';
         }).join('') + '</div>' +
-        '<div class="hs-month-day"><h3>' + K.longDate(st.date) + '</h3>' + dayView(st.date) + '</div>';
+        '<aside class="hs-month-day"><h3>' + K.longDate(st.date) + '</h3>' +
+        (sel.length ? '<div class="hs-alist">' + sel.map((e) => agendaRow(e, st.date)).join('') + '</div>'
+          : '<div class="hs-empty"><span>일정 없음</span><button type="button" class="btn btn-sm" data-new="' + st.date + '">' + P.icons.plus + '추가</button></div>') +
+        '</aside></div>';
     }
 
     /* ---------- 일정 입력 ---------- */
@@ -609,9 +676,9 @@
     /* ---------- 예시 데이터 ---------- */
     async function addSample() {
       const ps = [
-        { id: P.store.uid(), name: '김한결', title: '국장', color: '#2747c7' },
-        { id: P.store.uid(), name: '이도윤', title: '과장', color: '#0d9488' },
-        { id: P.store.uid(), name: '박서진', title: '팀장', color: '#d97706' }
+        { id: P.store.uid(), name: '김한결', title: '국장', color: '#4C63B6' },
+        { id: P.store.uid(), name: '이도윤', title: '과장', color: '#13897B' },
+        { id: P.store.uid(), name: '박서진', title: '팀장', color: '#B7791F' }
       ];
       const s = K.weekStart(K.today());
       const ev = (o, title, start, end, kind, place, heads, extra) => ({ col: COL, id: P.store.uid(), data: Object.assign({ title, date: K.addDays(s, o), endDate: '', allDay: !start, start: start || '', end: end || '', kind, place, heads, memo: '' }, extra || {}) });
@@ -809,7 +876,7 @@
     }
 
     page.addEventListener('click', (ev) => {
-      const t = ev.target.closest('button, [data-id], td[data-day], .sch-cal-day');
+      const t = ev.target.closest('button, [data-id], td[data-day], .sch-cal-day, .hs-col');
       if (!t || !page.contains(t)) return;
       const d = t.dataset;
       if (d.act === 'new') openEvent(null, { date: st.date });
@@ -833,10 +900,16 @@
         st.who = st.who === d.who && d.who !== ALL ? ALL : d.who;
         P.settings.set('head-schedule.who', st.who);
         renderFilter();
+        renderGlance();
         renderBody();
       } else if (d.new) openEvent(null, { date: d.new });
       else if (d.id) openEvent(d.id);
-      else if (t.matches('td[data-day]')) openEvent(null, { date: d.day, heads: d.head ? [d.head] : [] });
+      else if (t.matches('td[data-day]')) openEvent(null, { date: d.day, heads: d.head ? [d.head] : [], allDay: true });
+      else if (t.classList.contains('hs-col')) {
+        const r = t.getBoundingClientRect();
+        const m = Number(t.dataset.h0) * 60 + Math.max(0, Math.floor((ev.clientY - r.top) / HH * 2)) * 30;
+        openEvent(null, { date: d.colDay, allDay: false, start: hm(m), end: hm(Math.min(m + 60, 1439)) });
+      }
       else if (t.classList.contains('sch-cal-day')) {
         if (st.date === d.day && !st.narrow) openEvent(null, { date: d.day });
         else { st.date = d.day; renderBody(); }

@@ -545,9 +545,9 @@
   const isEmptyCell = (cell) => !cell || (cell.f == null && (cell.v == null || cell.v === ''));
 
   /* ================= 템플릿 ================= */
-  const HEAD_STYLE = { b: 1, bg: '#dbe4ff', ha: 'center', bd: { t: 1, r: 1, b: 1, l: 1 } };
+  const HEAD_STYLE = { b: 1, bg: '#e4e7f0', ha: 'center', bd: { t: 1, r: 1, b: 1, l: 1 } };
   const BOX = { bd: { t: 1, r: 1, b: 1, l: 1 } };
-  const TOTAL_STYLE = { b: 1, bg: '#f1f3f9', bd: { t: 2, r: 1, b: 1, l: 1 } };
+  const TOTAL_STYLE = { b: 1, bg: '#f3f1ec', bd: { t: 2, r: 1, b: 1, l: 1 } };
   function sheetFrom(name, rows, opt) {
     const o = opt || {};
     const sh = newSheet(name, Math.max(DEF_ROWS, rows.length + 30), Math.max(DEF_COLS, Math.max(...rows.map((r) => r.length)) + 2));
@@ -600,7 +600,7 @@
           merges: ['A1:G1'], freeze: { r: 3, c: 0 }, rowH: { 0: 40 },
           styles: [['A1', { b: 1, fs: 18, ha: 'center', va: 'middle' }], ['A2', { b: 1 }], ['B2', { fmt: 'yyyy-mm-dd', ha: 'left' }], ['G2', { ha: 'right', fc: '#5d6880' }],
             ['A3:G3', HEAD_STYLE], ['A4:G9', BOX], ['C4:E10', { fmt: '#,##0' }], ['F4:F10', { fmt: '0.0%' }], ['G4:G9', { fc: '#d23b3b', ha: 'center' }], ['A10:G10', TOTAL_STYLE], ['A10', { ha: 'center' }], ['C4:E10', { fmt: '#,##0' }]],
-          cf: [{ range: 'F4:F9', type: 'bar', color: '#4c6ef5' }, { range: 'F4:F9', type: 'lt', a: 0.5, style: 'red' }]
+          cf: [{ range: 'F4:F9', type: 'bar', color: '#5b6fc7' }, { range: 'F4:F9', type: 'lt', a: 0.5, style: 'red' }]
         });
       }
     },
@@ -883,7 +883,7 @@
       const b = document.createElement('button');
       b.type = 'button';
       b.setAttribute('role', 'menuitem');
-      b.innerHTML = '<span>' + esc(it.label) + '</span>' + (it.key ? '<kbd>' + esc(it.key) + '</kbd>' : '');
+      b.innerHTML = '<span>' + esc(it.label) + '</span>' + (it.key ? '<kbd>' + esc(it.key) + '</kbd>' : it.hint ? '<small>' + esc(it.hint) + '</small>' : '');
       if (it.disabled) b.disabled = true;
       if (it.checked) b.classList.add('on');
       b.addEventListener('click', () => { closeMenus(); it.onClick && it.onClick(); });
@@ -952,15 +952,16 @@
     root.innerHTML =
       '<div class="sheets-ed">' +
         '<div class="sheets-top">' +
-          '<a class="btn btn-ghost btn-sm sheets-back" href="#/sheets" title="목록으로">' + P.icons.arrow + '<span>목록</span></a>' +
+          '<a class="btn btn-ghost btn-sm p-icon-btn sheets-back" href="#/sheets" title="목록으로" aria-label="목록으로">' + P.icons.arrow + '<span class="sr-only">목록</span></a>' +
+          '<span class="sheets-doc-ic" aria-hidden="true">' + P.icons.sheet + '</span>' +
           '<input class="sheets-title" aria-label="통합문서 이름" maxlength="80">' +
           '<span class="sheets-save" data-state="saved" aria-live="polite">저장됨</span>' +
           '<div class="sheets-top-actions">' +
-            '<button type="button" class="btn btn-ghost btn-sm" data-act="import" title="XLSX·CSV 파일을 새 시트로 가져오기">' + P.icons.upload + '<span>가져오기</span></button>' +
+            '<button type="button" class="btn btn-ghost btn-sm" data-act="import" title="XLSX·CSV를 새 시트로 가져오기">' + P.icons.upload + '<span>가져오기</span></button>' +
             '<button type="button" class="btn btn-ghost btn-sm" data-act="export" title="내보내기">' + P.icons.download + '<span>내보내기</span></button>' +
-            '<button type="button" class="btn btn-ghost btn-sm" data-act="print" title="현재 시트 인쇄"><span>인쇄</span></button>' +
-            '<button type="button" class="btn btn-primary btn-sm" data-act="chart" title="선택 영역으로 차트 만들기"><span>차트 만들기</span></button>' +
-            '<button type="button" class="btn btn-ghost btn-sm" data-act="help" title="단축키 도움말" aria-label="도움말">?</button>' +
+            '<button type="button" class="btn btn-ghost btn-sm" data-act="print" title="현재 시트 인쇄 (Ctrl+P)">' + IC_PRINT + '<span>인쇄</span></button>' +
+            '<button type="button" class="btn btn-sm" data-act="chart" title="선택 영역으로 차트 만들기">' + P.icons.chart + '<span>차트 만들기</span></button>' +
+            '<button type="button" class="btn btn-ghost btn-sm p-icon-btn" data-act="help" title="단축키" aria-label="단축키 도움말">' + IC_KEYS + '</button>' +
           '</div>' +
         '</div>' +
         '<div class="sheets-ribbon" role="toolbar" aria-label="서식 도구"></div>' +
@@ -973,7 +974,7 @@
           '<table class="sheets-grid" role="grid" aria-label="시트"></table>' +
           '<textarea class="sheets-input" aria-label="셀 입력" spellcheck="false" autocomplete="off" autocapitalize="off" rows="1"></textarea>' +
           '<div class="sheets-fill" title="끌어서 채우기"></div>' +
-          '<button type="button" class="sheets-dvbtn" tabindex="-1" aria-label="목록에서 고르기">▾</button>' +
+          '<button type="button" class="sheets-dvbtn" tabindex="-1" aria-label="목록에서 고르기"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>' +
         '</div>' +
         '<div class="sheets-ac" role="listbox" hidden></div>' +
         '<div class="sheets-bottom"><div class="sheets-tabs" role="tablist" aria-label="시트 목록"></div><div class="sheets-stat" aria-live="polite"></div></div>' +
@@ -2679,7 +2680,7 @@
       groups.forEach(([g, fns], i) => {
         if (i) items.push({ sep: true });
         items.push({ head: g });
-        fns.forEach((n) => items.push({ label: n + ' — ' + (FUNC_HELP[n] || ''), onClick: () => insertFunction(n) }));
+        fns.forEach((n) => items.push({ label: n, hint: FUNC_HELP[n] || '', onClick: () => insertFunction(n) }));
       });
       popMenu($('.sheets-fx'), items).classList.add('sheets-menu-tall');
     }
@@ -2776,7 +2777,7 @@
       const grid = document.createElement('div');
       grid.className = 'sheets-swatches';
       grid.innerHTML = colors.map((c) => '<button type="button" style="background:' + c + '" data-c="' + c + '" aria-label="' + c + '"></button>').join('') +
-        '<label class="sheets-custom">다른 색 <input type="color" value="#2747c7"></label>';
+        '<label class="sheets-custom">다른 색 <input type="color" value="#1e2b5c"></label>';
       grid.addEventListener('click', (e) => { const b = e.target.closest('[data-c]'); if (b) { closeMenus(); styleSel({ [key]: b.dataset.c }); } });
       grid.querySelector('input').addEventListener('change', (e) => { closeMenus(); styleSel({ [key]: e.target.value }); });
       m.appendChild(grid);
@@ -3106,9 +3107,9 @@
         ['Ctrl+;', '오늘 날짜 입력'], ['Ctrl+S', '바로 저장'], ['Ctrl+P', '인쇄'], ['Delete', '내용 지우기'],
         ['= 입력 후 셀 클릭', '수식에 셀 주소 넣기'], ['선택 영역 오른쪽 아래 점 끌기', '자동 채우기(1,2,3… / 1월,2월… / 수식 복사)']];
       P.ui.modal({
-        title: '엑셀 사용법 · 단축키', wide: true,
+        title: '단축키', wide: true,
         body: '<table class="sheets-help">' + rows.map(([k, v]) => '<tr><th><kbd>' + esc(k) + '</kbd></th><td>' + esc(v) + '</td></tr>').join('') + '</table>' +
-          '<p class="muted">작성한 내용은 입력을 멈추고 1초 뒤 자동으로 저장됩니다. 지원 함수: SUM, AVERAGE, IF, IFS, VLOOKUP, XLOOKUP, INDEX/MATCH, COUNTIF(S), SUMIF(S), ROUND, TEXT, DATE, EOMONTH, NETWORKDAYS 등 300여 개.</p>',
+          '<p class="muted">입력을 멈추면 1초 뒤 자동 저장됩니다. 지원 함수: SUM, AVERAGE, IF, IFS, VLOOKUP, XLOOKUP, INDEX/MATCH, COUNTIF(S), SUMIF(S), ROUND, TEXT, DATE, EOMONTH, NETWORKDAYS 등 300여 개.</p>',
         actions: [{ label: '닫기', primary: true }]
       });
     }
@@ -3158,19 +3159,59 @@
     assets: '<path d="M4 8l8-4 8 4-8 4zM4 8v8l8 4 8-4V8M12 12v8"/>',
     attendance: '<path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/>'
   };
+  /* 템플릿 미리보기: 작은 격자 그림. 칸 기호 . 빈칸 H 머리 t 글 n 숫자 b 합계 T 제목(병합) S 강조 o 동그라미 x 가위표 f 색칸 */
+  const TPL_PV = {
+    blank: { cols: [26, 26, 26, 26, 26], rows: ['.....', '.....', '.....', '.....', '.....', '.....', '.....', '.....'] },
+    budget: { cols: [18, 26, 21, 21, 21, 15], rows: ['T.....', 't....p', 'HHHHHH', 'ttnnnn', 'ttnnnn', 'ttnnnS', 'ttnnnn', 'bbbbbb'] },
+    travel: { cols: [9, 18, 14, 20, 19, 19, 19], rows: ['HHHHHHH', 'ntttnnn', 'ntttnnn', 'ntttnnn', 'ntttnnn', 'ntttnnn', '.....nb', '.......'] },
+    roster: { cols: [22, 11, 11, 11, 11, 11, 11, 11, 11, 11], rows: ['T.........', 'HHHHHHHHHH', 'tff.f.ff.f', 'tf.ff.f.ff', 't.ff.ff.f.', 'tff.ff.f.f', 't.f.ff.ff.', 'tff.f..fff'] },
+    assets: { cols: [9, 28, 18, 12, 14, 20, 21], rows: ['HHHHHHH', 'nttnnnn', 'nttnnnn', 'nttnnnn', 'nttnnnn', 'nttnnnn', 'b....bb', '.......'] },
+    attendance: { cols: [9, 22, 18, 11, 11, 11, 11, 11, 16], rows: ['T........', 't.t......', 'HHHHHHHHH', 'ntt.oooon', 'ntt.ooxon', 'ntt.ooooon', 'ntt.oxoon', 'ntt.ooooon'] }
+  };
+  function tplPreview(id) {
+    const spec = TPL_PV[id] || TPL_PV.blank;
+    const hw = 8, hh = 7, rh = 8.6;
+    const W = hw + spec.cols.reduce((a, b) => a + b, 0), H = hh + rh * spec.rows.length;
+    const xs = [hw];
+    spec.cols.forEach((w) => xs.push(xs[xs.length - 1] + w));
+    const o = [];
+    o.push('<rect class="pv-hd" x="0" y="0" width="' + W + '" height="' + hh + '"/><rect class="pv-hd" x="0" y="0" width="' + hw + '" height="' + H + '"/>');
+    spec.rows.forEach((row, r) => {
+      const y = hh + r * rh;
+      if (row[0] === 'T') { o.push('<rect class="pv-ttl" x="' + (xs[0] + 4) + '" y="' + (y + 2.6) + '" width="' + Math.min(64, (W - hw) * 0.55) + '" height="3.4" rx=".6"/>'); return; }
+      spec.cols.forEach((w, c) => {
+        const k = row[c] || '.', x = xs[c], cy = y + rh / 2;
+        if (k === 'H') { o.push('<rect class="pv-h" x="' + x + '" y="' + y + '" width="' + w + '" height="' + rh + '"/><rect class="pv-hb" x="' + (x + w / 2 - Math.min(7, w * 0.3)) + '" y="' + (cy - 1.1) + '" width="' + Math.min(14, w * 0.6) + '" height="2.2" rx=".5"/>'); }
+        else if (k === 't' || k === 'p') { const bw = Math.min(w - 5, k === 'p' ? 10 : 8 + ((r * 7 + c * 5) % 9)); o.push('<rect class="pv-t" x="' + (x + 2.5) + '" y="' + (cy - 1) + '" width="' + bw + '" height="2" rx=".5"/>'); }
+        else if (k === 'n' || k === 'b') { const bw = Math.min(w - 5, 7 + ((r * 5 + c * 3) % 8)); o.push('<rect class="' + (k === 'b' ? 'pv-b' : 'pv-n') + '" x="' + (x + w - 2.5 - bw) + '" y="' + (cy - 1) + '" width="' + bw + '" height="' + (k === 'b' ? 2.4 : 2) + '" rx=".5"/>'); }
+        else if (k === 'S') { o.push('<rect class="pv-s" x="' + (x + 2.5) + '" y="' + (cy - 1.1) + '" width="' + (w - 5) + '" height="2.2" rx=".5"/>'); }
+        else if (k === 'f') { o.push('<rect class="pv-f" x="' + (x + 1) + '" y="' + (y + 1) + '" width="' + (w - 2) + '" height="' + (rh - 2) + '"/>'); }
+        else if (k === 'o') { o.push('<circle class="pv-o" cx="' + (x + w / 2) + '" cy="' + cy + '" r="1.9"/>'); }
+        else if (k === 'x') { o.push('<path class="pv-x" d="M' + (x + w / 2 - 1.8) + ' ' + (cy - 1.8) + 'l3.6 3.6M' + (x + w / 2 + 1.8) + ' ' + (cy - 1.8) + 'l-3.6 3.6"/>'); }
+      });
+      if (row[0] === 'b') o.push('<path class="pv-sum" d="M' + hw + ' ' + y + 'H' + W + '"/>');
+    });
+    let g = '';
+    xs.forEach((x) => { g += 'M' + x + ' 0V' + H; });
+    for (let r = 0; r <= spec.rows.length; r++) { const y = hh + r * rh; g += 'M0 ' + y + 'H' + W; }
+    o.unshift('<path class="pv-g" d="' + g + '"/>');
+    if (id === 'blank') o.push('<rect class="pv-sel" x="' + xs[0] + '" y="' + hh + '" width="' + spec.cols[0] + '" height="' + rh + '"/><rect class="pv-fh" x="' + (xs[1] - 1.6) + '" y="' + (hh + rh - 1.6) + '" width="3.2" height="3.2"/>');
+    return '<svg class="sheets-pv" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMinYMin slice" aria-hidden="true">' + o.join('') + '</svg>';
+  }
   async function mountList(root, ctx) {
+    const tile = (id, title, desc) => '<button type="button" class="sheets-tpl" data-tpl="' + id + '"' + (desc ? ' title="' + esc(desc) + '"' : '') + '><span class="sheets-tpl-pv">' + tplPreview(id) + '</span><b>' + esc(title) + '</b></button>';
     root.innerHTML =
       '<div class="page sheets-list">' +
-        '<div class="page-head"><div><h1>엑셀</h1><p>어디서든 이어서 쓰는 표 계산. 수식·서식·필터를 쓰고 XLSX로 주고받을 수 있습니다.</p></div>' +
-          '<div class="toolbar"><button type="button" class="btn" data-act="import">' + P.icons.upload + '<span>파일 열기(XLSX·CSV)</span></button>' +
+        '<div class="page-head"><div><h1>엑셀</h1></div>' +
+          '<div class="toolbar"><button type="button" class="btn" data-act="import">' + P.icons.upload + '<span>파일 열기</span></button>' +
           '<button type="button" class="btn btn-primary" data-act="new">' + P.icons.plus + '<span>새 통합문서</span></button></div></div>' +
-        '<h2 class="sheets-h2">템플릿으로 시작</h2>' +
+        '<section class="sheets-sec"><div class="section-title"><h2>새로 만들기</h2></div>' +
         '<div class="sheets-tpls">' +
-          '<button type="button" class="sheets-tpl card" data-tpl="blank"><span class="sheets-tpl-ic">' + I0(TPL_IC.blank) + '</span><b>빈 통합문서</b><small>처음부터 작성</small></button>' +
-          TEMPLATES.map((t) => '<button type="button" class="sheets-tpl card" data-tpl="' + t.id + '"><span class="sheets-tpl-ic">' + I0(TPL_IC[t.id]) + '</span><b>' + esc(t.title) + '</b><small>' + esc(t.desc) + '</small></button>').join('') +
-        '</div>' +
-        '<div class="sheets-listhead"><h2 class="sheets-h2">내 통합문서</h2><label class="p-search">' + P.icons.search + '<input type="search" placeholder="이름으로 검색" aria-label="통합문서 검색"></label></div>' +
-        '<div class="sheets-files"><div class="empty">불러오는 중…</div></div>' +
+          tile('blank', '빈 통합문서', '') +
+          TEMPLATES.map((t) => tile(t.id, t.title, t.desc)).join('') +
+        '</div></section>' +
+        '<section class="sheets-sec"><div class="sheets-listhead"><div class="section-title"><h2>내 통합문서</h2><span class="sheets-count tnum"></span></div><label class="p-search">' + P.icons.search + '<input type="search" placeholder="이름으로 찾기" aria-label="통합문서 검색"></label></div>' +
+        '<div class="sheets-files"><div class="sheets-files-msg">불러오는 중…</div></div></section>' +
       '</div>';
     const filesEl = root.querySelector('.sheets-files');
     const search = root.querySelector('input[type=search]');
@@ -3182,18 +3223,18 @@
     function draw() {
       const q = search.value.trim().toLowerCase();
       const list = items.filter((x) => !q || String((x.data && x.data.title) || '').toLowerCase().includes(q));
-      if (!items.length) {
-        filesEl.innerHTML = '<div class="empty card"><h3>아직 만든 통합문서가 없습니다</h3><p>위의 템플릿을 고르거나 새 통합문서를 만들어 보세요. 엑셀 파일(XLSX)을 열어 이어서 작업할 수도 있습니다.</p></div>';
-        return;
-      }
-      if (!list.length) { filesEl.innerHTML = '<div class="empty">"' + esc(q) + '"에 맞는 통합문서가 없습니다.</div>'; return; }
-      filesEl.innerHTML = list.map((x) => {
-        const d = x.data || {};
-        const n = Array.isArray(d.sheets) ? d.sheets.length : 0;
-        return '<div class="sheets-file card"><a class="sheets-file-main" href="#/sheets/' + encodeURIComponent(x.id) + '">' +
-          '<span class="sheets-file-ic">' + I0(TPL_IC.blank) + '</span><span class="sheets-file-txt"><b>' + esc(d.title || '제목 없음') + '</b><small>시트 ' + n + '개 · ' + fmtWhen(x.updatedAt) + '</small></span></a>' +
-          '<button type="button" class="btn btn-ghost btn-sm p-icon-btn" data-more="' + esc(x.id) + '" aria-label="더 보기" title="더 보기">⋯</button></div>';
-      }).join('');
+      root.querySelector('.sheets-count').textContent = items.length ? String(items.length) : '';
+      if (!items.length) { filesEl.innerHTML = '<div class="sheets-files-msg">아직 통합문서가 없습니다.</div>'; return; }
+      if (!list.length) { filesEl.innerHTML = '<div class="sheets-files-msg">"' + esc(q) + '"에 맞는 통합문서가 없습니다.</div>'; return; }
+      list.sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
+      filesEl.innerHTML = '<div class="table-wrap"><table class="table sheets-ftable"><thead><tr><th>이름</th><th class="num">시트</th><th class="sheets-when">수정</th><th class="sheets-act"><span class="sr-only">동작</span></th></tr></thead><tbody>' +
+        list.map((x) => {
+          const d = x.data || {};
+          const n = Array.isArray(d.sheets) ? d.sheets.length : 0;
+          return '<tr class="sheets-file"><td><a class="sheets-file-main" href="#/sheets/' + encodeURIComponent(x.id) + '"><span class="sheets-file-ic">' + I0(TPL_IC.blank) + '</span><b>' + esc(d.title || '제목 없음') + '</b></a></td>' +
+            '<td class="num">' + n + '</td><td class="sheets-when tnum"><time datetime="' + esc(x.updatedAt || '') + '">' + fmtWhen(x.updatedAt) + '</time></td>' +
+            '<td class="sheets-act"><button type="button" class="btn btn-ghost btn-sm p-icon-btn" data-more="' + esc(x.id) + '" aria-label="더 보기" title="더 보기">' + P.icons.more + '</button></td></tr>';
+        }).join('') + '</tbody></table></div>';
     }
     async function create(book) {
       const id = P.store.uid();
@@ -3272,7 +3313,9 @@
     await load();
     return () => closeMenus();
   }
-  function I0(d) { return '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + d + '</svg>'; }
+  const IC_PRINT = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 9V3h10v6"/><rect x="3" y="9" width="18" height="8" rx="1.5"/><path d="M7 14h10v7H7z"/></svg>';
+  const IC_KEYS = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="6" width="19" height="12" rx="2"/><path d="M6.5 10h1M10.5 10h1M14.5 10h1M8 14h8"/></svg>';
+  function I0(d) { return '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + d + '</svg>'; }
 
   /* ================= 등록 ================= */
   async function mountEditor(root, ctx, id) {

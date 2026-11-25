@@ -1,7 +1,8 @@
-/* 업데이트 기록: data/changelog.json 버전 타임라인 (항상 마지막 탭) */
+/* 업데이트 기록: data/changelog.json 을 릴리스 노트 형식으로 (항상 마지막 탭) */
 (function () {
   const ICON = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>';
   const esc = (s) => P.esc(s);
+  const tidy = (s) => String(s || '').replace(/\s*—\s*/g, ' · ');
 
   function cmpVer(a, b) {
     const pa = String(a).split('.').map((n) => parseInt(n, 10) || 0);
@@ -12,38 +13,36 @@
     }
     return 0;
   }
+  const fmtDate = (s) => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s || ''); return m ? m[1] + '. ' + Number(m[2]) + '. ' + Number(m[3]) + '.' : esc(s || ''); };
 
   function verHtml(v, latest) {
     const details = Array.isArray(v.details) ? v.details : [];
-    return '<li class="changelog-ver card' + (latest ? ' latest' : '') + '">' +
-      '<div class="changelog-head"><span class="changelog-v">v' + esc(v.version) + '</span>' +
-      '<h2>' + esc(v.title || '업데이트') + '</h2>' +
-      (latest ? '<span class="chip">최신</span>' : '') +
-      (v.version === P.version ? '<span class="chip">사용 중</span>' : '') +
-      '<span class="changelog-date">' + esc(v.date || '') + '</span></div>' +
-      (Array.isArray(v.highlights) && v.highlights.length ? '<ul class="changelog-hl">' + v.highlights.map((h) => '<li>' + esc(h) + '</li>').join('') + '</ul>' : '') +
-      (details.length ? '<details' + (latest ? ' open' : '') + '><summary>세부 변경 ' + details.reduce((s, d) => s + ((d.items || []).length), 0) + '건</summary>' +
-        details.map((d) => '<div class="changelog-area"><h4>' + esc(d.area) + '</h4><ul>' + (d.items || []).map((i) => '<li>' + esc(i) + '</li>').join('') + '</ul></div>').join('') +
-        '</details>' : '') +
-      (Array.isArray(v.limits) && v.limits.length ? '<details class="changelog-limits"><summary>알려진 한계 ' + v.limits.length + '건</summary><ul>' + v.limits.map((i) => '<li>' + esc(i) + '</li>').join('') + '</ul></details>' : '') +
-      '</li>';
+    const n = details.reduce((s, d) => s + ((d.items || []).length), 0);
+    const areas = details.map((d) => '<section class="cl-area"><h3>' + esc(d.area) + '</h3><ul>' + (d.items || []).map((i) => '<li>' + esc(tidy(i)) + '</li>').join('') + '</ul></section>').join('');
+    return '<article class="cl-ver' + (latest ? ' latest' : '') + '" id="v' + esc(v.version) + '">' +
+      '<div class="cl-aside"><span class="cl-v num">v' + esc(v.version) + '</span>' +
+      '<time class="num" datetime="' + esc(v.date || '') + '">' + fmtDate(v.date) + '</time>' +
+      '<span class="cl-tags">' + (latest ? '<span class="badge badge-accent">최신</span>' : '') + (v.version === P.version ? '<span class="badge">사용 중</span>' : '') + '</span></div>' +
+      '<div class="cl-body"><h2>' + esc(v.title || '업데이트') + '</h2>' +
+      (Array.isArray(v.highlights) && v.highlights.length ? '<ul class="cl-hl">' + v.highlights.map((h) => '<li>' + esc(tidy(h)) + '</li>').join('') + '</ul>' : '') +
+      (details.length ? (latest ? '<div class="cl-details">' + areas + '</div>' : '<details class="cl-fold"><summary>세부 변경 <span class="num">' + n + '</span></summary><div class="cl-details">' + areas + '</div></details>') : '') +
+      (Array.isArray(v.limits) && v.limits.length ? '<details class="cl-fold cl-limits"><summary>알려진 한계 <span class="num">' + v.limits.length + '</span></summary><ul>' + v.limits.map((i) => '<li>' + esc(tidy(i)) + '</li>').join('') + '</ul></details>' : '') +
+      '</div></article>';
   }
 
   function mount(el) {
     let alive = true;
-    el.innerHTML = '<div class="page" style="max-width:880px">' +
-      '<div class="page-head"><div><h1>업데이트 기록</h1><p>플랫폼 버전별 주요 변경 내용입니다. 현재 버전 v' + esc(P.version) + '</p></div></div>' +
-      '<div class="changelog-body"><div class="empty">불러오는 중…</div></div></div>';
-    const body = el.querySelector('.changelog-body');
+    el.innerHTML = '<div class="page cl-page">' +
+      '<div class="page-head"><div><h1>업데이트 기록</h1></div><span class="cl-cur num">지금 v' + esc(P.version) + '</span></div>' +
+      '<div class="cl-list"><div class="empty">불러오는 중…</div></div></div>';
+    const body = el.querySelector('.cl-list');
     fetch('data/changelog.json', { cache: 'no-cache' })
       .then((r) => (r.ok ? r.json() : null))
       .catch(() => null)
       .then((json) => {
         if (!alive) return;
         const vers = (json && Array.isArray(json.versions) ? json.versions : []).slice().sort((a, b) => cmpVer(a.version, b.version));
-        body.innerHTML = vers.length
-          ? '<ol class="changelog-list">' + vers.map((v, i) => verHtml(v, i === 0)).join('') + '</ol>'
-          : '<div class="card empty"><h3>기록이 아직 없습니다</h3></div>';
+        body.innerHTML = vers.length ? vers.map((v, i) => verHtml(v, i === 0)).join('') : '<div class="card empty"><p>기록이 아직 없습니다.</p></div>';
       });
     return () => { alive = false; };
   }

@@ -1,33 +1,27 @@
-/* 홈: 업무 카드 버튼 + 최근 작업 */
+/* 홈: 오늘 업무 대시보드 (날짜 · 부서장 일정 · 기한 임박 업무 · 최근 작업 · 빠른 만들기) */
 (function () {
+  'use strict';
   const ICON = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>';
-  const RECENT_COLS = ['docs', 'sheets', 'slides'];
   const WEEK = ['일', '월', '화', '수', '목', '금', '토'];
-  const HUES = { 'head-schedule': 'violet', schedule: 'teal', docs: 'accent', slides: 'rose', sheets: 'teal', charts: 'amber', refs: 'violet', apis: 'accent', changelog: 'amber' };
-  const SKELETON = '<div class="p-skel-row" aria-hidden="true"><span class="p-skel"></span><span class="p-skel-lines"><span class="p-skel" style="width:55%;height:14px"></span><span class="p-skel" style="width:30%;height:11px"></span></span></div>';
-  const EMPTY_ART = '<svg viewBox="0 0 96 72" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
-    '<rect x="14" y="10" width="40" height="52" rx="6" opacity=".3"/><rect x="24" y="4" width="40" height="52" rx="6" fill="currentColor" fill-opacity=".08"/>' +
-    '<path d="M32 18h24M32 26h24M32 34h14"/><circle cx="68" cy="50" r="13" fill="currentColor" fill-opacity=".12"/><path d="M68 44v7l4 3"/>' +
-    '<path d="M84 14l1.5 3.5L89 19l-3.5 1.5L84 24l-1.5-3.5L79 19l3.5-1.5z" fill="currentColor" stroke="none" opacity=".6"/></svg>';
-  const HERO_ART = '<svg class="home-art" viewBox="0 0 220 170" fill="none" aria-hidden="true">' +
-    '<g class="f1"><rect x="20" y="30" width="118" height="92" rx="14" fill="rgba(255,255,255,.14)" stroke="rgba(255,255,255,.35)"/>' +
-    '<rect x="34" y="46" width="54" height="8" rx="4" fill="rgba(255,255,255,.85)"/><rect x="34" y="62" width="88" height="6" rx="3" fill="rgba(255,255,255,.4)"/>' +
-    '<rect x="34" y="74" width="74" height="6" rx="3" fill="rgba(255,255,255,.4)"/><rect x="34" y="94" width="22" height="16" rx="4" fill="#5eead4"/><rect x="60" y="88" width="22" height="22" rx="4" fill="rgba(255,255,255,.7)"/><rect x="86" y="80" width="22" height="30" rx="4" fill="#a5b4fc"/></g>' +
-    '<g class="f2"><rect x="120" y="14" width="84" height="64" rx="12" fill="rgba(255,255,255,.92)"/>' +
-    '<circle cx="146" cy="46" r="17" stroke="#2442c4" stroke-width="7" stroke-dasharray="72 107" transform="rotate(-90 146 46)"/><circle cx="146" cy="46" r="17" stroke="#0f766e" stroke-width="7" stroke-dasharray="35 107" stroke-dashoffset="-72" transform="rotate(-90 146 46)"/>' +
-    '<rect x="172" y="34" width="22" height="5" rx="2.5" fill="#2442c4"/><rect x="172" y="44" width="16" height="5" rx="2.5" fill="#0f766e"/><rect x="172" y="54" width="20" height="5" rx="2.5" fill="#cbd5e1"/></g>' +
-    '<g class="f3"><rect x="112" y="100" width="96" height="56" rx="12" fill="rgba(15,23,60,.55)" stroke="rgba(255,255,255,.3)"/>' +
-    '<rect x="124" y="112" width="16" height="16" rx="4" fill="#5eead4"/><rect x="146" y="114" width="48" height="5" rx="2.5" fill="rgba(255,255,255,.8)"/><rect x="146" y="123" width="32" height="4" rx="2" fill="rgba(255,255,255,.4)"/>' +
-    '<rect x="124" y="136" width="16" height="10" rx="3" fill="rgba(255,255,255,.3)"/><rect x="146" y="138" width="40" height="4" rx="2" fill="rgba(255,255,255,.4)"/></g></svg>';
+  const RECENT = [['docs', '문서', 'DOC'], ['sheets', '시트', 'XLS'], ['slides', 'PT', 'PPT']];
+  const CLOSED = ['완료', '보류'];
+  const esc = (s) => P.esc(s);
+  const pad = (n) => String(n).padStart(2, '0');
+  const ymd = (d) => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+  const parseYmd = (s) => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(s || '')); return m ? new Date(+m[1], +m[2] - 1, +m[3]) : null; };
+  const dayDiff = (a, b) => Math.round((parseYmd(b) - parseYmd(a)) / 86400000);
+  const hm = (d) => pad(d.getHours()) + ':' + pad(d.getMinutes());
+  const isHM = (s) => /^\d{2}:\d{2}$/.test(String(s || ''));
+  const safeColor = (c) => (/^#[0-9a-f]{6}$/i.test(c || '') ? c : '');
+  const obj = (x) => (x && typeof x === 'object' ? x : {});
 
-  function greeting(h) {
-    if (h < 6) return '늦은 시간까지 수고 많으십니다';
-    if (h < 11) return '좋은 아침입니다';
-    if (h < 14) return '점심 맛있게 드세요';
-    if (h < 18) return '오후도 힘내세요';
-    return '오늘 하루도 수고하셨습니다';
+  function isoWeek(d) {
+    const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    const day = t.getUTCDay() || 7;
+    t.setUTCDate(t.getUTCDate() + 4 - day);
+    const y0 = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
+    return Math.ceil(((t - y0) / 86400000 + 1) / 7);
   }
-
   function relTime(iso) {
     const t = Date.parse(iso);
     if (!t) return '';
@@ -37,81 +31,188 @@
     if (s < 86400) return Math.floor(s / 3600) + '시간 전';
     if (s < 86400 * 7) return Math.floor(s / 86400) + '일 전';
     const d = new Date(t);
-    return d.getFullYear() + '. ' + (d.getMonth() + 1) + '. ' + d.getDate() + '.';
+    return (d.getMonth() + 1) + '. ' + d.getDate() + '.';
+  }
+  async function list(col) {
+    try { const rows = await P.store.list(col); return Array.isArray(rows) ? rows : []; } catch (e) { return []; }
+  }
+  const panelHead = (title, linkHref, linkLabel) => '<div class="section-title"><h2>' + esc(title) + '</h2>' + (linkHref ? '<a href="' + linkHref + '">' + esc(linkLabel) + '</a>' : '') + '</div>';
+  const emptyLine = (text, action) => '<p class="home-panel-empty">' + esc(text) + (action || '') + '</p>';
+
+  /* ---------- 날짜 ---------- */
+  function dateHTML(now, b) {
+    return '<section class="home-panel home-date" aria-label="오늘 날짜">' +
+      '<div class="home-date-top"><span>' + now.getFullYear() + '. ' + pad(now.getMonth() + 1) + '.</span><span>' + isoWeek(now) + '주차</span></div>' +
+      '<div class="home-date-main"><time class="home-day" datetime="' + ymd(now) + '">' + now.getDate() + '</time>' +
+      '<div class="home-dow"><b>' + WEEK[now.getDay()] + '요일</b><span>오늘</span></div></div>' +
+      (b.subtitle ? '<p class="home-sub">' + esc(b.subtitle) + '</p>' : '') +
+      '<div class="home-store" data-p-storage-state data-state="' + esc(P.storage.state ? P.storage.state() : 'ok') + '"><i aria-hidden="true"></i><span>저장 위치 <b class="home-store-kind"></b></span>' +
+      '<button type="button" class="btn-link" data-act="storage">바꾸기</button></div>' +
+      '</section>';
   }
 
-  async function loadRecent(box, appMap) {
-    const cols = RECENT_COLS.filter((c) => appMap.has(c));
-    if (!cols.length) {
-      box.innerHTML = '<div class="empty">문서·엑셀·PT 앱을 쓰면 최근 작업이 여기에 모입니다.</div>';
-      return;
+  /* ---------- 오늘 부서장 일정 ---------- */
+  async function loadHeads(box, has) {
+    const body = box.querySelector('.home-panel-body');
+    if (!has) { body.innerHTML = emptyLine('부서장 일정 앱이 없습니다.'); return () => {}; }
+    const [rows, cfgRows] = await Promise.all([list('head-schedule'), list('head-schedule-config')]);
+    const cfg = cfgRows.find((r) => r.id === 'people');
+    const people = Array.isArray(obj(cfg && cfg.data).people) ? cfg.data.people : [];
+    const person = (id) => people.find((p) => p && p.id === id);
+    const td = ymd(new Date());
+    const evs = rows.map((r) => Object.assign({}, obj(r.data), { id: r.id }))
+      .filter((e) => typeof e.date === 'string' && !e.cancelled && e.date <= td && td <= (e.endDate && e.endDate > e.date ? e.endDate : e.date));
+    const who = (e) => {
+      const ps = (Array.isArray(e.heads) ? e.heads : []).map(person).filter(Boolean);
+      if (!ps.length) return '<span class="home-who">공통</span>';
+      return ps.map((p) => '<span class="home-who" style="--c:' + (safeColor(p.color) || 'var(--muted)') + '">' + esc(p.name || '') + (p.title ? ' ' + esc(p.title) : '') + '</span>').join(' ');
+    };
+    const color = (e) => { const p = person((e.heads || [])[0]); return (p && safeColor(p.color)) || 'var(--accent)'; };
+    const link = (e) => '#/head-schedule/' + encodeURIComponent(e.id);
+    const timed = evs.filter((e) => !e.allDay && isHM(e.start) && e.date === td).sort((a, b) => a.start.localeCompare(b.start));
+    const allDay = evs.filter((e) => !timed.includes(e));
+
+    function draw() {
+      if (!box.isConnected) return;
+      if (!evs.length) {
+        body.innerHTML = emptyLine('오늘 등록된 부서장 일정이 없습니다.', '<button type="button" class="btn-link" data-intent="head-schedule">일정 추가</button>');
+        return;
+      }
+      const now = hm(new Date());
+      let html = '';
+      if (allDay.length) {
+        html += '<div class="home-tl-allday">' + allDay.map((e) => {
+          const span = e.endDate && e.endDate > e.date ? (dayDiff(e.date, td) + 1) + '/' + (dayDiff(e.date, e.endDate) + 1) + '일' : '종일';
+          return '<a href="' + link(e) + '" style="--c:' + color(e) + '"><em>' + esc(span) + '</em><span>' + esc(e.title || '제목 없음') + '</span></a>';
+        }).join('') + '</div>';
+      }
+      if (timed.length) {
+        let nowPlaced = false;
+        const nowRow = '<li class="home-tl-now" aria-label="지금 ' + now + '"><span>' + now + '</span><i aria-hidden="true"></i><hr></li>';
+        html += '<ol class="home-tl">';
+        timed.forEach((e) => {
+          const end = isHM(e.end) ? e.end : '';
+          if (!nowPlaced && e.start > now) { html += nowRow; nowPlaced = true; }
+          const state = (end ? end <= now : e.start < now) ? 'past' : e.start <= now ? 'now' : '';
+          html += '<li class="home-tl-row ' + state + '" style="--c:' + color(e) + '">' +
+            '<span class="home-tl-time">' + esc(e.start) + (end ? '<small>' + esc(end) + '</small>' : '') + '</span>' +
+            '<span class="home-tl-rail"><i></i></span>' +
+            '<a class="home-tl-body" href="' + link(e) + '"><b>' + esc(e.title || '제목 없음') + '</b><small>' + who(e) + (e.place ? ' · ' + esc(e.place) : '') + '</small></a></li>';
+        });
+        if (!nowPlaced) html += nowRow;
+        html += '</ol>';
+      }
+      body.innerHTML = html;
     }
-    const lists = await Promise.all(cols.map((c) => P.store.list(c).then(
-      (rows) => rows.map((r) => Object.assign({ col: c }, r)),
-      () => []
-    )));
-    const rows = lists.flat().sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1)).slice(0, 5);
+    draw();
+    const t = setInterval(draw, 60000);
+    return () => clearInterval(t);
+  }
+
+  /* ---------- 기한 임박 업무 ---------- */
+  async function loadTasks(box, has) {
+    const body = box.querySelector('.home-panel-body');
+    if (!has) { body.innerHTML = emptyLine('부서 스케줄러 앱이 없습니다.'); return; }
+    const rows = await list('schedule-tasks');
     if (!box.isConnected) return;
-    if (!rows.length) {
-      box.innerHTML = '<div class="home-recent-empty">' + EMPTY_ART + '<div><b>아직 작업한 문서가 없습니다</b><p>위의 업무 카드에서 문서·엑셀·PT를 시작하면 여기에 바로 모입니다.</p></div></div>';
+    const td = ymd(new Date());
+    const open = rows.map((r) => Object.assign({}, obj(r.data), { id: r.id }))
+      .filter((x) => !CLOSED.includes(x.status) && parseYmd(x.due));
+    const byDue = (a, b) => String(a.due).localeCompare(String(b.due));
+    const groups = [
+      ['기한 지남', 'over', open.filter((x) => x.due < td).sort(byDue)],
+      ['오늘', 'today', open.filter((x) => x.due === td)],
+      ['7일 이내', 'week', open.filter((x) => x.due > td && dayDiff(td, x.due) <= 7).sort(byDue)]
+    ].filter((g) => g[2].length);
+    if (!groups.length) {
+      body.innerHTML = emptyLine(open.length ? '7일 안에 기한이 닥친 업무가 없습니다.' : '기한이 정해진 진행 중 업무가 없습니다.', '<button type="button" class="btn-link" data-intent="task">업무 추가</button>');
       return;
     }
-    box.innerHTML = rows.map((r) => {
-      const app = appMap.get(r.col);
-      const title = (r.data && (r.data.title || r.data.name)) || '제목 없음';
-      return '<a class="home-recent-item" href="#/' + P.esc(r.col) + '/' + encodeURIComponent(r.id) + '">' +
-        '<span class="home-recent-ic">' + (app.icon || '') + '</span>' +
-        '<span class="home-recent-txt"><b>' + P.esc(title) + '</b><small>' + P.esc(app.title) + '</small></span>' +
-        '<span class="home-recent-time">' + P.esc(relTime(r.updatedAt)) + '</span></a>';
-    }).join('');
+    const badge = (x, kind) => {
+      if (kind === 'over') return '<span class="badge badge-overdue">' + dayDiff(x.due, td) + '일 지남</span>';
+      if (kind === 'today') return '<span class="badge badge-today">오늘</span>';
+      return '<span class="badge">D-' + dayDiff(td, x.due) + '</span>';
+    };
+    body.innerHTML = groups.map(([label, kind, xs]) =>
+      '<div class="home-task-group ' + kind + '"><h4>' + esc(label) + ' <span class="num">' + xs.length + '</span></h4>' +
+      xs.slice(0, 4).map((x) => {
+        const pct = Math.max(0, Math.min(100, Number(x.progress) || 0));
+        return '<a class="home-task" href="#/schedule/tasks/' + encodeURIComponent(x.id) + '">' + badge(x, kind) +
+          '<span class="home-task-t">' + esc(x.title || '제목 없음') + '</span>' +
+          '<span class="home-task-m">' + (x.owner ? '<span>' + esc(x.owner) + '</span>' : '') +
+          '<span class="home-meter" title="진척률 ' + pct + '%"><span style="width:' + pct + '%"></span></span><span>' + pct + '%</span></span></a>';
+      }).join('') + (xs.length > 4 ? '<a class="home-task" href="#/schedule/tasks"><span></span><span class="home-task-t muted">외 ' + (xs.length - 4) + '건 더 보기</span></a>' : '') + '</div>'
+    ).join('');
+  }
+
+  /* ---------- 최근 작업 ---------- */
+  async function loadRecent(box, appIds) {
+    const body = box.querySelector('.home-panel-body');
+    const cols = RECENT.filter(([c]) => appIds.has(c));
+    const lists = await Promise.all(cols.map(([c]) => list(c).then((rows) => rows.map((r) => Object.assign({ col: c }, r)))));
+    if (!box.isConnected) return;
+    const rows = lists.flat().filter((r) => r && r.id != null).sort((a, b) => (String(a.updatedAt) < String(b.updatedAt) ? 1 : -1)).slice(0, 6);
+    if (!rows.length) {
+      body.innerHTML = emptyLine('아직 만든 문서·시트·PT가 없습니다.', appIds.has('docs') ? '<button type="button" class="btn-link" data-intent="doc">새 문서</button>' : '');
+      return;
+    }
+    const meta = new Map(RECENT.map(([c, name, g]) => [c, { name, g }]));
+    body.innerHTML = '<div class="home-recent-list">' + rows.map((r) => {
+      const d = obj(r.data);
+      const m = meta.get(r.col);
+      return '<a class="home-recent-item" href="#/' + esc(r.col) + '/' + encodeURIComponent(r.id) + '">' +
+        '<span class="home-glyph" data-t="' + esc(r.col) + '" title="' + esc(m.name) + '" aria-label="' + esc(m.name) + '">' + m.g + '</span>' +
+        '<span class="home-recent-t">' + esc(d.title || d.name || '제목 없음') + '</span>' +
+        '<time class="home-recent-time" datetime="' + esc(r.updatedAt || '') + '">' + esc(relTime(r.updatedAt)) + '</time></a>';
+    }).join('') + '</div>';
   }
 
   function mount(el) {
     const b = P.brand();
-    const apps = P.apps().filter((a) => a.id !== 'home');
-    const appMap = new Map(apps.map((a) => [a.id, a]));
-    const kind = P.storage.kinds[P.store.backend()];
+    const appIds = new Set(P.apps().map((a) => a.id));
     const now = new Date();
-    const date = now.getFullYear() + '년 ' + (now.getMonth() + 1) + '월 ' + now.getDate() + '일 ' + WEEK[now.getDay()] + '요일';
+    const qa = (P.quickActions ? P.quickActions() : []);
+    const QA_KEYS = ['doc', 'slide', 'sheet', 'chart', 'event'];
+    const quick = QA_KEYS.map((k) => qa.find((q) => q.key === k)).filter(Boolean);
 
-    const hasDocs = appMap.has('docs');
     el.innerHTML =
-      '<div class="page">' +
-      '<section class="home-hero">' +
-      '<div class="home-hero-txt">' +
-      '<div class="home-date"><i></i>' + P.esc(date) + '</div>' +
-      '<p class="home-greet">' + P.esc(greeting(now.getHours())) + '</p>' +
-      '<h1>' + P.esc(b.title) + '</h1>' +
-      (b.subtitle ? '<p>' + P.esc(b.subtitle) + '</p>' : '') +
-      '<div class="home-hero-meta">' +
-      (hasDocs ? '<a class="home-pill solid" href="#/docs">' + P.icons.plus + '문서 쓰기</a>' : '') +
-      '<button type="button" class="home-pill" data-act="storage">' + kind.icon + '저장 위치: ' + P.esc(kind.label) + '</button>' +
-      '<button type="button" class="home-pill" data-act="settings">' + P.icons.gear + '제목·테마 설정</button>' +
-      '</div></div>' + HERO_ART + '</section>' +
-      '<div class="home-section-title"><h2>업무 바로가기</h2><span class="muted">' + apps.length + '개</span></div>' +
-      '<div class="home-apps">' + apps.map((a, i) =>
-        '<a class="home-app" href="#/' + P.esc(a.id) + '" data-hue="' + (HUES[a.id] || 'accent') + '" style="--i:' + i + '">' +
-        '<span class="home-app-ic">' + (a.icon || '') + '</span>' +
-        '<h3>' + P.esc(a.title) + '</h3>' +
-        (a.desc ? '<p>' + P.esc(a.desc) + '</p>' : '') +
-        '<span class="home-app-go">' + P.icons.arrow + '</span></a>').join('') +
-      '</div>' +
-      '<div class="home-section-title"><h2>최근 작업</h2></div>' +
-      '<div class="card home-recent" aria-busy="true">' + SKELETON + SKELETON + SKELETON + '</div>' +
-      '</div>';
+      '<div class="page home"><h1 class="sr-only">' + esc(b.title) + ' 홈</h1><div class="home-bento">' +
+      dateHTML(now, b) +
+      '<section class="home-panel home-heads" aria-labelledby="home-h-heads">' + panelHead('오늘 부서장 일정', appIds.has('head-schedule') ? '#/head-schedule' : '', '전체 일정').replace('<h2>', '<h2 id="home-h-heads">') +
+      '<div class="home-panel-body" aria-busy="true"><div class="p-skel-row"><span class="p-skel"></span><span class="p-skel-lines"><span class="p-skel" style="width:50%"></span><span class="p-skel" style="width:30%"></span></span></div></div></section>' +
+      (quick.length ? '<section class="home-panel home-quick" aria-labelledby="home-h-quick">' + panelHead('빠른 만들기').replace('<h2>', '<h2 id="home-h-quick">') +
+        '<div class="home-quick-list">' + quick.map((q, i) => '<button type="button" data-q="' + i + '">' + q.icon + '<span>' + esc(q.label) + '</span></button>').join('') + '</div></section>' : '') +
+      '<section class="home-panel home-tasks" aria-labelledby="home-h-tasks">' + panelHead('기한 임박 업무', appIds.has('schedule') ? '#/schedule/tasks' : '', '주요업무').replace('<h2>', '<h2 id="home-h-tasks">') +
+      '<div class="home-panel-body" aria-busy="true"><div class="p-skel-row"><span class="p-skel"></span><span class="p-skel-lines"><span class="p-skel" style="width:60%"></span></span></div></div></section>' +
+      '<section class="home-panel home-recent" aria-labelledby="home-h-recent">' + panelHead('최근 작업').replace('<h2>', '<h2 id="home-h-recent">') +
+      '<div class="home-panel-body" aria-busy="true"><div class="p-skel-row"><span class="p-skel"></span><span class="p-skel-lines"><span class="p-skel" style="width:55%"></span></span></div></div></section>' +
+      '</div></div>';
 
-    el.querySelector('[data-act="storage"]').addEventListener('click', (e) => { e.stopPropagation(); P.storage.openMenu(); });
-    el.querySelector('[data-act="settings"]').addEventListener('click', () => P.storage.openSettings());
-    loadRecent(el.querySelector('.home-recent'), appMap).then(() => {
-      const box = el.querySelector('.home-recent');
-      if (box) box.removeAttribute('aria-busy');
-    }, () => {
-      const box = el.querySelector('.home-recent');
-      if (!box) return;
-      box.removeAttribute('aria-busy');
-      box.innerHTML = '<div class="empty">최근 작업을 불러오지 못했습니다.</div>';
+    const kind = P.storage.kinds[P.store.backend()] || { label: '' };
+    const kindEl = el.querySelector('.home-store-kind');
+    if (kindEl) kindEl.textContent = kind.label;
+
+    const intentKeys = { 'head-schedule': 'head', task: 'task', doc: 'doc' };
+    el.addEventListener('click', (e) => {
+      const t = e.target.closest('button');
+      if (!t) return;
+      if (t.dataset.act === 'storage') { e.stopPropagation(); P.storage.openMenu(); }
+      else if (t.dataset.q != null) { const q = quick[Number(t.dataset.q)]; if (q) q.run(); }
+      else if (t.dataset.intent) { const q = qa.find((x) => x.key === intentKeys[t.dataset.intent]); if (q) q.run(); }
     });
+
+    const done = (sel) => () => { const n = el.querySelector(sel + ' .home-panel-body'); if (n) n.removeAttribute('aria-busy'); };
+    const fail = (sel) => (err) => {
+      console.error(err);
+      const n = el.querySelector(sel + ' .home-panel-body');
+      if (n) { n.removeAttribute('aria-busy'); n.innerHTML = emptyLine('불러오지 못했습니다.'); }
+    };
+    let stopHeads = null;
+    loadHeads(el.querySelector('.home-heads'), appIds.has('head-schedule')).then((stop) => { stopHeads = stop; done('.home-heads')(); }, fail('.home-heads'));
+    loadTasks(el.querySelector('.home-tasks'), appIds.has('schedule')).then(done('.home-tasks'), fail('.home-tasks'));
+    loadRecent(el.querySelector('.home-recent'), appIds).then(done('.home-recent'), fail('.home-recent'));
+    return () => { if (typeof stopHeads === 'function') stopHeads(); };
   }
 
-  P.registerApp({ id: 'home', title: '홈', short: '홈', icon: ICON, order: 0, desc: '모든 업무로 가는 시작 화면', mount });
+  P.registerApp({ id: 'home', title: '홈', short: '홈', icon: ICON, order: 0, group: 'home', desc: '오늘 일정과 기한, 최근 작업', mount });
 })();

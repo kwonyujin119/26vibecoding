@@ -11,9 +11,9 @@
   const DEFAULT_BOARD = {
     name: '부서 스케줄러',
     categories: [
-      { name: MAJOR, color: '#d97706' }, { name: '회의', color: '#2747c7' }, { name: '교육', color: '#0d9488' },
-      { name: '행사', color: '#db2777' }, { name: '출장', color: '#7c3aed' }, { name: '방문', color: '#0284c7' },
-      { name: '보고', color: '#c2410c' }, { name: '기타', color: '#64748b' }
+      { name: MAJOR, color: '#B7791F' }, { name: '회의', color: '#4C63B6' }, { name: '교육', color: '#13897B' },
+      { name: '행사', color: '#C0497A' }, { name: '출장', color: '#7C5CC4' }, { name: '방문', color: '#2F86B5' },
+      { name: '보고', color: '#8A6A4E' }, { name: '기타', color: '#737985' }
     ]
   };
   const TABS = [['events', '일정표'], ['tasks', '주요업무'], ['personal', '개인업무']];
@@ -105,28 +105,31 @@
     const taskHay = (x) => [x.title, x.owner, x.detail, x.category, x.status, x.due].join(' ');
 
     /* ---------- 틀 ---------- */
+    const initial = (name) => P.esc(Array.from(String(name || '').trim())[0] || '?');
+    const ownerAv = (name, t) => '<span class="sc-owner-cell"><span class="avatar avatar-sm sch-av" style="--c:' + K.colorFor(name) + '" aria-hidden="true">' + initial(name) + '</span><span>' + K.mark(name, t) + '</span></span>';
     function render() {
       st.narrow = window.matchMedia('(max-width: 760px)').matches;
       const b = board();
       const counts = { events: occurrences(events().filter((e) => !e.cancelled)).get(K.today()), tasks: tasks().filter((x) => x.status !== '완료' && x.status !== '보류').length, personal: st.me ? repo.all(COL_ME).filter((x) => x.name === st.me && !x.done).length : 0 };
       page.innerHTML =
-        '<div class="page-head sch-head"><div><h1 class="sc-board-name">' + P.esc(b.name) + '</h1><p>일정표 · 주요업무 · 개인업무를 한 보드에서. 단축키 N 새 항목, C 달력, / 검색</p></div>' +
+        '<div class="page-head sch-head"><div><h1 class="sc-board-name">' + P.esc(b.name) + '</h1></div>' +
         '<div class="toolbar sch-actions">' +
         '<button type="button" class="btn" data-act="brief" aria-label="아침 브리핑" title="오늘 일정·내일 건수·기한 임박 업무를 복사">' + K.IC.sun + '<span>아침 브리핑</span></button>' +
         '<button type="button" class="btn btn-ghost p-icon-btn" data-act="more" aria-label="더보기" title="더보기">' + K.IC.more + '</button>' +
         '<button type="button" class="btn btn-primary sch-hide-sm" data-act="new" title="새 항목 (N)">' + P.icons.plus + '<span>새 항목</span></button>' +
         '</div></div>' +
-        '<div class="sc-tabs" role="tablist" aria-label="보드 탭">' + TABS.map(([id, label]) => {
+        '<div class="sc-top">' +
+        '<div class="seg sc-tabs" role="tablist" aria-label="보드 탭">' + TABS.map(([id, label], i) => {
           const n = id === 'events' ? (counts.events || []).length : counts[id];
-          return '<button type="button" role="tab" id="sc-tab-' + id + '" aria-controls="sc-panel" aria-selected="' + (st.tab === id) + '" data-tab="' + id + '">' + label +
-            (n ? '<span class="sc-count" title="' + (id === 'events' ? '오늘 일정' : id === 'tasks' ? '진행 중·예정 업무' : '남은 할 일') + '">' + n + '</span>' : '') + '</button>';
+          return '<button type="button" role="tab" id="sc-tab-' + id + '" aria-controls="sc-panel" aria-selected="' + (st.tab === id) + '" data-tab="' + id + '" title="' + label + ' (' + (i + 1) + ')">' + label +
+            (n ? '<span class="sc-count num" title="' + (id === 'events' ? '오늘 일정' : id === 'tasks' ? '진행 중·예정 업무' : '남은 할 일') + '">' + n + '</span>' : '') + '</button>';
         }).join('') + '</div>' +
         '<div class="sch-bar">' +
-        '<label class="p-search sc-search">' + P.icons.search + '<span class="sr-only">검색</span><input type="search" placeholder="검색 (띄어쓰기 = 모두 포함)" value="' + P.esc(st.q) + '" data-search></label>' +
-        (st.tab === 'events' ? '<div class="p-seg" role="radiogroup" aria-label="보기">' +
-          '<button type="button" role="radio" aria-checked="' + (st.evView === 'list') + '" data-ev-view="list">' + K.IC.list + '목록</button>' +
-          '<button type="button" role="radio" aria-checked="' + (st.evView === 'cal') + '" data-ev-view="cal" title="달력 (C)">' + K.IC.calendar + '달력</button></div>' : '') +
-        '</div>' +
+        '<label class="p-search sc-search">' + P.icons.search + '<span class="sr-only">검색</span><input type="search" placeholder="검색" title="띄어쓰기로 나눈 단어를 모두 포함 (/)" value="' + P.esc(st.q) + '" data-search></label>' +
+        (st.tab === 'events' ? '<div class="seg sc-evseg" role="radiogroup" aria-label="보기">' +
+          '<button type="button" role="radio" aria-checked="' + (st.evView === 'list') + '" data-ev-view="list" title="목록">' + K.IC.list + '<span>목록</span></button>' +
+          '<button type="button" role="radio" aria-checked="' + (st.evView === 'cal') + '" data-ev-view="cal" title="달력 (C)">' + K.IC.calendar + '<span>달력</span></button></div>' : '') +
+        '</div></div>' +
         '<div class="chips sch-filter" role="group" aria-label="거르기"></div>' +
         '<div class="sch-body" id="sc-panel" role="tabpanel" aria-labelledby="sc-tab-' + st.tab + '"></div>' +
         '<button type="button" class="sch-fab" data-act="new" aria-label="새 항목">' + P.icons.plus + '</button>';
@@ -166,20 +169,23 @@
       const e = o.e;
       const tags = sortTags(e.tags);
       const major = isMajor(e);
+      const timed = !e.allDay && e.start;
       return '<button type="button" class="sc-ev' + (major ? ' major' : '') + (e.cancelled ? ' cancelled' : '') + '" style="--c:' + catColor(mainTag(e)) + '" data-ev="' + P.esc(e.id) + '">' +
-        '<span class="sc-ev-time">' + P.esc(evTime(e)) + (o.total > 1 ? '<em>' + o.n + '/' + o.total + '일차</em>' : '') + '</span>' +
-        '<span class="sc-ev-main"><span class="sc-ev-title">' + (major ? '<span class="sc-star" aria-label="주요업무">★</span>' : '') + K.mark(e.title, t) + '</span>' +
+        '<span class="sc-ev-time num">' + (timed ? '<b>' + e.start + '</b>' + (e.end ? '<small>' + e.end + '</small>' : '') : '<b>종일</b>') + (o.total > 1 ? '<em>' + o.n + '/' + o.total + '일차</em>' : '') + '</span>' +
+        '<span class="sc-ev-main"><span class="sc-ev-title">' + K.mark(e.title, t) + '</span>' +
         '<span class="sc-ev-meta">' + tags.map((x) => '<span class="sc-tag" style="--c:' + catColor(x) + '">' + K.mark(x, t) + '</span>').join('') +
-        (e.cancelled ? '<span class="sc-tag sc-cancel">취소' + (e.cancelReason ? ' · ' + K.mark(e.cancelReason, t) : '') + '</span>' : '') +
+        (e.cancelled ? '<span class="badge badge-danger sc-cancel">취소' + (e.cancelReason ? ' · ' + K.mark(e.cancelReason, t) : '') + '</span>' : '') +
         (e.place ? '<span class="sc-ev-place">' + K.IC.pin + K.mark(e.place, t) + '</span>' : '') +
         (e.owner ? '<span class="sc-ev-owner">' + K.mark(e.owner, t) + '</span>' : '') + '</span>' +
         (e.note ? '<span class="sc-ev-note">' + K.mark(e.note, t) + '</span>' : '') + '</span></button>';
     }
     function dayBlock(d, list, t) {
       const td = K.today();
-      const rel = d === td ? '<span class="sc-rel today">오늘</span>' : d === K.addDays(td, 1) ? '<span class="sc-rel">내일</span>' : '';
+      const rel = d === td ? '오늘' : d === K.addDays(td, 1) ? '내일' : d === K.addDays(td, -1) ? '어제' : '';
       const live = list.filter((o) => !o.e.cancelled).length;
-      return '<section class="sc-day' + (d === td ? ' today' : '') + (d < td ? ' past' : '') + '"><h3 class="sc-day-head"><span class="' + (K.dow(d) === 0 ? 'sun' : K.dow(d) === 6 ? 'sat' : '') + '">' + K.md(d) + '</span>' + rel + '<small>' + live + '건</small></h3>' +
+      const dt = K.parse(d);
+      return '<section class="sc-day' + (d === td ? ' today' : '') + (d < td ? ' past' : '') + (K.dow(d) % 6 === 0 ? ' weekend' : '') + '">' +
+        '<h3 class="sc-day-head"><span class="sc-dnum num">' + dt.getDate() + '</span><span class="sc-dmeta"><b>' + K.DOW[dt.getDay()] + '요일</b><small>' + (dt.getMonth() + 1) + '월' + (rel ? ' · ' + rel : '') + '</small></span><span class="sc-dcount num">' + live + '건</span></h3>' +
         '<div class="sc-day-list">' + list.map((o) => evItem(o, t)).join('') + '</div></section>';
     }
     function eventsList() {
@@ -189,19 +195,19 @@
       const days = Array.from(occ.keys()).sort();
       const td = K.today();
       if (t.length) {
-        if (!list.length) return '<div class="empty card"><h3>\'' + P.esc(st.q) + '\' 검색 결과가 없습니다</h3><p>단어를 줄이거나 구분 거르기를 해제해 보세요.</p></div>';
-        return '<p class="sc-result">\'' + P.esc(st.q) + '\' 검색 결과 <b>' + list.length + '건</b> · ' + days.length + '일 (' + K.md(days[0]) + ' ~ ' + K.md(days[days.length - 1]) + ')</p>' + days.map((d) => dayBlock(d, occ.get(d), t)).join('');
+        if (!list.length) return '<div class="empty card"><p>\'' + P.esc(st.q) + '\' 검색 결과가 없습니다.</p></div>';
+        return '<p class="sc-result"><b>' + list.length + '건</b> · ' + days.length + '일 <span class="num">' + K.md(days[0]) + ' ~ ' + K.md(days[days.length - 1]) + '</span></p><div class="sc-agenda">' + days.map((d) => dayBlock(d, occ.get(d), t)).join('') + '</div>';
       }
       const past = days.filter((d) => d < td);
       const coming = days.filter((d) => d >= td);
       const pastCount = past.reduce((a, d) => a + occ.get(d).length, 0);
       let html = '';
       if (past.length) {
-        html += '<button type="button" class="btn btn-ghost sc-past-btn" data-act="past" aria-expanded="' + st.showPast + '">' + P.icons.chevron + (st.showPast ? '지난 일정 접기' : '지난 일정 ' + pastCount + '건 펼치기') + '</button>';
-        if (st.showPast) html += '<div class="sc-past">' + past.map((d) => dayBlock(d, occ.get(d), t)).join('') + '</div>';
+        html += '<button type="button" class="btn btn-ghost btn-sm sc-past-btn" data-act="past" aria-expanded="' + st.showPast + '">' + P.icons.chevron + (st.showPast ? '지난 일정 접기' : '지난 일정 ' + pastCount + '건') + '</button>';
+        if (st.showPast) html += '<div class="sc-agenda sc-past">' + past.map((d) => dayBlock(d, occ.get(d), t)).join('') + '</div>';
       }
-      if (!coming.length) html += '<div class="empty card"><h3>예정된 일정이 없습니다</h3><p>새 일정을 추가해 부서원과 공유하세요.</p><button type="button" class="btn btn-primary" data-act="new">' + P.icons.plus + '일정 추가</button>' + (events().length ? '' : ' <button type="button" class="btn" data-act="sample">예시 데이터 넣기</button>') + '</div>';
-      return html + coming.map((d) => dayBlock(d, occ.get(d), t)).join('');
+      if (!coming.length) html += '<div class="empty card"><p>예정된 일정이 없습니다.</p><div class="toolbar sc-empty-acts"><button type="button" class="btn btn-primary btn-sm" data-act="new">' + P.icons.plus + '일정 추가</button>' + (events().length ? '' : '<button type="button" class="btn btn-sm" data-act="sample">예시 데이터</button>') + '</div></div>';
+      return html + (coming.length ? '<div class="sc-agenda">' + coming.map((d) => dayBlock(d, occ.get(d), t)).join('') + '</div>' : '');
     }
     function eventsCal() {
       const occ = occurrences(filteredEvents());
@@ -210,38 +216,50 @@
       const td = K.today();
       const d0 = K.parse(st.cal);
       const sel = occ.get(st.cal) || [];
-      return '<div class="sc-calnav"><button type="button" class="btn btn-ghost p-icon-btn" data-cal="-1" aria-label="이전 달">' + K.IC.left + '</button>' +
-        '<strong>' + d0.getFullYear() + '년 ' + (d0.getMonth() + 1) + '월</strong>' +
+      return '<div class="sch-bar sc-calnav"><div class="sch-nav"><button type="button" class="btn btn-ghost p-icon-btn" data-cal="-1" aria-label="이전 달">' + K.IC.left + '</button>' +
+        '<button type="button" class="btn btn-sm" data-cal="0">오늘</button>' +
         '<button type="button" class="btn btn-ghost p-icon-btn" data-cal="1" aria-label="다음 달">' + K.IC.right + '</button>' +
-        '<button type="button" class="btn btn-sm" data-cal="0">오늘</button><span class="muted sch-hint">날짜를 한 번 더 누르면 그 날짜로 새 일정</span></div>' +
-        '<div class="sch-cal" role="grid">' + [1, 2, 3, 4, 5, 6, 0].map((i) => '<div class="sch-cal-dow">' + K.DOW[i] + '</div>').join('') +
+        '<strong class="sch-range">' + (d0.getMonth() + 1) + '월 <span>' + d0.getFullYear() + '</span></strong></div></div>' +
+        '<div class="hs-month"><div class="sch-cal" role="grid" title="날짜를 한 번 더 누르면 그 날짜로 새 일정">' + [1, 2, 3, 4, 5, 6, 0].map((i) => '<div class="sch-cal-dow">' + K.DOW[i] + '</div>').join('') +
         cells.map((d) => {
           const list = occ.get(d) || [];
           const cls = ['sch-cal-day', K.parse(d).getMonth() !== m ? 'out' : '', d === td ? 'today' : '', d === st.cal ? 'sel' : '', K.dow(d) === 0 ? 'sun' : K.dow(d) === 6 ? 'sat' : ''].join(' ');
-          return '<div class="' + cls + '" data-day="' + d + '" role="gridcell"><span class="sch-cal-num">' + K.parse(d).getDate() + '</span><div class="sch-cal-items">' +
-            list.slice(0, 3).map((o) => '<button type="button" class="sch-cal-ev' + (isMajor(o.e) ? ' major' : '') + (o.e.cancelled ? ' cancelled' : '') + '" style="--c:' + catColor(mainTag(o.e)) + '" data-ev="' + P.esc(o.e.id) + '" title="' + P.esc(evTime(o.e) + ' ' + o.e.title) + '">' + (o.e.start && !o.e.allDay && o.n === 1 ? '<b>' + o.e.start + '</b> ' : '') + P.esc(o.e.title) + '</button>').join('') +
-            (list.length > 3 ? '<span class="sch-cal-more">+' + (list.length - 3) + '</span>' : '') + '</div>' +
+          return '<div class="' + cls + '" data-day="' + d + '" role="gridcell"><span class="sch-cal-num num">' + K.parse(d).getDate() + '</span><div class="sch-cal-items">' +
+            list.slice(0, 3).map((o) => {
+              const timed = o.e.start && !o.e.allDay && o.total === 1;
+              return '<button type="button" class="sch-cal-ev' + (timed ? ' timed' : '') + (isMajor(o.e) ? ' major' : '') + (o.e.cancelled ? ' cancelled' : '') + '" style="--c:' + catColor(mainTag(o.e)) + '" data-ev="' + P.esc(o.e.id) + '" title="' + P.esc(evTime(o.e) + ' ' + o.e.title) + '">' + (timed ? '<b class="num">' + o.e.start + '</b>' : '') + '<span>' + P.esc(o.e.title) + '</span></button>';
+            }).join('') +
+            (list.length > 3 ? '<span class="sch-cal-more">+' + (list.length - 3) + '건</span>' : '') + '</div>' +
             '<span class="sch-cal-dots">' + list.slice(0, 4).map((o) => '<i style="--c:' + catColor(mainTag(o.e)) + '"></i>').join('') + '</span></div>';
         }).join('') + '</div>' +
-        '<div class="sc-cal-sel">' + (sel.length ? dayBlock(st.cal, sel, []) : '<section class="sc-day"><h3 class="sc-day-head">' + K.md(st.cal) + '</h3><p class="muted">일정이 없습니다. <button type="button" class="btn btn-sm" data-new-day="' + st.cal + '">' + P.icons.plus + '이 날짜에 추가</button></p></section>') + '</div>';
+        '<aside class="hs-month-day sc-cal-sel"><h3>' + K.longDate(st.cal) + '</h3>' + (sel.length ? '<div class="sc-day-list">' + sel.map((o) => evItem(o, [])).join('') + '</div>'
+          : '<div class="hs-empty"><span>일정 없음</span><button type="button" class="btn btn-sm" data-new-day="' + st.cal + '">' + P.icons.plus + '추가</button></div>') + '</aside></div>';
     }
 
     /* ---------- 주요업무 ---------- */
+    function dueBadge(x, over) {
+      if (!x.due) return '<span class="sc-due muted">미정</span>';
+      const closed = x.status === '완료' || x.status === '보류';
+      const n = K.diffDays(K.today(), x.due);
+      const cls = closed ? '' : over || n === 0 ? ' badge-signal' : n <= 3 ? ' badge-warn' : '';
+      return '<span class="sc-due' + (over ? ' over' : '') + '"><span class="num">' + K.md(x.due) + '</span>' + (closed ? '' : '<span class="badge' + cls + '">' + dLabel(x.due) + '</span>') + '</span>';
+    }
+    const STATUS_BADGE = { 예정: 'badge', 진행: 'badge badge-accent', 완료: 'badge badge-ok', 보류: 'badge badge-warn' };
     function taskCard(x, t) {
       const td = K.today();
       const over = x.due && x.due < td && x.status !== '완료' && x.status !== '보류';
-      return '<article class="sc-task card' + (over ? ' over' : '') + (x.linked ? ' linked' : '') + (x.status === '완료' ? ' done' : '') + '" style="--c:' + catColor(x.category || '기타') + '">' +
+      const prog = Math.max(0, Math.min(100, x.progress || 0));
+      return '<article class="sc-task' + (over ? ' over' : '') + (x.linked ? ' linked' : '') + (x.status === '완료' ? ' done' : '') + '" style="--c:' + catColor(x.category || '기타') + '">' +
         '<button type="button" class="sc-task-open" ' + (x.linked ? 'data-ev="' + P.esc(x.eventId) + '"' : 'data-task="' + P.esc(x.id) + '"') + ' aria-label="' + P.esc(x.title) + ' 열기"></button>' +
-        '<div class="sc-task-top">' + (x.category ? '<span class="sc-tag" style="--c:' + catColor(x.category) + '">' + K.mark(x.category, t) + '</span>' : '') +
-        (x.linked ? '<span class="sc-tag sc-link">' + K.IC.calendar + '일정 연동</span>' : '') +
-        '<span class="sc-status s-' + STATUSES.indexOf(x.status) + '">' + P.esc(x.status || '예정') + '</span></div>' +
-        '<h3>' + K.mark(x.title, t) + '</h3>' +
-        (x.detail ? '<p class="sc-task-detail">' + K.mark(x.detail, t) + '</p>' : '') +
-        '<div class="sc-task-meta">' + (x.owner ? '<span>' + K.mark(x.owner, t) + '</span>' : '<span class="muted">담당 미정</span>') +
-        (x.due ? '<span class="sc-due' + (over ? ' over' : '') + '">' + K.md(x.due) + ' · ' + dLabel(x.due) + '</span>' : '<span class="muted">기한 미정</span>') + '</div>' +
-        '<div class="sc-progress" title="진척률 ' + (x.progress || 0) + '%"><span style="width:' + Math.max(0, Math.min(100, x.progress || 0)) + '%"></span></div>' +
-        '<div class="sc-task-foot"><span class="muted">' + (x.progress || 0) + '%</span>' +
-        (x.linked ? '' : '<button type="button" class="btn btn-sm' + (x.status === '완료' ? '' : ' btn-primary') + '" data-done="' + P.esc(x.id) + '">' + (x.status === '완료' ? '되돌리기' : P.icons.check + '완료') + '</button>') + '</div></article>';
+        '<div class="sc-task-name"><h3>' + K.mark(x.title, t) + '</h3><div class="sc-task-sub">' +
+        (x.category ? '<span class="sc-tag" style="--c:' + catColor(x.category) + '">' + K.mark(x.category, t) + '</span>' : '') +
+        (x.linked ? '<span class="sc-link" title="주요업무 구분 일정에서 자동 연동">' + K.IC.calendar + '일정 연동</span>' : '') +
+        (x.detail ? '<span class="sc-task-detail">' + K.mark(x.detail, t) + '</span>' : '') + '</div></div>' +
+        '<div class="sc-task-owner">' + (x.owner ? ownerAv(x.owner, t) : '<span class="muted">미정</span>') + '</div>' +
+        '<div class="sc-task-due">' + dueBadge(x, over) + '</div>' +
+        '<div class="sc-task-prog"><div class="sc-progress" role="progressbar" aria-valuenow="' + prog + '" aria-valuemin="0" aria-valuemax="100" aria-label="진척률"><span style="width:' + prog + '%"></span></div><span class="num">' + (x.progress || 0) + '%</span></div>' +
+        '<div class="sc-task-status"><span class="' + (STATUS_BADGE[x.status] || 'badge') + '">' + P.esc(x.status || '예정') + '</span></div>' +
+        '<div class="sc-task-act">' + (x.linked ? '' : '<button type="button" class="btn btn-sm' + (x.status === '완료' ? ' btn-ghost' : '') + '" data-done="' + P.esc(x.id) + '" title="' + (x.status === '완료' ? '진행으로 되돌리기' : '완료로 표시') + '">' + (x.status === '완료' ? '되돌리기' : P.icons.check + '완료') + '</button>') + '</div></article>';
     }
     function tasksView() {
       const t = ts();
@@ -249,7 +267,7 @@
       const cs = st.cats.tasks;
       const list = tasks().filter((x) => (st.status === 'all' || x.status === st.status) && (!st.owner || x.owner === st.owner) && (!cs.size || cs.has(x.category)) && (!t.length || K.matchAll(taskHay(x), t)));
       if (!list.length) {
-        return '<div class="empty card"><h3>' + (tasks().length ? '조건에 맞는 업무가 없습니다' : '주요업무가 없습니다') + '</h3><p>담당·기한·진척률을 정해 부서 핵심 업무를 관리하세요. 일정 구분에 \'' + MAJOR + '\'를 고르면 여기에 자동으로 연동됩니다.</p><button type="button" class="btn btn-primary" data-act="new">' + P.icons.plus + '업무 추가</button></div>';
+        return '<div class="empty card"><p>' + (tasks().length ? '조건에 맞는 업무가 없습니다.' : '주요업무가 없습니다.') + '</p><button type="button" class="btn btn-primary btn-sm" data-act="new">' + P.icons.plus + '업무 추가</button></div>';
       }
       const byDue = (a, b) => String(a.due || '9999').localeCompare(String(b.due || '9999')) || STATUSES.indexOf(a.status) - STATUSES.indexOf(b.status);
       const closed = (x) => x.status === '완료' || x.status === '보류';
@@ -260,21 +278,22 @@
         ['기한 미정', list.filter((x) => !closed(x) && !x.due), ''],
         ['완료·보류', list.filter(closed).sort((a, b) => String(b.due || '').localeCompare(String(a.due || ''))), 'closed']
       ];
-      return groups.filter((g) => g[1].length).map(([title, items, kind]) => {
-        const fold = kind === 'closed' && !st.showDone && !t.length && st.status === 'all';
-        return '<section class="sc-group ' + kind + '"><h3 class="sc-group-head">' + title + ' <small>' + items.length + '건</small>' +
-          (kind === 'closed' && !t.length && st.status === 'all' ? '<button type="button" class="btn btn-ghost btn-sm" data-act="done-fold">' + (fold ? '펼치기' : '접기') + '</button>' : '') + '</h3>' +
-          (fold ? '' : '<div class="sc-task-grid">' + items.map((x) => taskCard(x, t)).join('') + '</div>') + '</section>';
-      }).join('');
+      return '<div class="sc-tt"><div class="sc-tt-head" aria-hidden="true"><span>업무</span><span>담당</span><span>기한</span><span>진척</span><span>상태</span><span></span></div>' +
+        groups.filter((g) => g[1].length).map(([title, items, kind]) => {
+          const fold = kind === 'closed' && !st.showDone && !t.length && st.status === 'all';
+          return '<section class="sc-group ' + kind + '"><h3 class="sc-group-head"><span>' + title + '</span><span class="num">' + items.length + '</span>' +
+            (kind === 'closed' && !t.length && st.status === 'all' ? '<button type="button" class="btn btn-ghost btn-sm" data-act="done-fold" aria-expanded="' + !fold + '">' + (fold ? '펼치기' : '접기') + '</button>' : '') + '</h3>' +
+            (fold ? '' : items.map((x) => taskCard(x, t)).join('')) + '</section>';
+        }).join('') + '</div>';
     }
 
     /* ---------- 개인업무 ---------- */
     function personalView() {
       const names = Array.from(new Set(repo.all(COL_ME).map((x) => x.name).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'ko'));
       if (!st.me) {
-        return '<div class="card sc-me-pick"><h2>개인업무는 이름으로 구분합니다</h2><p class="muted">이름을 정하면 이 기기에서 기억합니다. 다른 기기에서도 같은 이름을 쓰면 같은 목록을 봅니다(저장 위치가 클라우드·사무실 서버일 때).</p>' +
-          '<form class="sc-me-form" data-form="me"><input name="me" maxlength="20" placeholder="이름 (예: 홍길동)" aria-label="이름" required><button class="btn btn-primary" type="submit">시작</button></form>' +
-          (names.length ? '<p class="muted">또는 목록에서 고르기</p><div class="chips">' + names.map((n) => '<button type="button" class="chip" data-me="' + P.esc(n) + '">' + P.esc(n) + '</button>').join('') + '</div>' : '') + '</div>';
+        return '<div class="sc-me-pick"><p>이름을 정하면 내 할 일만 모아 봅니다.</p>' +
+          '<form class="sc-me-form" data-form="me"><input name="me" maxlength="20" placeholder="이름" aria-label="이름" required><button class="btn btn-primary" type="submit">시작</button></form>' +
+          (names.length ? '<div class="chips">' + names.map((n) => '<button type="button" class="chip" data-me="' + P.esc(n) + '">' + P.esc(n) + '</button>').join('') + '</div>' : '') + '</div>';
       }
       const t = ts();
       const td = K.today();
@@ -289,18 +308,24 @@
       list.sort((a, b) => (a.done - b.done) || (st.pView === 'done' ? String(b.doneAt || '').localeCompare(String(a.doneAt || '')) : String(a.due || '9999').localeCompare(String(b.due || '9999'))));
       const left = mine.filter((x) => !x.done);
       const overdue = left.filter((x) => x.due && x.due < td).length;
-      return '<div class="sc-me-head"><div><h2>' + P.esc(st.me) + '님의 할 일</h2><p class="muted">남은 일 ' + left.length + '건' + (overdue ? ' · <b class="sc-over-text">기한 지남 ' + overdue + '건</b>' : '') + '</p></div>' +
+      const dueText = (x) => {
+        if (!x.due) return '';
+        if (x.done) return '<span class="sc-pdue num">' + K.md(x.due) + '</span>';
+        const n = K.diffDays(td, x.due);
+        return '<span class="sc-pdue' + (n < 0 ? ' over' : n === 0 ? ' today' : '') + '"><span class="num">' + (n === 0 ? '오늘' : n === 1 ? '내일' : K.md(x.due)) + '</span>' + (n < 0 ? '<small>' + dLabel(x.due) + '</small>' : '') + '</span>';
+      };
+      return '<div class="sc-me">' +
+        '<div class="sc-me-head"><div class="sc-me-who"><span class="avatar avatar-lg sch-av" style="--c:' + K.colorFor(st.me) + '" aria-hidden="true">' + initial(st.me) + '</span><div><h2>' + P.esc(st.me) + '</h2><p class="num">남은 일 ' + left.length + (overdue ? ' · <b class="sc-over-text">지남 ' + overdue + '</b>' : '') + '</p></div></div>' +
         '<button type="button" class="btn btn-ghost btn-sm" data-act="me-change">이름 바꾸기</button></div>' +
-        '<form class="sc-quick" data-form="quick"><input name="title" maxlength="100" placeholder="할 일을 적고 Enter" aria-label="새 할 일" autocomplete="off">' +
-        '<input name="due" type="date" aria-label="기한" value="' + (st.pView === 'today' ? td : '') + '"><button type="submit" class="btn btn-primary">' + P.icons.plus + '<span>추가</span></button></form>' +
-        '<div class="chips sc-pviews">' + [['today', '오늘'], ['week', '이번 주'], ['all', '전체'], ['done', '완료']].map(([v, l]) => '<button type="button" class="chip" data-pview="' + v + '" aria-pressed="' + (st.pView === v) + '">' + l + '</button>').join('') + '</div>' +
-        (list.length ? '<ul class="sc-todos">' + list.map((x) => {
-          const over = !x.done && x.due && x.due < td;
-          return '<li class="sc-todo' + (x.done ? ' done' : '') + '"><label class="sc-check"><input type="checkbox" data-toggle="' + P.esc(x.id) + '"' + (x.done ? ' checked' : '') + '><span class="sr-only">완료</span></label>' +
+        '<div class="seg sc-pviews" role="group" aria-label="보기">' + [['today', '오늘'], ['week', '이번 주'], ['all', '전체'], ['done', '완료']].map(([v, l]) => '<button type="button" data-pview="' + v + '" aria-pressed="' + (st.pView === v) + '">' + l + '</button>').join('') + '</div>' +
+        '<div class="sc-todo-box">' +
+        '<form class="sc-quick" data-form="quick"><span class="sc-quick-ic" aria-hidden="true">' + P.icons.plus + '</span><input name="title" maxlength="100" placeholder="할 일 추가" aria-label="새 할 일" autocomplete="off">' +
+        '<input name="due" type="date" aria-label="기한" value="' + (st.pView === 'today' ? td : '') + '"><button type="submit" class="btn btn-sm btn-primary">추가</button></form>' +
+        (list.length ? '<ul class="sc-todos">' + list.map((x) => '<li class="sc-todo' + (x.done ? ' done' : '') + '"><label class="sc-check"><input type="checkbox" data-toggle="' + P.esc(x.id) + '"' + (x.done ? ' checked' : '') + '><span class="sr-only">완료</span></label>' +
             '<button type="button" class="sc-todo-main" data-me-item="' + P.esc(x.id) + '"><span class="sc-todo-title">' + K.mark(x.title, t) + '</span>' +
-            (x.note ? '<span class="sc-todo-note">' + K.mark(x.note, t) + '</span>' : '') + '</button>' +
-            (x.due ? '<span class="sc-due' + (over ? ' over' : '') + '">' + K.md(x.due) + (x.done ? '' : ' · ' + dLabel(x.due)) + '</span>' : '') + '</li>';
-        }).join('') + '</ul>' : '<div class="empty">' + (st.pView === 'today' ? '오늘 할 일이 없습니다. 위 칸에 적어 보세요.' : st.pView === 'done' ? '완료한 일이 없습니다.' : '할 일이 없습니다.') + '</div>');
+            (x.note ? '<span class="sc-todo-note">' + K.mark(x.note, t) + '</span>' : '') + '</button>' + dueText(x) + '</li>').join('') + '</ul>'
+          : '<p class="sc-todo-empty">' + (st.pView === 'today' ? '오늘 할 일이 없습니다.' : st.pView === 'done' ? '완료한 일이 없습니다.' : '할 일이 없습니다.') + '</p>') +
+        '</div></div>';
     }
 
     /* ---------- 입력 창 ---------- */

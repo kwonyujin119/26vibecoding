@@ -60,7 +60,10 @@
     fill: sv('<path d="M5 13l7-7 6 6-7 7z"/><path d="M19 15s2 2.2 2 3.5a2 2 0 0 1-4 0c0-1.3 2-3.5 2-3.5z"/>'),
     close: sv('<path d="M6 6l12 12M18 6L6 18"/>'),
     up: sv('<path d="M6 15l6-6 6 6"/>'),
-    down: sv('<path d="M6 9l6 6 6-6"/>')
+    down: sv('<path d="M6 9l6 6 6-6"/>'),
+    rows: sv('<path d="M4 6h16M4 12h16M4 18h16"/>'),
+    tiles: sv('<rect x="4" y="3" width="6.5" height="9" rx="1"/><rect x="13.5" y="3" width="6.5" height="9" rx="1"/><path d="M4 16h6.5M13.5 16h6.5M4 20h4.5M13.5 20h4.5"/>'),
+    zoom: sv('<circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/>')
   };
 
   /* ---------- 글꼴 · 크기 ---------- */
@@ -747,60 +750,87 @@
     ctx.navigate(APP_ID + '/' + encodeURIComponent(id));
   }
 
+  function kindName(tpls, kind) {
+    const t = tpls.find((x) => x.kind === kind && x.id !== 'blank');
+    return t ? t.name.replace(/\(.*\)/, '') : '일반';
+  }
   function mountList(root, ctx) {
     const tpls = templates();
     let rows = [];
     let q = P.settings.get('docs.q', '');
     let sort = P.settings.get('docs.sort', 'recent');
+    let view = P.settings.get('docs.view', 'list') === 'grid' ? 'grid' : 'list';
     root.innerHTML =
       '<div class="page docs-list">' +
-      '<div class="page-head"><div><h1>문서</h1><p>A4 쪽 편집 · 공문서 서식 · 한글(HWPX)·워드(DOCX)·PDF로 내보내기. 저장 위치를 바꾸면 어디서든 이어서 씁니다.</p></div>' +
+      '<div class="page-head"><div><h1>문서</h1></div>' +
       '<div class="toolbar"><button type="button" class="btn" data-act="import">' + P.icons.upload + '가져오기</button>' +
       '<button type="button" class="btn btn-primary" data-act="new">' + P.icons.plus + '새 문서</button></div></div>' +
-      '<section class="docs-tpls" aria-label="서식으로 시작"><h2 class="docs-h2">서식으로 시작</h2><div class="docs-tpl-row">' +
-      tpls.map((t) => '<button type="button" class="docs-tpl" data-tpl="' + t.id + '"><span class="docs-tpl-thumb docs-thumb-' + t.id + '" aria-hidden="true">' + thumbLines(t.id) + '</span><b>' + esc(t.name) + '</b><small>' + esc(t.desc) + '</small></button>').join('') +
+      '<section class="docs-tpls" aria-label="서식으로 시작"><h2 class="section-title">서식</h2><div class="docs-tpl-row">' +
+      tpls.map((t) => '<button type="button" class="docs-tpl" data-tpl="' + t.id + '" title="' + esc(t.desc) + '"><span class="docs-tpl-thumb docs-thumb-' + t.id + '" aria-hidden="true">' + thumbLines(t.id) + '</span><b>' + esc(t.name) + '</b></button>').join('') +
       '</div></section>' +
-      '<section aria-label="내 문서"><div class="docs-list-tools"><h2 class="docs-h2">내 문서 <span class="docs-count"></span></h2>' +
-      '<div class="p-search">' + P.icons.search + '<input type="search" placeholder="제목·내용 검색" aria-label="문서 검색" value="' + esc(q) + '"></div>' +
-      '<select class="docs-sort" aria-label="정렬"><option value="recent">최근 수정 순</option><option value="name">이름 순</option><option value="created">만든 날짜 순</option></select></div>' +
+      '<section class="docs-mine" aria-label="내 문서"><div class="docs-list-tools"><h2 class="docs-h2">내 문서 <span class="docs-count"></span></h2>' +
+      '<div class="p-search docs-search">' + P.icons.search + '<input type="search" placeholder="제목·내용 검색" aria-label="문서 검색" value="' + esc(q) + '"></div>' +
+      '<select class="docs-sort" aria-label="정렬"><option value="recent">최근 수정</option><option value="name">이름</option><option value="created">만든 날짜</option></select>' +
+      '<div class="seg docs-view" role="group" aria-label="보기"><button type="button" data-view="list" aria-label="목록으로 보기" title="목록">' + I.rows + '</button><button type="button" data-view="grid" aria-label="쪽으로 보기" title="쪽">' + I.tiles + '</button></div></div>' +
       '<div class="docs-cards"><div class="empty">불러오는 중…</div></div></section></div>';
     const cards = root.querySelector('.docs-cards');
     const search = root.querySelector('input[type="search"]');
     const sortSel = root.querySelector('.docs-sort');
     sortSel.value = sort;
+    function paintView() {
+      cards.dataset.mode = view;
+      root.querySelectorAll('button[data-view]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.view === view ? 'true' : 'false'));
+    }
+    paintView();
 
+    function acts() {
+      return '<span class="docs-card-acts">' +
+        '<button type="button" class="btn btn-ghost btn-sm" data-act="rename" title="이름 바꾸기" aria-label="이름 바꾸기">' + P.icons.edit + '</button>' +
+        '<button type="button" class="btn btn-ghost btn-sm" data-act="dup" title="복제" aria-label="복제">' + I.copy + '</button>' +
+        '<button type="button" class="btn btn-ghost btn-sm" data-act="del" title="삭제" aria-label="삭제">' + P.icons.trash + '</button></span>';
+    }
     function render() {
       const qq = q.trim().toLowerCase();
       let list = rows.filter((r) => !qq || String(r.data.title || '').toLowerCase().includes(qq) || String(r.data.preview || '').toLowerCase().includes(qq));
       if (sort === 'name') list = list.slice().sort((a, b) => String(a.data.title || '').localeCompare(String(b.data.title || ''), 'ko'));
       else if (sort === 'created') list = list.slice().sort((a, b) => String(b.data.createdAt || '').localeCompare(String(a.data.createdAt || '')));
-      root.querySelector('.docs-count').textContent = rows.length ? rows.length + '개' : '';
+      root.querySelector('.docs-count').textContent = rows.length ? String(rows.length) : '';
       if (!rows.length) {
-        cards.innerHTML = '<div class="empty card"><h3>아직 문서가 없습니다</h3><p>새 문서를 만들거나 위의 서식에서 골라 시작하세요. HWPX·DOCX 파일을 가져올 수도 있습니다.</p><button type="button" class="btn btn-primary" data-act="new">' + P.icons.plus + '새 문서 만들기</button></div>';
+        cards.innerHTML = '<div class="empty"><p>아직 문서가 없습니다.</p><button type="button" class="btn btn-primary" data-act="new">' + P.icons.plus + '새 문서</button></div>';
         return;
       }
-      if (!list.length) { cards.innerHTML = '<div class="empty">"' + esc(q) + '"에 맞는 문서가 없습니다.</div>'; return; }
-      cards.innerHTML = list.map((r) => {
-        const d = r.data || {};
-        const tp = tpls.find((t) => t.kind === d.kind && t.id !== 'blank');
-        return '<article class="docs-card card" data-id="' + esc(r.id) + '">' +
-          '<a class="docs-card-main" href="#/docs/' + encodeURIComponent(r.id) + '">' +
-          '<span class="docs-card-paper" aria-hidden="true"><span>' + esc((d.preview || '').slice(0, 90)) + '</span></span>' +
-          '<span class="docs-card-txt"><b>' + esc(d.title || '제목 없음') + '</b>' +
-          '<small>' + esc(relTime(r.updatedAt)) + (d.chars ? ' · ' + withComma(d.chars) + '자' : '') + '</small></span></a>' +
-          '<div class="docs-card-foot">' + (tp ? '<span class="chip">' + esc(tp.name) + '</span>' : '<span></span>') +
-          '<span class="docs-card-acts">' +
-          '<button type="button" class="btn btn-ghost btn-sm" data-act="rename" title="이름 바꾸기" aria-label="이름 바꾸기">' + P.icons.edit + '</button>' +
-          '<button type="button" class="btn btn-ghost btn-sm" data-act="dup" title="복제" aria-label="복제">' + I.copy + '</button>' +
-          '<button type="button" class="btn btn-ghost btn-sm" data-act="del" title="삭제" aria-label="삭제">' + P.icons.trash + '</button>' +
-          '</span></div></article>';
-      }).join('');
+      if (!list.length) { cards.innerHTML = '<div class="empty"><p>"' + esc(q) + '" 검색 결과 없음</p></div>'; return; }
+      const href = (r) => '#/docs/' + encodeURIComponent(r.id);
+      const meta = (r) => esc(relTime(r.updatedAt));
+      if (view === 'grid') {
+        cards.innerHTML = list.map((r) => {
+          const d = r.data || {};
+          return '<article class="docs-card docs-tile" data-id="' + esc(r.id) + '">' +
+            '<a class="docs-card-main" href="' + href(r) + '">' +
+            '<span class="docs-a4" aria-hidden="true"><span class="docs-a4-t">' + esc(d.title || '') + '</span><span class="docs-a4-p">' + esc((d.preview || '').slice(0, 220)) + '</span></span>' +
+            '<span class="docs-card-txt"><b>' + esc(d.title || '제목 없음') + '</b>' +
+            '<small>' + meta(r) + ' · ' + esc(kindName(tpls, d.kind)) + '</small></span></a>' + acts() + '</article>';
+        }).join('');
+        return;
+      }
+      cards.innerHTML = '<div class="docs-rows-head" aria-hidden="true"><span>이름</span><span>종류</span><span>수정</span><span class="num">쪽</span><span></span></div>' +
+        list.map((r) => {
+          const d = r.data || {};
+          return '<article class="docs-card docs-row" data-id="' + esc(r.id) + '">' +
+            '<a class="docs-card-main" href="' + href(r) + '"><span class="docs-glyph" aria-hidden="true"></span>' +
+            '<span class="docs-card-txt"><b>' + esc(d.title || '제목 없음') + '</b><small><span class="docs-m-time">' + meta(r) + '</span><span class="docs-p-prev">' + esc((d.preview || '').slice(0, 80) || ' ') + '</span></small></span></a>' +
+            '<span class="docs-c-kind"><span class="badge">' + esc(kindName(tpls, d.kind)) + '</span></span>' +
+            '<span class="docs-c-time">' + meta(r) + '</span>' +
+            '<span class="docs-c-pages num">' + (d.pages || 1) + '</span>' + acts() + '</article>';
+        }).join('');
     }
     async function load() {
       try { rows = await P.store.list(COL); } catch (e) { rows = []; }
       if (root.isConnected) render();
     }
     root.addEventListener('click', async (e) => {
+      const v = e.target.closest('button[data-view]');
+      if (v) { view = v.dataset.view; P.settings.set('docs.view', view); paintView(); render(); return; }
       const b = e.target.closest('[data-act],[data-tpl]');
       if (!b) return;
       if (b.dataset.tpl) {
@@ -1083,10 +1113,10 @@
   const MOD = isMac() ? '⌘' : 'Ctrl';
 
   function tb(cmd, icon, label, key) {
-    return '<button type="button" class="docs-tb" data-cmd="' + cmd + '" title="' + esc(label + (key ? ' (' + key + ')' : '')) + '" aria-label="' + esc(label) + '">' + icon + '</button>';
+    return '<button type="button" class="docs-tb" data-cmd="' + cmd + '" data-hint="' + esc(label) + '"' + (key ? ' data-key="' + esc(key) + '"' : '') + ' aria-label="' + esc(label) + (key ? ' (' + esc(key) + ')' : '') + '">' + icon + '</button>';
   }
   function tbm(cmd, icon, label, text) {
-    return '<button type="button" class="docs-tb docs-tb-menu" data-menu="' + cmd + '" title="' + esc(label) + '" aria-label="' + esc(label) + '" aria-haspopup="menu">' + icon + (text ? '<span class="docs-tb-txt">' + esc(text) + '</span>' : '') + '<svg class="docs-caret" viewBox="0 0 10 10" width="8" height="8" aria-hidden="true"><path d="M2 4l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></button>';
+    return '<button type="button" class="docs-tb docs-tb-menu" data-menu="' + cmd + '" data-hint="' + esc(label) + '" aria-label="' + esc(label) + '" aria-haspopup="menu">' + icon + (text ? '<span class="docs-tb-txt">' + esc(text) + '</span>' : '') + '<svg class="docs-caret" viewBox="0 0 10 10" width="8" height="8" aria-hidden="true"><path d="M2 4l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></button>';
   }
 
   async function mountEditor(root, ctx, id) {
@@ -1110,7 +1140,7 @@
       '<input class="docs-title" type="text" aria-label="문서 제목" maxlength="120">' +
       '<span class="docs-save" role="status" aria-live="polite"></span>' +
       '<span class="docs-top-sp"></span>' +
-      '<button type="button" class="btn btn-ghost docs-icon docs-hide-sm" data-cmd="find" title="찾기·바꾸기 (' + MOD + '+F)" aria-label="찾기·바꾸기">' + I.find + '</button>' +
+      '<button type="button" class="btn btn-ghost docs-icon" data-cmd="find" title="찾기·바꾸기 (' + MOD + '+F)" aria-label="찾기·바꾸기">' + I.find + '</button>' +
       '<button type="button" class="btn btn-sm docs-check-btn" data-cmd="check" title="공문서 점검">' + I.check + '<span>점검</span></button>' +
       '<button type="button" class="btn btn-sm btn-primary" data-menu="export" aria-haspopup="menu">' + I.export + '<span class="docs-hide-sm">내보내기</span></button>' +
       '<button type="button" class="btn btn-ghost docs-icon" data-menu="more" title="더 보기" aria-label="더 보기" aria-haspopup="menu">' + I.more + '</button>' +
@@ -1124,13 +1154,12 @@
       '<div class="docs-grp">' + tb('bold', I.bold, '굵게', MOD + '+B') + tb('italic', I.italic, '기울임', MOD + '+I') + tb('underline', I.underline, '밑줄', MOD + '+U') + tb('strike', I.strike, '취소선') +
       tb('sup', I.sup, '위 첨자') + tb('sub', I.sub, '아래 첨자') + tbm('color', I.color, '글자 색') + tbm('hilite', I.marker, '형광펜') + tb('clear', I.clear, '글자 모양 지우기') + '</div>' +
       '<div class="docs-grp">' + tb('align-left', I.left, '왼쪽 정렬', MOD + '+Shift+L') + tb('align-center', I.center, '가운데 정렬', MOD + '+Shift+E') + tb('align-right', I.right, '오른쪽 정렬', MOD + '+Shift+R') + tb('align-justify', I.justify, '양쪽 정렬', MOD + '+Shift+J') +
-      tbm('lineh', I.lineh, '줄 간격') + tb('outdent', I.outdent, '내어쓰기 · 수준 올림', 'Shift+Tab') + tb('indent', I.indent, '들여쓰기 · 수준 내림', 'Tab') + '</div>' +
-      '<div class="docs-grp">' + tbm('ol', I.ol, '공문서 항목 번호 (1. 가. 1) 가) …)', '항목') + tbm('ul', I.ul, '보고서 기호 (□ ○ - ·)', '기호') + '</div>' +
+      tbm('lineh', I.lineh, '줄 간격') + tb('outdent', I.outdent, '수준 올림', 'Shift+Tab') + tb('indent', I.indent, '수준 내림', 'Tab') + '</div>' +
+      '<div class="docs-grp">' + tbm('ol', I.ol, '항목 번호 1. 가. 1)', '') + tbm('ul', I.ul, '보고서 기호 □ ○ -', '') + '</div>' +
       '<div class="docs-grp">' + tbm('table', I.table, '표 넣기') + tb('image', I.image, '그림 넣기') + tb('pagebreak', I.pagebreak, '쪽 나누기', MOD + '+Enter') + tb('hr', I.hr, '가로선') +
-      tbm('symbol', I.symbol, '특수 문자') + tbm('date', I.date, '날짜·시간 넣기') + tb('won', I.won, '금액 표기 넣기 (금 1,000원(금일천원))') + '</div>' +
-      '<div class="docs-grp">' + tb('find', I.find, '찾기·바꾸기', MOD + '+F') + tb('outline', I.outline, '개요 보기') + tb('page', I.page, '쪽 설정 (여백·머리말·쪽 번호)') + tb('count', I.count, '글자 수') + '</div>' +
+      tbm('symbol', I.symbol, '특수 문자') + tbm('date', I.date, '날짜·시간 넣기') + tb('won', I.won, '금액 표기 넣기') + '</div>' +
       '</div>' +
-      '<div class="docs-tblbar" role="toolbar" aria-label="표 도구" hidden><b class="docs-tblbar-t">' + I.table + '표</b>' +
+      '<div class="docs-tblbar" role="toolbar" aria-label="표 도구" hidden><b class="docs-tblbar-t">표</b>' +
       '<button type="button" class="btn btn-sm btn-ghost" data-tcmd="row-above">위에 줄</button>' +
       '<button type="button" class="btn btn-sm btn-ghost" data-tcmd="row-below">아래에 줄</button>' +
       '<button type="button" class="btn btn-sm btn-ghost" data-tcmd="col-left">왼쪽 칸</button>' +
@@ -1161,11 +1190,13 @@
       '<div class="docs-find-row"><input type="text" class="docs-find-r" placeholder="바꿀 내용" aria-label="바꿀 내용">' +
       '<button type="button" class="btn btn-sm" data-fcmd="one">바꾸기</button><button type="button" class="btn btn-sm" data-fcmd="all">모두</button></div>' +
       '<label class="docs-find-opt"><input type="checkbox" class="docs-find-case"> 대소문자 구분</label></div>' +
-      '<aside class="docs-side" hidden aria-label="보조 창"><div class="docs-side-head"><div class="chips docs-side-tabs"><button type="button" class="chip" data-side="check">공문서 점검</button><button type="button" class="chip" data-side="outline">개요</button></div>' +
+      '<aside class="docs-side" hidden aria-label="보조 창"><div class="docs-side-head"><div class="seg docs-side-tabs"><button type="button" data-side="outline">개요</button><button type="button" data-side="check">점검</button></div>' +
       '<button type="button" class="btn btn-ghost btn-sm docs-icon" data-side="close" aria-label="닫기">' + I.close + '</button></div><div class="docs-side-body"></div></aside>' +
       '</div>' +
-      '<div class="docs-status"><span class="docs-st-page">1 / 1쪽</span><span class="docs-st-chars"></span><span class="docs-top-sp"></span>' +
-      '<label class="docs-st-zoom"><span class="sr-only">배율</span><select class="docs-zoom" aria-label="배율"><option value="fit">쪽 맞춤</option><option value="text">글자 폭 맞춤</option><option value="0.5">50%</option><option value="0.75">75%</option><option value="1">100%</option><option value="1.25">125%</option><option value="1.5">150%</option><option value="2">200%</option></select></label></div>' +
+      '<div class="docs-status"><span class="docs-st-page num">1 / 1쪽</span><button type="button" class="docs-st-btn docs-st-chars num" data-cmd="count" title="글자 수 자세히"></button><span class="docs-top-sp"></span>' +
+      '<button type="button" class="docs-st-btn docs-st-outline" data-cmd="outline" aria-pressed="false" title="개요">' + I.outline + '<span>개요</span></button>' +
+      '<button type="button" class="docs-st-btn" data-cmd="page" title="쪽 설정 (여백·머리말·쪽 번호)" aria-label="쪽 설정">' + I.page + '<span>쪽 설정</span></button>' +
+      '<label class="docs-st-zoom">' + I.zoom + '<span class="sr-only">배율</span><select class="docs-zoom" aria-label="배율"><option value="fit">쪽 맞춤</option><option value="text">글자 폭 맞춤</option><option value="0.5">50%</option><option value="0.75">75%</option><option value="1">100%</option><option value="1.25">125%</option><option value="1.5">150%</option><option value="2">200%</option></select></label></div>' +
       '</div>';
 
     root.style.height = '100%';
@@ -1406,7 +1437,8 @@
         page: clone(pg),
         kind,
         preview: text.replace(/\s+/g, ' ').trim().slice(0, 140),
-        chars: text.replace(/\n/g, '').length
+        chars: text.replace(/\n/g, '').length,
+        pages: pageCount
       });
     }
     function saveNow() {
@@ -1906,7 +1938,7 @@
         case 'find': return openFind(false);
         case 'replace': return openFind(true);
         case 'check': return openSide('check');
-        case 'outline': return openSide('outline');
+        case 'outline': return (!side.hidden && side.querySelector('[data-side="outline"]').getAttribute('aria-pressed') === 'true') ? closeSide() : openSide('outline');
         case 'page': return openPageSetup();
         case 'count': return openCount();
         case 'print': return doExport('pdf');
@@ -1919,6 +1951,7 @@
     ribbon.addEventListener('mousedown', (e) => { if (e.target.closest('button')) e.preventDefault(); });
     tblbar.addEventListener('mousedown', (e) => { if (e.target.closest('button')) e.preventDefault(); });
     imgbar.addEventListener('mousedown', (e) => { if (e.target.closest('button')) e.preventDefault(); });
+    root.querySelector('.docs-status').addEventListener('mousedown', (e) => { if (e.target.closest('button')) e.preventDefault(); });
     root.addEventListener('click', (e) => {
       const b = e.target.closest('[data-cmd],[data-menu]');
       if (!b || !root.contains(b) || b.closest('.docs-pop')) return;
@@ -2747,8 +2780,8 @@
         (checkIssues.length ? '<ol class="docs-ck-list">' + checkIssues.map((it, i) =>
           '<li class="docs-ck-item ' + it.lv + '"><button type="button" class="docs-ck-go" data-ck="go" data-i="' + i + '"><b>' + esc(it.title) + '</b><span class="docs-ck-ctx">' + ctxOf(it) + '</span><small>' + esc(it.msg) + '</small></button>' +
           (it.fix != null || it.fixFn ? '<button type="button" class="btn btn-sm docs-ck-fix" data-ck="fix" data-i="' + i + '">' + fixLabel(it) + '</button>' : '') + '</li>').join('') + '</ol>'
-          : '<div class="empty"><b>점검 결과 문제가 없습니다.</b><p class="muted">날짜·시각·금액 표기, 항목 기호 순서, 띄어쓰기, 끝 표시, 쉬운 용어를 확인했습니다.</p></div>') +
-        '<p class="docs-ck-note muted">규칙 기반 점검이라 문맥에 따라 맞는 표현도 표시될 수 있습니다. 행정업무 편람의 일반 원칙을 따릅니다.</p>';
+          : '<div class="empty"><p>고칠 곳이 없습니다.</p></div>') +
+        '<p class="docs-ck-note muted">행정업무 편람 기준 · 문맥에 따라 맞는 표현도 표시될 수 있음</p>';
     }
     side.addEventListener('click', (e) => {
       const t = e.target.closest('[data-side],[data-ck],[data-ol-i]');
@@ -2789,7 +2822,7 @@
     function renderOutline() {
       outlineItems = Array.from(body.querySelectorAll(':scope > h1, :scope > h2, :scope > h3, :scope > p[data-ol="1"], :scope > p[data-ol="2"], :scope > p[data-ul="1"]'));
       const sb = side.querySelector('.docs-side-body');
-      if (!outlineItems.length) { sb.innerHTML = '<div class="empty"><p>제목(제목 1~3)이나 항목 번호·기호를 쓰면 여기에 개요가 나타납니다.</p></div>'; return; }
+      if (!outlineItems.length) { sb.innerHTML = '<div class="empty"><p>제목이 없습니다.</p></div>'; return; }
       sb.innerHTML = '<ol class="docs-outline">' + outlineItems.map((b, i) => {
         const lv = b.tagName === 'H1' ? 0 : b.tagName === 'H2' ? 1 : b.tagName === 'H3' ? 2 : b.getAttribute('data-ol') === '2' ? 2 : 1;
         const t = ((b.getAttribute('data-mk') ? b.getAttribute('data-mk') + ' ' : '') + b.textContent).trim().slice(0, 60) || '(빈 제목)';
@@ -2800,12 +2833,14 @@
       side.hidden = false;
       root.querySelector('.docs-editor').classList.add('docs-side-open');
       side.querySelectorAll('[data-side]').forEach((b) => { if (b.dataset.side !== 'close') b.setAttribute('aria-pressed', b.dataset.side === mode ? 'true' : 'false'); });
+      root.querySelector('.docs-st-outline').setAttribute('aria-pressed', mode === 'outline' ? 'true' : 'false');
       if (mode === 'check') renderCheck(); else { if (hasHL) CSS.highlights.delete('docs-check'); renderOutline(); }
       applyScale();
     }
     function closeSide() {
       side.hidden = true;
       root.querySelector('.docs-editor').classList.remove('docs-side-open');
+      root.querySelector('.docs-st-outline').setAttribute('aria-pressed', 'false');
       if (hasHL) CSS.highlights.delete('docs-check');
       applyScale();
     }

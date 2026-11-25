@@ -60,7 +60,16 @@
     home: svg('<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>'),
     sun: svg('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>'),
     moon: svg('<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>'),
-    auto: svg('<circle cx="12" cy="12" r="8"/><path d="M12 4v16a8 8 0 0 0 0-16z" fill="currentColor"/>')
+    auto: svg('<circle cx="12" cy="12" r="8"/><path d="M12 4v16a8 8 0 0 0 0-16z" fill="currentColor"/>'),
+    calendar: svg('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>'),
+    pen: svg('<path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13 7l4 4"/>'),
+    book: svg('<path d="M5 4h11a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2z"/><path d="M5 18a2 2 0 0 1 2-2h11"/>'),
+    doc: svg('<path d="M7 3h7l5 5v13H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M14 3v5h5M9 13h6M9 17h6"/>'),
+    sheet: svg('<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/>'),
+    slide: svg('<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M12 16v4M8 20h8"/>'),
+    chart: svg('<path d="M4 20V10M10 20V4M16 20v-7M21 20H3"/>'),
+    clock: svg('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'),
+    more: svg('<circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/>')
   };
 
   /* ---------- 설정 (기기별 localStorage) ---------- */
@@ -578,11 +587,13 @@
     const btn = document.getElementById('p-storage-btn');
     if (!btn) return;
     const k = KINDS[activeKind];
-    btn.innerHTML = k.icon + '<span class="p-storage-label">' + esc(k.short) + '</span>' + icons.chevron.replace('width="20" height="20"', 'width="14" height="14"');
+    btn.innerHTML = k.icon + '<span class="p-storage-label">' + esc(k.label) + '</span>' + icons.chevron.replace('width="20" height="20"', 'width="14" height="14" class="p-storage-chev"');
     btn.dataset.kind = activeKind;
     btn.dataset.state = connState;
-    btn.title = '저장 위치: ' + k.label + (connState === 'error' ? ' (연결 오류)' : '') + ' — 눌러서 바꾸기';
-    btn.setAttribute('aria-label', btn.title);
+    const label = '저장 위치: ' + k.label + (connState === 'error' ? ' (연결 오류)' : connState === 'checking' ? ' (확인 중)' : '');
+    btn.dataset.tip = label;
+    btn.setAttribute('aria-label', label + ', 눌러서 바꾸기');
+    document.querySelectorAll('[data-p-storage-state]').forEach((n) => { n.dataset.state = connState; });
   }
   let popClose = null;
   function openStorageMenu() {
@@ -601,8 +612,13 @@
     const r = btn.getBoundingClientRect();
     const w = Math.min(320, window.innerWidth - 16);
     pop.style.width = w + 'px';
-    pop.style.top = (r.bottom + 6) + 'px';
-    pop.style.left = Math.max(8, Math.min(r.right - w, window.innerWidth - w - 8)) + 'px';
+    const h = pop.offsetHeight;
+    const inSide = !!btn.closest('.p-side');
+    let top = r.bottom + 6;
+    if (top + h > window.innerHeight - 8) top = Math.max(8, (inSide ? r.bottom : r.top - 6) - h);
+    let left = inSide ? (r.width < 80 ? r.right + 8 : r.left) : r.right - w;
+    pop.style.top = top + 'px';
+    pop.style.left = Math.max(8, Math.min(left, window.innerWidth - w - 8)) + 'px';
     btn.setAttribute('aria-expanded', 'true');
     const onDoc = (e) => { if (!pop.contains(e.target) && !btn.contains(e.target)) close(); };
     const onKey = (e) => { if (e.key === 'Escape') { close(); btn.focus(); } };
@@ -810,7 +826,7 @@
     else document.documentElement.removeAttribute('data-theme');
     const dark = th === 'dark' || (th !== 'light' && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
     const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute('content', dark ? '#0f1420' : '#ffffff');
+    if (meta) meta.setAttribute('content', dark ? '#111214' : '#F5F3EE');
   }
 
   /* ---------- 설정 창 ---------- */
@@ -869,6 +885,17 @@
   }
 
   /* ---------- 앱 등록 · 라우터 ---------- */
+  /* 메뉴 묶음: registerApp({ group }) 으로 지정, 없으면 id 로 정함 */
+  const GROUPS = [
+    { id: 'home', label: '' },
+    { id: 'plan', label: '일정', icon: icons.calendar },
+    { id: 'make', label: '작성', icon: icons.pen },
+    { id: 'ref', label: '자료', icon: icons.book },
+    { id: 'etc', label: '기타', icon: icons.grid },
+    { id: 'meta', label: '' }
+  ];
+  const GROUP_BY_ID = { home: 'home', 'head-schedule': 'plan', schedule: 'plan', docs: 'make', slides: 'make', sheets: 'make', charts: 'make', refs: 'ref', apis: 'ref', changelog: 'meta' };
+  const groupOf = (a) => GROUPS.find((g) => g.id === a.group) || GROUPS.find((g) => g.id === 'etc');
   const apps = new Map();
   let current = null; // { app, cleanup }
   let mounted = null; // { offs: [] } 현재 마운트 범위의 리스너
@@ -880,7 +907,9 @@
       console.error('registerApp: id와 mount가 필요합니다.', def);
       return;
     }
-    apps.set(def.id, Object.assign({ title: def.id, short: def.title || def.id, icon: icons.grid, order: 50, desc: '' }, def));
+    const app = Object.assign({ title: def.id, short: def.title || def.id, icon: icons.grid, order: 50, desc: '' }, def);
+    if (!GROUPS.some((g) => g.id === app.group)) app.group = GROUP_BY_ID[app.id] || 'etc';
+    apps.set(def.id, app);
     if (booted) {
       clearTimeout(navTimer);
       navTimer = setTimeout(() => {
@@ -907,6 +936,31 @@
     const b = brand();
     document.title = current && current.app.id !== 'home' ? current.app.title + ' · ' + b.title : b.title;
   }
+  /* 빠른 실행: 앱으로 이동한 뒤 그 앱의 '새로 만들기' 같은 동작을 실행.
+     앱은 ctx.intent('new' 등)를 보고 직접 처리하고 ctx.intentHandled() 를 부르면 됨.
+     처리하지 않으면 core 가 아래 단추를 대신 누름(최대 5초 기다림). */
+  const INTENT_SEL = {
+    new: { docs: '[data-act="new"]', slides: '[data-a="new"]', sheets: '[data-act="new"]', 'head-schedule': '[data-act="new"]', schedule: '[data-act="new"]' }
+  };
+  let pendingIntent = null;
+  function runIntent(path, action) {
+    const p = String(path || '').replace(/^#?\/?/, '');
+    pendingIntent = { app: p.split('/')[0], action: action || 'new', done: false };
+    navigate(p);
+  }
+  function fallbackIntent(it, entry, root) {
+    const sel = (INTENT_SEL[it.action] || {})[it.app];
+    if (!sel) return;
+    const t0 = Date.now();
+    const tick = () => {
+      if (it.done || current !== entry || !root.isConnected) return;
+      if (document.querySelector('.p-modal-back')) return; // 이미 창이 열림
+      const btn = Array.from(root.querySelectorAll(sel)).find((b) => b.offsetParent !== null && !b.disabled);
+      if (btn) { it.done = true; btn.click(); return; }
+      if (Date.now() - t0 < 5000) setTimeout(tick, 80);
+    };
+    setTimeout(tick, 30);
+  }
   function unmountCurrent() {
     if (mounted) { mounted.offs.forEach((off) => off()); mounted = null; }
     if (current && typeof current.cleanup === 'function') {
@@ -927,6 +981,7 @@
     if (!app) {
       view.innerHTML = '<div class="page"><div class="empty card"><h2>준비 중인 화면입니다</h2><p>요청한 화면(' + esc(id) + ')을 찾을 수 없습니다.</p><a class="btn btn-primary" href="#/home">홈으로</a></div></div>';
       document.title = brand().title;
+      pendingIntent = null;
       return;
     }
     if (app.shared && activeKind === 'local' && !settings.get('hint.shared.off', false)) view.appendChild(sharedHint());
@@ -936,7 +991,9 @@
     current = entry;
     mounted = { offs: [] };
     updateDocTitle();
-    const ctx = { params, navigate };
+    const it = pendingIntent && pendingIntent.app === id ? pendingIntent : null;
+    pendingIntent = null;
+    const ctx = { params, navigate, intent: it ? it.action : null, intentHandled: () => { if (it) it.done = true; } };
     let res;
     try {
       res = app.mount(root, ctx);
@@ -951,6 +1008,7 @@
         if (current === entry) entry.cleanup = fn; else { try { fn(); } catch (e) { console.error(e); } }
       }, (e) => { console.error(e); if (current === entry) root.innerHTML = errorCard(app, e); });
     } else if (typeof res === 'function') entry.cleanup = res;
+    if (it) fallbackIntent(it, entry, root);
   }
   /* 함께 보는 앱(shared: true)을 '이 브라우저' 저장으로 쓸 때 안내 */
   function sharedHint() {
@@ -971,19 +1029,44 @@
     return '<div class="page"><div class="empty card"><h2>' + esc(app.title) + ' 화면을 여는 중 문제가 생겼습니다</h2><p class="muted">' + esc(e && e.message) + '</p><button class="btn btn-primary" type="button" onclick="location.reload()">새로고침</button></div></div>';
   }
 
-  /* ---------- 탐색 표시 ---------- */
-  function renderNav() {
+  /* ---------- 탐색 표시: 옆 메뉴 · 위 줄 · 아래 탭 ---------- */
+  const mqPhone = window.matchMedia ? matchMedia('(max-width: 759px)') : { matches: false };
+  const mqTablet = window.matchMedia ? matchMedia('(min-width: 760px) and (max-width: 1023px)') : { matches: false };
+  const isMac = /Mac|iPhone|iPad/i.test((navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || '');
+
+  function navItem(a) {
+    return '<a class="p-tab" href="#/' + esc(a.id) + '" data-app="' + esc(a.id) + '" data-tip="' + esc(a.title) + '">' +
+      '<span class="p-tab-ic">' + (a.icon || '') + '</span><span class="p-tab-label">' + esc(a.title) + '</span></a>';
+  }
+  function groupedApps() {
     const list = appList();
+    return GROUPS.map((g) => ({ g, list: list.filter((a) => groupOf(a) === g) })).filter((x) => x.list.length);
+  }
+  function renderNav() {
+    const groups = groupedApps();
     const tabs = document.getElementById('p-tabs');
     if (tabs) {
-      tabs.innerHTML = list.map((a) => '<a class="p-tab" href="#/' + esc(a.id) + '" data-app="' + esc(a.id) + '">' + '<span class="p-tab-ic">' + (a.icon || '') + '</span><span>' + esc(a.short || a.title) + '</span></a>').join('');
+      tabs.innerHTML = groups.filter((x) => x.g.id !== 'meta').map((x) =>
+        (x.g.label ? '<div class="p-nav-group" role="presentation">' + esc(x.g.label) + '</div>' : '') + x.list.map(navItem).join('')).join('');
+    }
+    const foot = document.getElementById('p-nav-foot');
+    if (foot) {
+      const meta = groups.find((x) => x.g.id === 'meta');
+      foot.innerHTML = meta ? meta.list.map(navItem).join('') : '';
+      foot.hidden = !meta;
     }
     const bottom = document.getElementById('p-bottom');
     if (bottom) {
-      const quick = list.slice(0, 4);
-      bottom.innerHTML = quick.map((a) => '<a class="p-bt" href="#/' + esc(a.id) + '" data-app="' + esc(a.id) + '"><span class="p-tab-ic">' + (a.icon || '') + '</span><span>' + esc(a.short || a.title) + '</span></a>').join('') +
-        '<button type="button" class="p-bt" id="p-all-btn" aria-haspopup="dialog"><span class="p-tab-ic">' + icons.grid + '</span><span>전체</span></button>';
-      bottom.querySelector('#p-all-btn').addEventListener('click', openAllApps);
+      const home = apps.get('home');
+      const tabsB = [];
+      if (home) tabsB.push('<a class="p-bt" href="#/home" data-app="home"><span class="p-tab-ic">' + (home.icon || icons.home) + '</span><span>홈</span></a>');
+      ['plan', 'make', 'ref'].forEach((gid) => {
+        const x = groups.find((y) => y.g.id === gid);
+        if (x) tabsB.push('<button type="button" class="p-bt" data-group="' + gid + '" aria-haspopup="dialog"><span class="p-tab-ic">' + x.g.icon + '</span><span>' + esc(x.g.label) + '</span></button>');
+      });
+      tabsB.push('<button type="button" class="p-bt" id="p-all-btn" aria-haspopup="dialog"><span class="p-tab-ic">' + icons.grid + '</span><span>전체</span></button>');
+      bottom.style.gridTemplateColumns = 'repeat(' + tabsB.length + ', 1fr)';
+      bottom.innerHTML = tabsB.join('');
     }
     markActive(parseHash().id);
   }
@@ -991,24 +1074,260 @@
     document.querySelectorAll('.p-tab, .p-bt[data-app]').forEach((a) => {
       if (a.dataset.app === id) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
     });
+    const app = apps.get(id);
+    const gid = app ? groupOf(app).id : '';
+    document.querySelectorAll('.p-bt[data-group]').forEach((b) => b.classList.toggle('active', b.dataset.group === gid));
     const all = document.getElementById('p-all-btn');
-    if (all) {
-      const inQuick = !!document.querySelector('.p-bt[data-app="' + CSS.escape(id) + '"]');
-      all.classList.toggle('active', !inQuick && apps.has(id));
+    if (all) all.classList.toggle('active', !!app && !document.querySelector('.p-bt.active, .p-bt[aria-current="page"]'));
+    const crumb = document.getElementById('p-crumb');
+    if (crumb) {
+      const g = app ? groupOf(app) : null;
+      crumb.innerHTML = app
+        ? (g && g.label ? '<span class="p-crumb-group">' + esc(g.label) + '</span><span class="p-crumb-sep" aria-hidden="true">/</span>' : '') +
+          '<span class="p-crumb-cur">' + esc(app.title) + '</span>'
+        : '<span class="p-crumb-cur">' + esc(brand().title) + '</span>';
     }
-    const act = document.querySelector('.p-tab[aria-current="page"]');
-    if (act && act.scrollIntoView) {
-      const bar = act.parentElement;
-      const l = act.offsetLeft - bar.clientWidth / 2 + act.clientWidth / 2;
-      bar.scrollTo({ left: Math.max(0, l), behavior: 'smooth' });
-    }
+    const act = document.querySelector('#p-tabs .p-tab[aria-current="page"]');
+    if (act && act.scrollIntoView) { try { act.scrollIntoView({ block: 'nearest' }); } catch (e) { /* 무시 */ } }
+  }
+  function appListHTML(list, cur) {
+    return '<div class="p-allapps-list">' + list.map((a) => '<a href="#/' + esc(a.id) + '" class="p-allapp"' + (a.id === cur ? ' aria-current="page"' : '') + '><span class="p-allapp-ic">' + (a.icon || '') + '</span><span>' + esc(a.title) + '</span></a>').join('') + '</div>';
   }
   function openAllApps() {
+    const cur = parseHash().id;
     const g = el('div', { class: 'p-allapps' });
-    g.innerHTML = appList().map((a) => '<a href="#/' + esc(a.id) + '" class="p-allapp"><span class="p-allapp-ic">' + (a.icon || '') + '</span><span>' + esc(a.title) + '</span></a>').join('');
+    g.innerHTML = groupedApps().map((x) => '<section class="p-allapps-group">' + (x.g.label ? '<div class="section-title"><span>' + esc(x.g.label) + '</span></div>' : '') + appListHTML(x.list, cur) + '</section>').join('');
     const close = modal({ title: '전체 메뉴', body: g });
     g.addEventListener('click', (e) => { if (e.target.closest('a')) close(); });
   }
+  function openGroupSheet(gid) {
+    const x = groupedApps().find((y) => y.g.id === gid);
+    if (!x) return;
+    const cur = parseHash().id;
+    const g = el('div', { class: 'p-allapps' });
+    let html = '<section class="p-allapps-group">' + appListHTML(x.list, cur) + '</section>';
+    const acts = quickActions().filter((q) => q.group === gid);
+    if (acts.length) {
+      html += '<section class="p-allapps-group"><div class="section-title"><span>새로 만들기</span></div><div class="p-allapps-list">' +
+        acts.map((q, i) => '<button type="button" class="p-allapp" data-q="' + i + '" style="width:100%;border-left:0;border-right:0;border-top:0;cursor:pointer;text-align:left"><span class="p-allapp-ic">' + icons.plus + '</span><span>' + esc(q.label) + '</span></button>').join('') + '</div></section>';
+    }
+    g.innerHTML = html;
+    const close = modal({ title: x.g.label, body: g });
+    g.addEventListener('click', (e) => {
+      if (e.target.closest('a')) { close(); return; }
+      const b = e.target.closest('[data-q]');
+      if (b) { close(); setTimeout(() => acts[Number(b.dataset.q)].run(), 60); }
+    });
+  }
+
+  /* 메뉴 접기(기기별 기억) · 화면 폭에 따른 배치 */
+  function applyNavMode() {
+    const collapsed = !!settings.get('nav.collapsed', false);
+    const rail = !mqPhone.matches && (mqTablet.matches || collapsed);
+    if (rail) document.documentElement.setAttribute('data-nav', 'rail'); else document.documentElement.removeAttribute('data-nav');
+    const cb = document.getElementById('p-collapse');
+    if (cb) {
+      cb.setAttribute('aria-pressed', String(collapsed));
+      const label = collapsed ? '메뉴 펼치기' : '메뉴 접기';
+      cb.setAttribute('aria-label', label);
+      cb.dataset.tip = label;
+      const sl = cb.querySelector('.p-side-label');
+      if (sl) sl.textContent = label;
+    }
+    const util = document.getElementById('p-util');
+    const top = document.getElementById('p-top-actions');
+    const side = document.querySelector('.p-side-foot');
+    if (util && top && side) {
+      if (mqPhone.matches && util.parentNode !== top) top.appendChild(util);
+      else if (!mqPhone.matches && util.parentNode !== side) side.insertBefore(util, document.getElementById('p-collapse'));
+    }
+    const gb = document.getElementById('p-settings-btn');
+    if (gb) gb.dataset.tip = '설정';
+  }
+
+  /* ---------- 빠른 실행 목록 (명령 팔레트·홈·아래 탭이 함께 씀) ---------- */
+  function quickActions() {
+    const out = [];
+    const add = (app, label, run, extra) => { if (apps.has(app)) out.push(Object.assign({ app, label, run, group: groupOf(apps.get(app)).id, icon: icons.plus }, extra || {})); };
+    add('docs', '새 문서', () => runIntent('docs', 'new'), { key: 'doc', icon: icons.doc, kw: 'document 문서 만들기 작성' });
+    add('slides', '새 PT', () => runIntent('slides', 'new'), { key: 'slide', icon: icons.slide, kw: 'ppt 발표 프레젠테이션 슬라이드' });
+    add('sheets', '새 시트', () => runIntent('sheets', 'new'), { key: 'sheet', icon: icons.sheet, kw: '엑셀 excel 표 통합문서' });
+    add('charts', '차트 만들기', () => navigate('charts'), { key: 'chart', icon: icons.chart, kw: '그래프 도표 chart' });
+    add('schedule', '일정 추가', () => runIntent('schedule/events', 'new'), { key: 'event', icon: icons.calendar, kw: '부서 일정 스케줄 등록' });
+    add('schedule', '주요업무 추가', () => runIntent('schedule/tasks', 'new'), { key: 'task', icon: icons.check, kw: '업무 할일 과제' });
+    add('head-schedule', '부서장 일정 추가', () => runIntent('head-schedule', 'new'), { key: 'head', icon: icons.clock, kw: '국장 과장 일정 등록' });
+    return out;
+  }
+  function systemActions() {
+    return [
+      { label: '저장 위치 바꾸기', icon: KINDS[activeKind].icon, run: () => openStorageMenu(), kw: '클라우드 서버 브라우저 supabase' },
+      { label: '설정 열기', icon: icons.gear, run: () => openSettings(), kw: '제목 테마 백업' },
+      { label: '테마 바꾸기 (밝게·어둡게)', icon: icons.moon, kw: '다크 라이트 dark light 어둡게 밝게', run: () => {
+        const cur = settings.get('theme', 'auto');
+        const dark = cur === 'dark' || (cur !== 'light' && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
+        settings.set('theme', dark ? 'light' : 'dark');
+        applyTheme();
+      } },
+      { label: '데이터 백업 내보내기', icon: icons.download, run: () => exportBackup(), kw: 'backup json' }
+    ];
+  }
+
+  /* ---------- 명령 팔레트 (Ctrl/⌘+K) ---------- */
+  const CHO = ['ㄱ', 'ㄲ', 'ㄴ', 'ㄷ', 'ㄸ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅃ', 'ㅅ', 'ㅆ', 'ㅇ', 'ㅈ', 'ㅉ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ'];
+  const norm = (t) => String(t || '').toLowerCase().replace(/\s+/g, '');
+  const chosung = (t) => Array.from(t, (c) => { const n = c.charCodeAt(0) - 0xAC00; return n >= 0 && n < 11172 ? CHO[Math.floor(n / 588)] : c; }).join('');
+  function matchScore(q, label, kw) {
+    if (!q) return 1;
+    const t = norm(label);
+    let i = t.indexOf(q);
+    if (i === 0) return 100 - t.length * 0.1;
+    if (i > 0) return 80 - i;
+    i = chosung(t).indexOf(q);
+    if (i >= 0) return 60 - i;
+    if (kw && norm(kw).includes(q)) return 45;
+    let j = 0, gaps = 0, last = -1;
+    for (let k = 0; k < t.length && j < q.length; k++) {
+      if (t[k] === q[j]) { if (last >= 0) gaps += k - last - 1; last = k; j++; }
+    }
+    return j === q.length ? Math.max(1, 30 - gaps) : 0;
+  }
+  function highlight(label, rawQ) {
+    const q = String(rawQ || '').trim();
+    const s = String(label);
+    const i = q ? s.toLowerCase().indexOf(q.toLowerCase()) : -1;
+    if (i < 0) return esc(s);
+    return esc(s.slice(0, i)) + '<mark>' + esc(s.slice(i, i + q.length)) + '</mark>' + esc(s.slice(i + q.length));
+  }
+  const RECENT_COLS = [['docs', '문서', icons.doc], ['sheets', '시트', icons.sheet], ['slides', 'PT', icons.slide]];
+  async function recentItems() {
+    const out = [];
+    await Promise.all(RECENT_COLS.filter(([c]) => apps.has(c)).map(async ([c, type, ic]) => {
+      let rows = [];
+      try { rows = await active.list(c); } catch (e) { rows = []; }
+      (rows || []).slice(0, 30).forEach((r) => {
+        const d = r && r.data && typeof r.data === 'object' ? r.data : {};
+        out.push({ col: c, id: r.id, label: String(d.title || d.name || '제목 없음'), type, icon: ic, updatedAt: r.updatedAt || '' });
+      });
+    }));
+    return out.sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : a.updatedAt > b.updatedAt ? -1 : 0));
+  }
+  function relTime(iso) {
+    const t = Date.parse(iso);
+    if (!t) return '';
+    const s = Math.round((Date.now() - t) / 1000);
+    if (s < 60) return '방금 전';
+    if (s < 3600) return Math.floor(s / 60) + '분 전';
+    if (s < 86400) return Math.floor(s / 3600) + '시간 전';
+    if (s < 86400 * 7) return Math.floor(s / 86400) + '일 전';
+    const d = new Date(t);
+    return d.getFullYear() + '. ' + (d.getMonth() + 1) + '. ' + d.getDate() + '.';
+  }
+
+  let paletteClose = null;
+  function openPalette(initial) {
+    if (paletteClose) { paletteClose(); return; }
+    if (popClose) popClose();
+    const lastFocus = document.activeElement;
+    const back = el('div', { class: 'p-cmd-back' });
+    const box = el('div', { class: 'p-cmd', role: 'dialog', 'aria-modal': 'true', 'aria-label': '검색 또는 이동' });
+    box.innerHTML =
+      '<div class="p-cmd-input">' + icons.search +
+      '<input type="text" id="p-cmd-q" role="combobox" aria-expanded="true" aria-controls="p-cmd-list" aria-autocomplete="list" autocomplete="off" spellcheck="false" placeholder="화면, 동작, 최근 문서 검색" aria-label="검색어">' +
+      '<kbd class="kbd">esc</kbd></div>' +
+      '<ul class="p-cmd-list" id="p-cmd-list" role="listbox" aria-label="결과"></ul>' +
+      '<div class="p-cmd-foot" aria-hidden="true"><span><kbd class="kbd">↑</kbd><kbd class="kbd">↓</kbd> 고르기</span><span><kbd class="kbd">Enter</kbd> 실행</span><span><kbd class="kbd">esc</kbd> 닫기</span><span>초성으로도 찾습니다 (예: ㅁㅅ)</span></div>';
+    back.appendChild(box);
+    document.body.appendChild(back);
+    const input = box.querySelector('input');
+    const listEl = box.querySelector('ul');
+    let recent = [];
+    let items = [];
+    let sel = 0;
+
+    const appItems = () => appList().map((a) => ({ kind: 'app', label: a.title, meta: groupOf(a).label || '', icon: a.icon, kw: (a.short || '') + ' ' + a.id + ' ' + (a.desc || ''), run: () => navigate(a.id) }));
+    const actItems = () => quickActions().map((q) => ({ kind: 'act', label: q.label, meta: '만들기', icon: q.icon, kw: q.kw, run: q.run }))
+      .concat(systemActions().map((q) => ({ kind: 'sys', label: q.label, meta: '설정', icon: q.icon, kw: q.kw, run: q.run })));
+    const recItems = () => recent.map((r) => ({ kind: 'rec', label: r.label, meta: r.type + ' · ' + relTime(r.updatedAt), icon: r.icon, kw: r.type, run: () => navigate(r.col + '/' + encodeURIComponent(r.id)) }));
+
+    function render() {
+      const raw = input.value.trim();
+      const q = norm(raw);
+      let groups;
+      if (!q) {
+        groups = [['최근 항목', recItems().slice(0, 5)], ['만들기', actItems().filter((x) => x.kind === 'act')], ['이동', appItems()]];
+      } else {
+        const all = appItems().concat(actItems(), recItems())
+          .map((x) => Object.assign(x, { score: matchScore(q, x.label, x.kw) + (x.kind === 'app' ? 3 : x.kind === 'act' ? 2 : 0) }))
+          .filter((x) => x.score > 3).sort((a, b) => b.score - a.score).slice(0, 30);
+        groups = [['', all]];
+      }
+      items = [];
+      let html = '';
+      groups.forEach(([title, list]) => {
+        if (!list.length) return;
+        if (title) html += '<li class="p-cmd-group" role="presentation">' + esc(title) + '</li>';
+        list.forEach((x) => {
+          const n = items.length;
+          items.push(x);
+          html += '<li class="p-cmd-opt" role="option" id="p-cmd-o' + n + '" data-i="' + n + '" aria-selected="false">' +
+            '<span class="p-cmd-opt-ic">' + (x.icon || '') + '</span><span class="p-cmd-opt-txt">' + highlight(x.label, raw) + '</span>' +
+            (x.meta && (q || x.kind !== 'act') ? '<span class="p-cmd-opt-meta">' + esc(x.meta) + '</span>' : '') + '</li>';
+        });
+      });
+      if (!items.length) html = '<li class="p-cmd-empty" role="presentation">"' + esc(raw) + '"에 맞는 결과가 없습니다.</li>';
+      listEl.innerHTML = html;
+      sel = 0;
+      mark();
+    }
+    function mark() {
+      listEl.querySelectorAll('.p-cmd-opt').forEach((o) => o.setAttribute('aria-selected', String(Number(o.dataset.i) === sel)));
+      const cur = listEl.querySelector('#p-cmd-o' + sel);
+      if (cur) { input.setAttribute('aria-activedescendant', cur.id); cur.scrollIntoView({ block: 'nearest' }); } else input.removeAttribute('aria-activedescendant');
+    }
+    function run(i) {
+      const x = items[i];
+      if (!x) return;
+      close();
+      setTimeout(() => { try { x.run(); } catch (e) { console.error(e); } }, 0);
+    }
+    let closed = false;
+    function close() {
+      if (closed) return;
+      closed = true;
+      const k = modalStack.indexOf(close);
+      if (k >= 0) modalStack.splice(k, 1);
+      back.remove();
+      paletteClose = null;
+      if (lastFocus && lastFocus.focus && lastFocus.isConnected) { try { lastFocus.focus({ preventScroll: true }); } catch (e) { /* 무시 */ } }
+    }
+    paletteClose = close;
+    modalStack.push(close);
+    input.addEventListener('input', render);
+    input.addEventListener('keydown', (e) => {
+      if (e.isComposing) return;
+      if (e.key === 'ArrowDown') { e.preventDefault(); if (items.length) { sel = (sel + 1) % items.length; mark(); } }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); if (items.length) { sel = (sel - 1 + items.length) % items.length; mark(); } }
+      else if (e.key === 'Home' && !input.value) { e.preventDefault(); sel = 0; mark(); }
+      else if (e.key === 'End' && !input.value) { e.preventDefault(); sel = Math.max(0, items.length - 1); mark(); }
+      else if (e.key === 'Enter') { e.preventDefault(); run(sel); }
+      else if (e.key === 'Tab') { e.preventDefault(); }
+    });
+    listEl.addEventListener('mousemove', (e) => { const o = e.target.closest('.p-cmd-opt'); if (o && Number(o.dataset.i) !== sel) { sel = Number(o.dataset.i); mark(); } });
+    listEl.addEventListener('click', (e) => { const o = e.target.closest('.p-cmd-opt'); if (o) run(Number(o.dataset.i)); });
+    back.addEventListener('mousedown', (e) => { if (e.target === back) close(); });
+    if (initial) input.value = initial;
+    render();
+    input.focus();
+    recentItems().then((r) => { if (closed) return; recent = r; render(); }, () => {});
+  }
+  document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && (e.key === 'k' || e.key === 'K' || e.code === 'KeyK')) {
+      if (modalStack.length && !paletteClose) return; // 다른 창이 열려 있으면 무시
+      e.preventDefault();
+      e.stopPropagation();
+      openPalette();
+    }
+  }, true);
 
   /* ---------- 시작 ---------- */
   function boot() {
@@ -1023,6 +1342,23 @@
     if (sbtn) sbtn.addEventListener('click', openStorageMenu);
     const gbtn = document.getElementById('p-settings-btn');
     if (gbtn) gbtn.addEventListener('click', () => openSettings());
+    const cbtn = document.getElementById('p-collapse');
+    if (cbtn) cbtn.addEventListener('click', () => { settings.set('nav.collapsed', !settings.get('nav.collapsed', false)); applyNavMode(); });
+    const kbtn = document.getElementById('p-cmd-btn');
+    if (kbtn) {
+      kbtn.addEventListener('click', () => openPalette());
+      kbtn.setAttribute('aria-label', '검색 또는 이동 (' + (isMac ? '⌘' : 'Ctrl') + '+K)');
+      const mod = document.getElementById('p-cmd-mod');
+      if (mod) mod.textContent = isMac ? '⌘' : 'Ctrl';
+    }
+    const bottom = document.getElementById('p-bottom');
+    if (bottom) bottom.addEventListener('click', (e) => {
+      const b = e.target.closest('button.p-bt');
+      if (!b) return;
+      if (b.id === 'p-all-btn') openAllApps(); else if (b.dataset.group) openGroupSheet(b.dataset.group);
+    });
+    [mqPhone, mqTablet].forEach((mq) => { if (mq.addEventListener) mq.addEventListener('change', applyNavMode); });
+    applyNavMode();
     renderNav();
     mountRoute();
     window.addEventListener('hashchange', mountRoute);
@@ -1046,16 +1382,20 @@
     registerApp,
     store,
     settings: { get: settings.get, set: settings.set },
-    ui: { toast, confirm: confirmDialog, prompt: promptDialog, modal, download },
+    ui: { toast, confirm: confirmDialog, prompt: promptDialog, modal, download, palette: openPalette },
     loadScript,
     loadCSS,
     esc,
     // 추가 도구(선택)
     apps: appList,
     navigate,
+    // 앱으로 이동해 동작 실행: P.intent('docs', 'new'), P.intent('schedule/tasks', 'new')
+    intent: runIntent,
+    quickActions: () => quickActions().map((q) => ({ app: q.app, key: q.key, label: q.label, icon: q.icon, run: q.run })),
+    groups: () => GROUPS.filter((g) => g.label).map((g) => ({ id: g.id, label: g.label, apps: appList().filter((a) => groupOf(a) === g).map((a) => a.id) })),
     icons,
     brand,
-    storage: { kinds: KINDS, switchTo, openMenu: openStorageMenu, configure: openStorageConfig, exportBackup, importBackup, openSettings }
+    storage: { kinds: KINDS, state: () => connState, switchTo, openMenu: openStorageMenu, configure: openStorageConfig, exportBackup, importBackup, openSettings }
   };
 
   // defer 로 실행되므로 DOMContentLoaded 는 모든 앱 스크립트 실행 뒤에 온다.

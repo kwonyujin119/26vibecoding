@@ -10,11 +10,12 @@
 
   /* ================= 팔레트 (색각 이상 검증된 범주 팔레트) ================= */
   const PALETTES = {
-    base: { label: '기본', light: ['#257de0', '#f47230', '#00b894', '#f2a600', '#ee7fac', '#008a17', '#6a4ce2', '#ec4647'], dark: ['#338ced', '#e76624', '#00a888', '#d28e05', '#e24d8b', '#0aac23', '#9887ef', '#eb6263'] },
+    // 기본: 남색 먹 + 인주색으로 시작, 나머지는 명도 차가 있는 범주색
+    base: { label: '기본', light: ['#1E2B5C', '#C43F15', '#2A8C82', '#C8901E', '#7A5BB8', '#5E8C3A', '#B8527A', '#8A8F99'], dark: ['#9FB0F5', '#F0743E', '#4FC1B4', '#E8B54F', '#C39BEB', '#8FCB6B', '#E58AAE', '#AEB3BD'] },
     cvd: { label: '색각 친화', light: ['#0072b2', '#e69f00', '#009e73', '#cc79a7', '#56b4e9', '#d55e00', '#7a6a00', '#555555'], dark: ['#3a9ad9', '#e69f00', '#14b88a', '#d98cb8', '#7cc6ef', '#ef7a2c', '#cfc05a', '#bbbbbb'] },
     calm: { label: '차분한 보고서', light: ['#2e4a7d', '#7a9cc6', '#c9873a', '#5b8c6b', '#a05c7b', '#8a8f99', '#4f7f8f', '#b9a26b'], dark: ['#7d9fd6', '#a9c3e3', '#e0a35c', '#7fb38f', '#c98aa6', '#aab0ba', '#7fb0c0', '#d6c08a'] }
   };
-  const SEQ = { light: ['#eef4fd', '#0b4ea2'], dark: ['#1c2a40', '#7fb2f2'] };
+  const SEQ = { light: ['#EEF0F5', '#1E2B5C'], dark: ['#202329', '#9FB0F5'] };
 
   /* ================= 숫자 서식 (천 단위 콤마, 만/억) ================= */
   const UNITS = { auto: '자동(만·억)', none: '그대로', k: '천 단위', man: '만 단위', eok: '억 단위' };
@@ -191,10 +192,27 @@
     return !!(window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
   }
   function themeColors(forExport) {
-    if (forExport) return { text: '#1b2233', muted: '#5d6880', grid: '#e3e7ef', bg: '#ffffff', dark: false };
+    if (forExport) return { text: '#1A1D26', muted: '#676B75', grid: '#ECE9E2', bg: '#ffffff', soft: '#F7F5F0', dark: false };
     const cs = getComputedStyle(document.documentElement);
     const g = (n, d) => (cs.getPropertyValue(n) || '').trim() || d;
-    return { text: g('--text', '#121a2b'), muted: g('--muted', '#5d6880'), grid: g('--line', '#e1e6f0'), bg: g('--surface', '#ffffff'), dark: isDark() };
+    const dark = isDark();
+    return { text: g('--text', '#1A1D26'), muted: g('--muted', '#676B75'), grid: dark ? g('--line', '#2B2E33') : '#ECE9E2', bg: g('--surface', '#ffffff'), soft: g('--surface-2', '#FAF9F6'), dark };
+  }
+  // Chart.js 기본값을 토큰에 맞춤 (테마가 바뀌면 다시 부름)
+  function themeDefaults() {
+    const C = window.Chart;
+    if (!C || !C.defaults) return;
+    const th = themeColors(false);
+    C.defaults.font.family = getComputedStyle(document.body).fontFamily || 'sans-serif';
+    C.defaults.font.size = 11.5;
+    C.defaults.color = th.muted;
+    C.defaults.borderColor = th.grid;
+    const tt = C.defaults.plugins.tooltip;
+    Object.assign(tt, {
+      backgroundColor: th.dark ? '#ECE9E2' : '#1A1D26', titleColor: th.dark ? '#111214' : '#ffffff', bodyColor: th.dark ? '#111214' : '#ffffff',
+      padding: 8, cornerRadius: 4, boxPadding: 4, displayColors: true, usePointStyle: true,
+      titleFont: { weight: '650', size: 12 }, bodyFont: { size: 12 }
+    });
   }
   function paletteOf(opts, th) { const p = PALETTES[opts.palette] || PALETTES.base; return th.dark ? p.dark : p.light; }
   function alpha(hex, a) {
@@ -294,8 +312,8 @@
       layout: { padding: { top: opts.labels ? 18 : 6, right: 12, left: 4, bottom: 2 } },
       font: { family: font },
       plugins: {
-        legend: { display: legendPos !== 'none', position: legendPos === 'none' ? 'top' : legendPos, labels: { sort: (a, b) => a.datasetIndex - b.datasetIndex, color: th.text, boxWidth: 12, boxHeight: 12, usePointStyle: true, pointStyle: 'rectRounded', font: { family: font, size: 12 } } },
-        title: { display: !!opts.title, text: opts.title || '', color: th.text, font: { family: font, size: opts.big ? 17 : 14, weight: '700' }, padding: { bottom: 10 } },
+        legend: { display: legendPos !== 'none', position: legendPos === 'none' ? 'top' : legendPos, align: 'start', labels: { sort: (a, b) => a.datasetIndex - b.datasetIndex, color: th.text, boxWidth: 8, boxHeight: 8, usePointStyle: true, pointStyle: 'rect', padding: 14, font: { family: font, size: 12 } } },
+        title: { display: !!opts.title, text: opts.title || '', align: 'start', color: th.text, font: { family: font, size: opts.big ? 17 : 14, weight: '700' }, padding: { top: 2, bottom: 12 } },
         tooltip: {
           callbacks: {
             label: (c) => {
@@ -317,7 +335,7 @@
     const ds = (s, i, extra) => Object.assign({
       label: s.name, data: s.values, pUnit: s.unit,
       backgroundColor: pal[i % pal.length], borderColor: pal[i % pal.length],
-      borderWidth: 0, borderRadius: 4, borderSkipped: 'start', maxBarThickness: 48
+      borderWidth: 0, borderRadius: 2, borderSkipped: 'start', maxBarThickness: 44
     }, extra || {});
     const legendFor = (n) => (n > 1 ? base.plugins.legend : Object.assign({}, base.plugins.legend, { display: false }));
     let cfg;
@@ -369,7 +387,7 @@
         const parts = topN(m, 8);
         cfg = {
           type: kind,
-          data: { labels: parts.map((p) => p.l), datasets: [{ label: m.series[0].name, pUnit: sfx0, data: parts.map((p) => p.v), backgroundColor: parts.map((_, i) => (parts[i].l === '기타' ? '#9aa1ad' : pal[i % pal.length])), borderColor: th.bg, borderWidth: 2 }] },
+          data: { labels: parts.map((p) => p.l), datasets: [{ label: m.series[0].name, pUnit: sfx0, data: parts.map((p) => p.v), backgroundColor: parts.map((_, i) => (parts[i].l === '기타' ? th.muted : pal[i % pal.length])), borderColor: th.bg, borderWidth: 2 }] },
           options: { cutout: kind === 'doughnut' ? '58%' : 0, plugins: { legend: Object.assign({}, base.plugins.legend, { display: legendPos !== 'none', position: legendPos === 'top' ? 'right' : legendPos }) } }
         };
         break;
@@ -435,8 +453,8 @@
     const font = getComputedStyle(document.body).fontFamily || 'sans-serif';
     let top = 6;
     if (opts.title) {
-      ctx.fillStyle = th.text; ctx.font = '700 ' + (opts.big ? 17 : 14) + 'px ' + font; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-      ctx.fillText(opts.title, w / 2, 6);
+      ctx.fillStyle = th.text; ctx.font = '700 ' + (opts.big ? 17 : 14) + 'px ' + font; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+      ctx.fillText(opts.title, 10, 6);
       top = opts.big ? 34 : 28;
     }
     const unit = opts.unit || 'auto';
@@ -467,12 +485,13 @@
       const big = Math.max(15, Math.min(30, thh * 0.3, tw / 7));
       tiles.forEach((t, i) => {
         const x = gap + (i % cols) * (tw + gap), y = top + gap + Math.floor(i / cols) * (thh + gap);
-        ctx.fillStyle = th.dark ? 'rgba(255,255,255,0.05)' : '#f3f6fb';
-        roundRect(ctx, x, y, tw, thh, 10); ctx.fill();
+        ctx.fillStyle = th.soft;
+        roundRect(ctx, x, y, tw, thh, 6); ctx.fill();
+        ctx.strokeStyle = th.grid; ctx.lineWidth = 1; ctx.stroke();
         ctx.textAlign = 'left'; ctx.textBaseline = 'top';
         ctx.fillStyle = th.muted; ctx.font = '600 12px ' + font; ctx.fillText(t[0], x + 12, y + thh * 0.12, tw - 20);
         ctx.textBaseline = 'middle';
-        ctx.fillStyle = th.text; ctx.font = '800 ' + big + 'px ' + font; ctx.fillText(t[1], x + 12, y + thh * 0.52, tw - 20);
+        ctx.fillStyle = th.text; ctx.font = '700 ' + big + 'px ' + font; ctx.fillText(t[1], x + 12, y + thh * 0.52, tw - 20);
         ctx.textBaseline = 'bottom';
         ctx.fillStyle = th.muted; ctx.font = '12px ' + font; ctx.fillText(String(t[2] || '').slice(0, 24), x + 12, y + thh - thh * 0.1, tw - 20);
       });
@@ -580,9 +599,9 @@
 
   /* ================= 화면 ================= */
   async function mount(root, ctx) {
-    root.innerHTML = '<div class="page charts-page"><div class="charts-loading">차트 도구를 준비하는 중…</div></div>';
+    root.innerHTML = '<div class="page charts-page"><div class="charts-loading">불러오는 중…</div></div>';
     try { await P.loadScript(LIB.chart); } catch (e) {
-      root.innerHTML = '<div class="page"><div class="empty card"><h2>차트 라이브러리를 불러오지 못했습니다</h2><p class="muted">vendor/chartjs 파일이 있는지 확인하세요.</p></div></div>';
+      root.innerHTML = '<div class="page"><div class="empty card"><h2>차트 라이브러리를 불러오지 못했습니다</h2><p>vendor/chartjs 파일을 확인하세요.</p></div></div>';
       return null;
     }
     const live = [];
@@ -590,41 +609,51 @@
       data: null, source: '', title: '',
       opts: { palette: P.settings.get('charts.palette', 'base'), unit: P.settings.get('charts.unit', 'auto'), labels: P.settings.get('charts.labels', false), legend: 'top' }
     };
+    themeDefaults();
+    const TYPE_L = { cat: '항목', num: '숫자', date: '날짜', skip: '빼기' };
+    const smpMeta = (smp) => { const d = parseText(smp.text); return d.rows.length + '행 · ' + d.columns.length + '열'; };
     root.innerHTML =
       '<div class="page charts-page">' +
-        '<div class="page-head"><div><h1>차트</h1><p>표를 붙여넣거나 파일을 열면 어울리는 도표를 한 번에 그려 줍니다. 마음에 드는 것을 골라 꾸미고 저장하세요.</p></div></div>' +
-        '<section class="card charts-input">' +
-          '<div class="charts-tabs" role="tablist" aria-label="자료 넣는 방법">' +
-            '<button type="button" class="chip active" data-tab="paste" role="tab" aria-selected="true">붙여넣기</button>' +
-            '<button type="button" class="chip" data-tab="file" role="tab" aria-selected="false">파일 열기</button>' +
-            '<button type="button" class="chip" data-tab="sample" role="tab" aria-selected="false">예시 자료</button>' +
+        '<div class="page-head"><div><h1>차트</h1></div></div>' +
+        '<div class="charts-studio">' +
+          '<aside class="charts-side">' +
+            '<section class="charts-panel charts-input">' +
+              '<div class="charts-panel-head"><h2 class="charts-h2">자료</h2>' +
+                '<div class="seg charts-tabs" role="tablist" aria-label="자료 넣는 방법">' +
+                  '<button type="button" data-tab="paste" role="tab" aria-selected="true">붙여넣기</button>' +
+                  '<button type="button" data-tab="file" role="tab" aria-selected="false">파일</button>' +
+                  '<button type="button" data-tab="sample" role="tab" aria-selected="false">예시</button>' +
+                '</div></div>' +
+              '<div class="charts-pane" data-pane="paste">' +
+                '<textarea class="charts-paste" rows="7" spellcheck="false" aria-label="표 붙여넣기" placeholder="엑셀·한글 표를 복사해 붙여넣기&#10;&#10;월	접수	처리&#10;1월	1240	1180&#10;2월	1105	1090"></textarea>' +
+                '<div class="charts-draw"><button type="button" class="btn btn-primary btn-sm" data-act="draw">차트 그리기</button><span class="charts-hint"><kbd class="kbd">Ctrl</kbd><kbd class="kbd">Enter</kbd></span></div>' +
+              '</div>' +
+              '<div class="charts-pane" data-pane="file" hidden>' +
+                '<label class="charts-drop"><input type="file" accept=".xlsx,.xls,.csv,.tsv,.txt" hidden>' + P.icons.upload + '<b>XLSX·CSV 고르기</b><span>또는 여기로 끌어다 놓기</span></label>' +
+              '</div>' +
+              '<div class="charts-pane" data-pane="sample" hidden><div class="list charts-samples">' +
+                SAMPLES.map((smp) => '<button type="button" class="list-row" data-sample="' + smp.id + '"><span class="list-row-main"><b>' + esc(smp.title) + '</b></span><span class="list-row-end">' + smpMeta(smp) + '</span></button>').join('') +
+              '</div></div>' +
+            '</section>' +
+            '<section class="charts-panel charts-data" hidden>' +
+              '<div class="charts-panel-head"><h2 class="charts-h2">열</h2><span class="charts-src"></span><span class="charts-dim tnum"></span></div>' +
+              '<div class="charts-table-wrap"><table class="charts-table"></table></div>' +
+            '</section>' +
+          '</aside>' +
+          '<div class="charts-main">' +
+            '<div class="charts-ph"><div class="charts-ph-grid"><p>표를 넣으면 어울리는 차트가 여기에 나옵니다.</p><i aria-hidden="true"></i><i aria-hidden="true"></i><i aria-hidden="true"></i><i aria-hidden="true"></i></div></div>' +
+            '<div class="charts-result" hidden>' +
+              '<div class="charts-opts" role="group" aria-label="차트 옵션">' +
+                '<label class="charts-opt"><span>색</span><select data-opt="palette">' + Object.keys(PALETTES).map((k) => '<option value="' + k + '">' + PALETTES[k].label + '</option>').join('') + '</select><span class="charts-sw" aria-hidden="true"></span></label>' +
+                '<label class="charts-opt"><span>단위</span><select data-opt="unit">' + Object.keys(UNITS).map((k) => '<option value="' + k + '">' + UNITS[k] + '</option>').join('') + '</select></label>' +
+                '<label class="charts-chk"><input type="checkbox" data-opt="labels"> 값 표시</label>' +
+                '<span class="charts-count tnum"></span>' +
+              '</div>' +
+              '<div class="charts-grid"></div>' +
+            '</div>' +
           '</div>' +
-          '<div class="charts-pane" data-pane="paste">' +
-            '<textarea class="charts-paste" rows="6" spellcheck="false" placeholder="엑셀·한글 표를 복사해 여기에 붙여넣으세요 (Ctrl+V).&#10;첫 행은 제목, 첫 열은 항목 이름, 나머지는 숫자이면 가장 좋습니다.&#10;&#10;예)&#10;월	접수	처리&#10;1월	1240	1180&#10;2월	1105	1090"></textarea>' +
-            '<div class="toolbar"><button type="button" class="btn btn-primary" data-act="draw">차트 그리기</button><span class="muted charts-hint">붙여넣으면 바로 그려집니다.</span></div>' +
-          '</div>' +
-          '<div class="charts-pane" data-pane="file" hidden>' +
-            '<label class="charts-drop"><input type="file" accept=".xlsx,.xls,.csv,.tsv,.txt" hidden><b>XLSX·CSV 파일 고르기</b><span class="muted">또는 이곳에 파일을 끌어다 놓으세요. 첫 번째 시트를 읽습니다.</span></label>' +
-          '</div>' +
-          '<div class="charts-pane" data-pane="sample" hidden><div class="charts-samples">' +
-            SAMPLES.map((s) => '<button type="button" class="btn" data-sample="' + s.id + '">' + esc(s.title) + '</button>').join('') +
-          '</div></div>' +
-        '</section>' +
-        '<div class="charts-result" hidden>' +
-          '<section class="card charts-data">' +
-            '<div class="charts-data-head"><h2 class="charts-h2">자료 확인</h2><span class="muted charts-src"></span></div>' +
-            '<p class="muted charts-note">열 종류가 잘못 잡혔으면 바꿔 주세요. 숫자 열이 막대·선이 됩니다.</p>' +
-            '<div class="charts-table-wrap"><table class="charts-table"></table></div>' +
-          '</section>' +
-          '<div class="charts-opts toolbar" role="group" aria-label="차트 옵션">' +
-            '<label class="charts-opt">색 <select data-opt="palette">' + Object.keys(PALETTES).map((k) => '<option value="' + k + '">' + PALETTES[k].label + '</option>').join('') + '</select></label>' +
-            '<label class="charts-opt">단위 <select data-opt="unit">' + Object.keys(UNITS).map((k) => '<option value="' + k + '">' + UNITS[k] + '</option>').join('') + '</select></label>' +
-            '<label class="charts-opt charts-chk"><input type="checkbox" data-opt="labels"> 값 표시</label>' +
-            '<span class="muted charts-count"></span>' +
-          '</div>' +
-          '<div class="charts-grid"></div>' +
         '</div>' +
-        '<section class="charts-saved-sec"><div class="charts-data-head"><h2 class="charts-h2">차트 모음</h2><span class="muted">저장한 차트는 저장 위치(브라우저/클라우드/사무실 서버)에 보관됩니다.</span></div><div class="charts-saved"></div></section>' +
+        '<section class="charts-saved-sec"><div class="section-title"><h2>차트 모음</h2><span class="charts-saved-n tnum"></span></div><div class="charts-saved"></div></section>' +
       '</div>';
     const $ = (s) => root.querySelector(s);
     const grid = $('.charts-grid');
@@ -633,11 +662,14 @@
     optsBar.querySelector('[data-opt="palette"]').value = state.opts.palette;
     optsBar.querySelector('[data-opt="unit"]').value = state.opts.unit;
     optsBar.querySelector('[data-opt="labels"]').checked = !!state.opts.labels;
+    const swatchHTML = (pal) => pal.slice(0, 6).map((c) => '<i style="background:' + c + '"></i>').join('');
+    function syncSwatch() { optsBar.querySelector('.charts-sw').innerHTML = swatchHTML(paletteOf(state.opts, themeColors(false))); }
+    syncSwatch();
 
     function clearLive() { while (live.length) { try { live.pop().destroy(); } catch (e) { /* 무시 */ } } }
 
     function setData(data, source) {
-      if (!data || !data.columns || !data.rows || !data.rows.length) { P.ui.toast('표 모양의 자료를 찾지 못했습니다. 첫 행에 제목, 아래에 값이 오도록 넣어 주세요.', 'warn'); return; }
+      if (!data || !data.columns || !data.rows || !data.rows.length) { P.ui.toast('표를 찾지 못했습니다. 첫 행에 제목, 아래에 값을 넣어 주세요.', 'warn'); return; }
       state.data = { columns: data.columns.map(String), rows: data.rows.slice(0, 2000), types: data.types || null };
       state.source = source || '';
       state.title = data.title || '';
@@ -645,37 +677,50 @@
       drawAll();
     }
     function model() { return buildModel(state.data); }
+    function cellText(v, type) {
+      if (v == null) return '';
+      if (typeof v === 'number') return v.toLocaleString('ko-KR');
+      if (type === 'num') { const p = parseNum(v); if (p && /^[-+]?[\d,]+(\.\d+)?$/.test(String(v).trim())) return p.n.toLocaleString('ko-KR', { maximumFractionDigits: 4 }); }
+      return v;
+    }
     function drawTable(m) {
       const t = $('.charts-table');
-      const head = '<thead><tr>' + m.cols.map((c, i) => '<th><span>' + esc(c.name) + '</span><select data-col="' + i + '" aria-label="' + esc(c.name) + ' 열 종류">' +
-        [['cat', '항목(글자)'], ['num', '숫자'], ['date', '날짜·기간'], ['skip', '빼기']].map(([v, l]) => '<option value="' + v + '"' + (c.type === v ? ' selected' : '') + '>' + l + '</option>').join('') + '</select></th>').join('') + '</tr></thead>';
-      const body = '<tbody>' + state.data.rows.slice(0, 6).map((r) => '<tr>' + m.cols.map((c, i) => '<td class="' + (c.type === 'num' ? 'num' : '') + (c.type === 'skip' ? ' skip' : '') + '">' + esc(r[i] == null ? '' : typeof r[i] === 'number' ? r[i].toLocaleString('ko-KR') : r[i]) + '</td>').join('') + '</tr>').join('') +
-        (state.data.rows.length > 6 ? '<tr><td colspan="' + m.cols.length + '" class="muted charts-more">… 모두 ' + state.data.rows.length + '행</td></tr>' : '') + '</tbody>';
+      const head = '<thead><tr>' + m.cols.map((c, i) => '<th class="' + (c.type === 'num' ? 'num' : '') + '"><span>' + esc(c.name) + '</span><select class="charts-type" data-type="' + c.type + '" data-col="' + i + '" aria-label="' + esc(c.name) + ' 열 종류">' +
+        [['cat', TYPE_L.cat], ['num', TYPE_L.num], ['date', TYPE_L.date], ['skip', TYPE_L.skip]].map(([v, l]) => '<option value="' + v + '"' + (c.type === v ? ' selected' : '') + '>' + l + '</option>').join('') + '</select></th>').join('') + '</tr></thead>';
+      const body = '<tbody>' + state.data.rows.slice(0, 6).map((r) => '<tr>' + m.cols.map((c, i) => '<td class="' + (c.type === 'num' ? 'num' : '') + (c.type === 'skip' ? ' skip' : '') + '">' + esc(cellText(r[i], c.type)) + '</td>').join('') + '</tr>').join('') +
+        (state.data.rows.length > 6 ? '<tr><td colspan="' + m.cols.length + '" class="charts-more">+ ' + (state.data.rows.length - 6) + '행</td></tr>' : '') + '</tbody>';
       t.innerHTML = head + body;
       $('.charts-src').textContent = state.source;
+      $('.charts-src').title = state.source;
+      $('.charts-dim').textContent = state.data.rows.length + '행 · ' + m.cols.length + '열';
     }
     function drawAll() {
       clearLive();
+      themeDefaults();
+      syncSwatch();
       const m = model();
       $('.charts-result').hidden = false;
+      $('.charts-data').hidden = false;
+      $('.charts-ph').hidden = true;
       drawTable(m);
       const kinds = recommend(m);
       if (!m.series.length) {
-        grid.innerHTML = '<div class="empty card"><h3>숫자 열이 없습니다</h3><p>위 표에서 숫자로 그릴 열의 종류를 "숫자"로 바꿔 주세요.</p></div>';
+        grid.innerHTML = '<div class="empty"><h3>숫자 열이 없습니다</h3><p>왼쪽 표에서 열 종류를 숫자로 바꿔 주세요.</p></div>';
         $('.charts-count').textContent = '';
         return;
       }
-      $('.charts-count').textContent = '어울리는 차트 ' + kinds.length + '개';
-      grid.innerHTML = kinds.map((k, i) => '<article class="card charts-card" data-kind="' + k + '" style="--i:' + i + '">' +
-        '<header><div><h3>' + KINDS[k].name + '</h3><p class="muted">' + KINDS[k].why + '</p></div>' +
-        '<button type="button" class="btn btn-ghost btn-sm p-icon-btn" data-save="' + k + '" aria-label="' + KINDS[k].name + ' 차트 모음에 저장" title="모음에 저장">' + STAR + '</button></header>' +
-        '<button type="button" class="charts-canvas" data-open="' + k + '" aria-label="' + KINDS[k].name + ' 크게 보기"></button>' +
-        '<footer><button type="button" class="btn btn-sm" data-open="' + k + '">크게 보고 꾸미기</button><button type="button" class="btn btn-ghost btn-sm" data-png="' + k + '">' + P.icons.download + 'PNG</button></footer>' +
+      $('.charts-count').textContent = kinds.length + '개';
+      grid.innerHTML = kinds.map((k, i) => '<article class="charts-card' + (i === 0 ? ' is-lead' : '') + (k === state.picked ? ' on' : '') + '" data-kind="' + k + '">' +
+        '<header><h3>' + KINDS[k].name + '</h3>' + (i === 0 ? '<span class="badge badge-accent">추천</span>' : '') + '<span class="charts-why">' + KINDS[k].why + '</span></header>' +
+        '<button type="button" class="charts-canvas" data-open="' + k + '" aria-label="' + KINDS[k].name + ' 편집"></button>' +
+        '<footer><button type="button" class="btn btn-ghost btn-sm" data-open="' + k + '">' + EDIT + '편집</button>' +
+        '<button type="button" class="btn btn-ghost btn-sm" data-png="' + k + '" title="PNG로 내려받기">' + P.icons.download + 'PNG</button>' +
+        '<button type="button" class="btn btn-ghost btn-sm p-icon-btn charts-star" data-save="' + k + '" aria-label="' + KINDS[k].name + ' 차트 모음에 저장" title="모음에 저장">' + STAR + '</button></footer>' +
         '</article>').join('');
       grid.querySelectorAll('.charts-card').forEach((card) => {
         const k = card.dataset.kind;
         try { live.push(renderInto(card.querySelector('.charts-canvas'), k, m, Object.assign({}, state.opts))); }
-        catch (e) { console.error(e); card.querySelector('.charts-canvas').innerHTML = '<p class="muted">이 자료로는 그릴 수 없습니다.</p>'; }
+        catch (e) { console.error(e); card.querySelector('.charts-canvas').innerHTML = '<p class="muted">그릴 수 없는 자료입니다.</p>'; }
       });
     }
     function defaultTitle(kind, m) {
@@ -721,23 +766,26 @@
       const opts = Object.assign({}, state.opts, { legend: 'top', title: defaultTitle(kind, m) }, preset || {}, { big: true });
       const body = document.createElement('div');
       body.className = 'charts-big';
+      const opt = (list, v) => list.map(([val, l]) => '<option value="' + val + '"' + (val === v ? ' selected' : '') + '>' + l + '</option>').join('');
       body.innerHTML =
-        '<div class="charts-big-ctl">' +
-          '<div class="field"><label>제목</label><input data-b="title" value="' + esc(opts.title) + '"></div>' +
-          '<div class="field"><label>종류</label><select data-b="kind">' + allKinds.map((k) => '<option value="' + k + '"' + (k === kind ? ' selected' : '') + '>' + KINDS[k].name + '</option>').join('') + '</select></div>' +
-          '<div class="field"><label>색</label><select data-b="palette">' + Object.keys(PALETTES).map((k) => '<option value="' + k + '"' + (k === opts.palette ? ' selected' : '') + '>' + PALETTES[k].label + '</option>').join('') + '</select></div>' +
-          '<div class="field"><label>범례</label><select data-b="legend">' + [['top', '위'], ['bottom', '아래'], ['right', '오른쪽'], ['none', '숨김']].map(([v, l]) => '<option value="' + v + '"' + (v === opts.legend ? ' selected' : '') + '>' + l + '</option>').join('') + '</select></div>' +
-          '<div class="field"><label>단위</label><select data-b="unit">' + Object.keys(UNITS).map((k) => '<option value="' + k + '"' + (k === opts.unit ? ' selected' : '') + '>' + UNITS[k] + '</option>').join('') + '</select></div>' +
+        '<div class="charts-big-stage"><div class="charts-big-canvas"></div></div>' +
+        '<div class="charts-big-ctl charts-insp">' +
+          '<div class="field"><label for="cb-title">제목</label><input id="cb-title" data-b="title" value="' + esc(opts.title) + '"></div>' +
+          '<div class="field"><label for="cb-kind">종류</label><select id="cb-kind" data-b="kind">' + opt(allKinds.map((x) => [x, KINDS[x].name]), kind) + '</select></div>' +
+          '<div class="field"><label for="cb-pal">색</label><select id="cb-pal" data-b="palette">' + opt(Object.keys(PALETTES).map((x) => [x, PALETTES[x].label]), opts.palette) + '</select><div class="charts-swatch" aria-hidden="true"></div></div>' +
+          '<div class="charts-insp-row">' +
+            '<div class="field"><label for="cb-legend">범례</label><select id="cb-legend" data-b="legend">' + opt([['top', '위'], ['bottom', '아래'], ['right', '오른쪽'], ['none', '숨김']], opts.legend) + '</select></div>' +
+            '<div class="field"><label for="cb-unit">단위</label><select id="cb-unit" data-b="unit">' + opt(Object.keys(UNITS).map((x) => [x, UNITS[x]]), opts.unit) + '</select></div>' +
+          '</div>' +
           '<label class="charts-chk charts-big-chk"><input type="checkbox" data-b="labels"' + (opts.labels ? ' checked' : '') + '> 값 표시</label>' +
-        '</div>' +
-        '<div class="charts-big-canvas"></div>' +
-        '<div class="charts-swatch" aria-hidden="true"></div>';
+          '<p class="charts-insp-meta tnum">' + m.n + '행 · 계열 ' + m.series.length + '개</p>' +
+        '</div>';
       let cur = null;
       let k = kind;
       const box = body.querySelector('.charts-big-canvas');
       const redraw = () => {
         if (cur) cur.destroy();
-        try { cur = renderInto(box, k, m, opts); } catch (e) { console.error(e); box.innerHTML = '<p class="muted">이 자료로는 그릴 수 없는 종류입니다.</p>'; cur = null; }
+        try { cur = renderInto(box, k, m, opts); } catch (e) { console.error(e); box.innerHTML = '<p class="muted">그릴 수 없는 종류입니다.</p>'; cur = null; }
         const pal = paletteOf(opts, themeColors(false));
         body.querySelector('.charts-swatch').innerHTML = pal.map((c) => '<i style="background:' + c + '"></i>').join('');
       };
@@ -764,7 +812,7 @@
         return false;
       } });
       else actions.push({ label: '차트 모음에 저장', primary: true, onClick: () => { saveToCollection(k, m, opts, data); } });
-      P.ui.modal({ title: '차트 크게 보기', body, wide: true, actions, onClose: () => { if (cur) cur.destroy(); cur = null; } });
+      P.ui.modal({ title: '차트 편집', body, wide: true, actions, onClose: () => { if (cur) cur.destroy(); cur = null; } });
       requestAnimationFrame(redraw);
     }
 
@@ -773,12 +821,14 @@
       const box = $('.charts-saved');
       let items = [];
       try { items = await P.store.list(COL); } catch (e) { items = []; }
-      if (!items.length) { box.innerHTML = '<div class="empty card"><h3>아직 저장한 차트가 없습니다</h3><p>위에 자료를 넣고, 마음에 드는 차트의 ☆를 눌러 모아 두세요.</p></div>'; return; }
+      const cnt = $('.charts-saved-n');
+      if (cnt) cnt.textContent = items.length ? items.length + '개' : '';
+      if (!items.length) { box.innerHTML = '<p class="charts-saved-empty">별을 누른 차트가 여기에 모입니다.</p>'; return; }
       box.innerHTML = items.map((x) => {
         const d = x.data || {};
-        return '<article class="card charts-saved-card"><a href="#/charts/' + encodeURIComponent(x.id) + '" class="charts-thumb">' +
+        return '<article class="charts-saved-card"><a href="#/charts/' + encodeURIComponent(x.id) + '" class="charts-thumb">' +
           (d.thumb ? '<img src="' + esc(d.thumb) + '" alt="' + esc(d.title || '') + ' 미리보기" loading="lazy">' : '<span>' + esc(KINDS[d.kind] ? KINDS[d.kind].name : '') + '</span>') +
-          '</a><div class="charts-saved-meta"><b>' + esc(d.title || '제목 없음') + '</b><small class="muted">' + esc(KINDS[d.kind] ? KINDS[d.kind].name : '') + ' · ' + new Date(x.updatedAt).toLocaleDateString('ko-KR') + '</small></div>' +
+          '</a><div class="charts-saved-meta"><b>' + esc(d.title || '제목 없음') + '</b><small class="tnum">' + esc(KINDS[d.kind] ? KINDS[d.kind].name : '') + ' · ' + new Date(x.updatedAt).toLocaleDateString('ko-KR') + '</small></div>' +
           '<div class="charts-saved-act"><button type="button" class="btn btn-ghost btn-sm" data-use="' + esc(x.id) + '">자료 다시 쓰기</button><button type="button" class="btn btn-ghost btn-sm p-icon-btn" data-del="' + esc(x.id) + '" aria-label="삭제" title="삭제">' + P.icons.trash + '</button></div></article>';
       }).join('');
       box._items = items;
@@ -813,11 +863,16 @@
       const t = e.target.closest('[data-tab]');
       if (t) { showTab(t.dataset.tab); return; }
       const s = e.target.closest('[data-sample]');
-      if (s) { const smp = SAMPLES.find((x) => x.id === s.dataset.sample); const d = parseText(smp.text); d.title = smp.title; setData(d, '예시: ' + smp.title); return; }
+      if (s) { root.querySelectorAll('[data-sample]').forEach((x) => x.setAttribute('aria-current', String(x === s))); const smp = SAMPLES.find((x) => x.id === s.dataset.sample); const d = parseText(smp.text); d.title = smp.title; setData(d, '예시: ' + smp.title); return; }
       const a = e.target.closest('[data-act="draw"]');
       if (a) { setData(parseText(paste.value), '붙여넣은 자료'); return; }
       const op = e.target.closest('[data-open]');
-      if (op) { openBig(op.dataset.open, state.data); return; }
+      if (op) {
+        state.picked = op.dataset.open;
+        grid.querySelectorAll('.charts-card').forEach((c) => c.classList.toggle('on', c.dataset.kind === state.picked));
+        openBig(op.dataset.open, state.data);
+        return;
+      }
       const sv = e.target.closest('[data-save]');
       if (sv) { const m = model(); saveToCollection(sv.dataset.save, m, Object.assign({}, state.opts, { title: defaultTitle(sv.dataset.save, m) })); return; }
       const pn = e.target.closest('[data-png]');
@@ -825,7 +880,7 @@
       const use = e.target.closest('[data-use]');
       if (use) {
         const it = ($('.charts-saved')._items || []).find((x) => x.id === use.dataset.use);
-        if (it && it.data && it.data.data) { setData(it.data.data, '모음: ' + it.data.title); $('.charts-result').scrollIntoView({ behavior: 'smooth' }); }
+        if (it && it.data && it.data.data) { setData(it.data.data, '모음: ' + it.data.title); $('.charts-studio').scrollIntoView({ behavior: 'smooth' }); }
         return;
       }
       const del = e.target.closest('[data-del]');
@@ -848,6 +903,7 @@
       if (!k) return;
       state.opts[k] = k === 'labels' ? e.target.checked : e.target.value;
       P.settings.set('charts.' + k, state.opts[k]);
+      if (k === 'palette') syncSwatch();
       if (state.data) drawAll();
     });
     root.querySelector('.charts-table').addEventListener('change', (e) => {
@@ -860,7 +916,7 @@
     });
     // 테마가 바뀌면 다시 그리기
     const mq = window.matchMedia ? matchMedia('(prefers-color-scheme: dark)') : null;
-    const onTheme = () => { if (state.data) drawAll(); };
+    const onTheme = () => { themeDefaults(); syncSwatch(); if (state.data) drawAll(); };
     if (mq && mq.addEventListener) mq.addEventListener('change', onTheme);
     const mo = new MutationObserver(onTheme);
     mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
@@ -891,6 +947,7 @@
       if (mq && mq.removeEventListener) mq.removeEventListener('change', onTheme);
     };
   }
+  const EDIT = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg>';
   const STAR = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.8-5.2 2.8 1-5.8-4.3-4.1 5.9-.9z"/></svg>';
 
   P.registerApp({
