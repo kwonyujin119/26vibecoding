@@ -1,0 +1,3 @@
+pptxgen.min.js = PptxGenJS 3.12.0 (MIT, LICENSE 참고)
+원본: npm pptxgenjs@3.12.0 dist/pptxgen.min.js (sourceMappingURL 줄만 제거)
+JSZip은 묶지 않은 판이므로 vendor/jszip/jszip.min.js(MIT로 사용, vendor/jszip/LICENSE.md 참고)를 먼저 불러온다.
