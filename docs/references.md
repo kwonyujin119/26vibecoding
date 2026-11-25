@@ -319,3 +319,64 @@
 | 저장소 test0 · `docs/PT-시각효과-레퍼런스.md` 비용 메모 | GitHub 요금제, Cloudflare 한도(→ API 모음) |
 
 제외한 것: 저장소의 주식 투자 관련 문서(`secret-super-platform.md`), 소방 분야 전용 내용 레퍼런스(화재통계·소화전 등) — 범용 업무 플랫폼 성격과 맞지 않아 넣지 않았습니다.
+
+## 추가 수집 (2026-11-25, 2차)
+
+
+### AI 인터페이스·모션 패턴 (13)
+
+- [Cloudscape · 생성형 AI 로딩 상태](https://cloudscape.design/patterns/genai/genai-loading-states/): AI 응답 대기·생성 중 단계별 로딩 표시 기준(AWS 디자인 시스템)
+- [Cloudscape · Thinking(추론 중) 패턴](https://cloudscape.design/gen-ai/patterns/thinking/): 추론 과정 표시와 건너뛰기, 일반 로딩에 남용하지 말 것
+- [Smashing · AI 투명성 인터페이스 패턴 (Part 2)](https://smashingmagazine.com/2026/05/practical-interface-patterns-ai-transparency/): 스피너를 넘어 에이전트형 AI의 진행 상황을 보여 주는 패턴
+- [Telerik · AI 앱의 로딩 UI/UX 패턴](https://www.telerik.com/blogs/loading-ui-ux-patterns-ai-applications): 스트리밍 커서·쉬머·스켈레톤을 언제 쓰는지 정리
+- [Telerik · 사용자를 헷갈리지 않게 하는 AI UX 패턴](https://www.telerik.com/blogs/ai-ux-patterns-user-clarity): AI 결과의 출처·불확실성·상태를 명확히 보여 주는 방법
+- [Shape of AI · 모드(Modes)](https://www.shapeof.ai/patterns/modes): 모드는 테마가 아니라 약속: 들어가고 나오는 길을 분명히
+- [Shape of AI · 제어(Stop·Pause·Queue)](https://www.shapeof.ai/patterns/controls): 멈춤 단추는 항상 같은 자리에
+- [Shape of AI · AI 사용 고지(Disclosure)](https://www.shapeof.ai/patterns/disclosure): AI가 만든 결과임을 미리 알리는 방식
+- [Shape of AI · 출처 표시(Citations)](https://www.shapeof.ai/patterns/citations): AI 답변의 근거를 연결하는 방법(행정 문서 초안에 중요)
+- [Shape of AI · 주의 문구(Caveat)](https://www.shapeof.ai/patterns/caveat): 오류 가능성을 알리는 문구 배치
+- [Shape of AI · 인라인 동작(Inline action)](https://www.shapeof.ai/patterns/inline-action): 문서 안에서 선택 영역에 바로 AI 기능을 붙이는 패턴
+- [Microsoft HAX · 사람-AI 상호작용 가이드라인 18](https://www.microsoft.com/en-us/haxtoolkit/ai-guidelines/): 연구 기반 18개 원칙, 예: 시스템이 무엇을 할 수 있는지 분명히
+- [21st.dev · AI 앱 UI 키트 모음](https://21st.dev/blog/ai-app-ui-kits): 채팅·스트리밍·프롬프트 입력 UI 부품 참고
+
+### 모션·애니메이션 (9)
+
+- [NN/g · 숨은 내용을 드러내는 타이밍](https://www.nngroup.com/articles/timing-exposing-content/): 메뉴·툴팁이 열리고 닫히는 지연 시간 기준
+- [NN/g · 단추 상태로 상호작용 알리기](https://www.nngroup.com/articles/button-states-communicate-interaction/): 기본·올림·누름·포커스·비활성 상태 설계
+- [NN/g · 스크롤 페이드 101](https://www.nngroup.com/articles/scroll-fading-101/): 스크롤 등장 효과는 500ms를 넘기면 느리게 느껴짐
+- [IBM Carbon · 모션](https://carbondesignsystem.com/elements/motion/overview/): 업무용(productive)과 표현용(expressive) 모션을 나누고 길이·가속 값을 토큰으로 제공
+- [Material · 모션 시스템(전환 4가지)](https://material.io/design/motion/the-motion-system.html): 컨테이너 변형·공유 축·페이드 스루·페이드
+- [Google Design · When Motion Got Principled](https://design.google/library/material-design-motion-sharon-harris): Material 모션 원칙이 만들어진 과정
+- [MDN · prefers-reduced-motion](https://developer.mozilla.org/docs/Web/CSS/Reference/At-rules/@media/prefers-reduced-motion): 움직임 줄이기 설정을 CSS로 감지
+- [web.dev · 접근성: 애니메이션과 모션](https://web.dev/learn/accessibility/motion): 어지럼증을 유발하지 않는 모션 설계
+- [WebKit · Responsive Design for Motion](https://webkit.org/blog/7551/responsive-design-for-motion/): 움직임 줄이기 설정에 맞춰 효과를 대체하는 사례
+
+### 탭 바·내비게이션 UI (12)
+
+- [NN/g · 탭을 제대로 쓰는 법](https://www.nngroup.com/articles/tabs-used-right/): 선택 표시는 두 가지 이상, 페이지 안 탭과 이동용 탭을 섞지 말 것
+- [Apple HIG · Tab bars](https://developer.apple.com/design/human-interface-guidelines/tab-bars): 탭 바는 이동용, 동작 실행에 쓰지 말 것. 배지는 꼭 필요할 때만
+- [Smashing · 하단 내비게이션의 황금 규칙](https://smashingmagazine.com/2016/11/the-golden-rules-of-mobile-navigation-design): 3~5개 항목, 라벨 함께, 현재 위치 강조
+- [UX Planet · 하단 탭 바 설계 모범 사례](https://uxplanet.org/bottom-tab-bar-navigation-design-best-practices-48d46a3b0c36): 최상위 화면만 넣고, 스크롤되는 탭 바는 피함
+- [Babich · Bottom Tab Bar Design Best Practices](https://babich.biz/blog/bottom-tab-bar-design): 아이콘 대비와 라벨 크기 같은 흔한 실수
+- [Visa Design System · Tab bar](https://design.visa.com/components/tab-bar/usage/): 기업 디자인 시스템의 탭 바 사용 기준
+- [SAP Fiori (iOS) · Tab Bar](https://www.sap.com/design-system/fiori-design-ios/v25-4/components/navigation-and-search/tab-bar/usage): 업무용 앱의 탭 바 구성 예
+- [Adobe Spectrum · Tab bar (iOS)](https://spectrum.adobe.com/page/tab-bar-ios): 항목 수·라벨·배지 규칙
+- [싱가포르 정부 디자인 시스템 · Tab](https://designsystem.tech.gov.sg/components/tab): 공공 서비스 탭 컴포넌트 기준
+- [구름 Vapor UI · Tabs](https://vapor-ui.goorm.io/docs/components/tabs): 국내 디자인 시스템의 탭 컴포넌트(한국어 문서)
+- [Android TV 가이드 · 탭](https://developer.android.com/design/ui/tv/guides/components/tabs?hl=ko): 탭 유형과 쓰는 시점(한국어)
+- [NN/g · 키보드만으로 이동하기](https://www.nngroup.com/articles/keyboard-accessibility/): 탭·메뉴를 키보드로 이동할 수 있게 설계
+
+### 디자인 기법 (12)
+
+- [NN/g · 시각적 위계의 정의](https://www.nngroup.com/articles/visual-hierarchy-ux-definition/): 색·대비·크기·묶음으로 중요한 것부터 보이게. 크기는 3단계 이내
+- [NN/g · 좋은 시각 디자인이란](https://www.nngroup.com/articles/good-visual-design/): 보기 좋은 것보다 쓰기 쉬운 시각 디자인
+- [NN/g · 시각 디자인 용어집](https://www.nngroup.com/articles/visual-design-cheat-sheet/): 규모·위계·균형·대비·게슈탈트 용어 정리
+- [NN/g · 시각 디자인 5원칙 (A4 PDF)](https://media.nngroup.com/media/articles/attachments/Principles_Visual_Design-A4.pdf): 인쇄해서 옆에 두기 좋은 한 장 요약
+- [NN/g · 스퀸트 테스트(영상)](https://www.nngroup.com/videos/squint-test/): 눈을 가늘게 뜨고 봐서 위계가 살아 있는지 확인
+- [NN/g · 디자인 패턴 가이드라인 학습 가이드](https://www.nngroup.com/articles/design-pattern-guidelines/): 자주 쓰는 UI 패턴별 NN/g 글 모음
+- [NN/g · 양식의 인지 부담을 줄이는 4원칙](https://www.nngroup.com/articles/4-principles-reduce-cognitive-load/): 입력 양식(신청서·등록 화면)에 바로 적용
+- [Nulab · Laws of UX 정리](https://nulab.com/learn/design-and-ux/laws-of-ux/): 힉의 법칙, 피츠의 법칙 등 UX 법칙 해설
+- [Shopify · 디자이너가 알아야 할 UX 법칙](https://www.shopify.com/partners/blog/ux-laws): UX 법칙을 실제 화면 예로 설명
+- [UXtweak · UX 법칙과 원칙](https://blog.uxtweak.com/ux-laws-and-principles/): 원칙별 적용 체크리스트
+- [Refactoring UI 서평 (DEV)](https://dev.to/updivision/book-review-refactoring-ui-by-adam-wathan-steve-schoger-2f7m): 크기·굵기·색으로 위계를 만드는 실전 기법 요약
+- [IBM Carbon · 타이포그래피 스타일 전략](https://carbondesignsystem.com/elements/typography/style-strategies/): 업무용 화면의 글자 크기 체계(고정형·유동형)

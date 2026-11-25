@@ -1246,6 +1246,540 @@
       ]
     },
     {
+      "id": "ai-motion",
+      "title": "AI 인터페이스·모션 패턴",
+      "desc": "AI가 생각하는 중, 답을 쓰는 중, 도구를 쓰는 중 같은 상태를 화면과 움직임으로 보여 주는 방법",
+      "items": [
+        {
+          "title": "Cloudscape · 생성형 AI 로딩 상태",
+          "url": "https://cloudscape.design/patterns/genai/genai-loading-states/",
+          "source": "웹 검색 (2026-11-25, 2차)",
+          "category": "UI/UX",
+          "note": "AI 응답 대기·생성 중 단계별 로딩 표시 기준(AWS 디자인 시스템)",
+          "tags": [
+            "AI",
+            "로딩",
+            "스켈레톤"
+          ]
+        },
+        {
+          "title": "Cloudscape · Thinking(추론 중) 패턴",
+          "url": "https://cloudscape.design/gen-ai/patterns/thinking/",
+          "source": "웹 검색 (2026-11-25, 2차)",
+          "category": "UI/UX",
+          "note": "추론 과정 표시와 건너뛰기, 일반 로딩에 남용하지 말 것",
+          "tags": [
+            "AI",
+            "thinking"
+          ]
+        },
+        {
+          "title": "Smashing · AI 투명성 인터페이스 패턴 (Part 2)",
+          "url": "https://smashingmagazine.com/2026/05/practical-interface-patterns-ai-transparency/",
+          "source": "웹 검색 (2026-11-25, 2차)",
+          "category": "UI/UX",
+          "note": "스피너를 넘어 에이전트형 AI의 진행 상황을 보여 주는 패턴",
+          "tags": [
+            "AI",
+            "에이전트",
+            "진행 표시"
+          ]
+        },
+        {
+          "title": "Telerik · AI 앱의 로딩 UI/UX 패턴",
+          "url": "https://www.telerik.com/blogs/loading-ui-ux-patterns-ai-applications",
+          "source": "웹 검색 (2026-11-25, 2차)",
+          "category": "UI/UX",
+          "note": "스트리밍 커서·쉬머·스켈레톤을 언제 쓰는지 정리",
+          "tags": [
+            "AI",
+            "쉬머",
+            "스트리밍"
+          ]
+        },
+        {
+          "title": "Telerik · 사용자를 헷갈리지 않게 하는 AI UX 패턴",
+          "url": "https://www.telerik.com/blogs/ai-ux-patterns-user-clarity",
+          "source": "웹 검색 (2026-11-25, 2차)",
+          "category": "UI/UX",
+          "note": "AI 결과의 출처·불확실성·상태를 명확히 보여 주는 방법",
+          "tags": [
+            "AI",
+            "명확성"
+          ]
+        },
+        {
+          "title": "Shape of AI · 모드(Modes)",
+          "url": "https://www.shapeof.ai/patterns/modes",
+          "source": "웹 검색 (2026-11-25, 2차)",
+          "category": "UI/UX",
+          "note": "모드는 테마가 아니라 약속: 들어가고 나오는 길을 분명히",
+          "tags": [
+            "AI",
+            "패턴 라이브러리"
+          ]
+        },
+        {
+          "title": "Shape of AI · 제어(Stop·Pause·Queue)",
+          "url": "https://www.shapeof.ai/patterns/controls",
+          "source": "웹 검색 (2026-11-25, 2차)",
+          "category": "UI/UX",
+          "note": "멈춤 단추는 항상 같은 자리에",
+          "tags": [
+            "AI",
+            "제어"
+          ]
+        },
+        {
+          "title": "Shape of AI · AI 사용 고지(Disclosure)",
+          "url": "https://www.shapeof.ai/patterns/disclosure",
+          "source": "웹 검색 (2026-11-25, 2차)",
+          "category": "UI/UX",
+          "note": "AI가 만든 결과임을 미리 알리는 방식",
+          "tags": [
+            "AI",
+            "고지"
+          ]
+        },
+        {
+          "title": "Shape of AI · 출처 표시(Citations)",
+          "url": "https://www.shapeof.ai/patterns/citations",
+          "source": "웹 검색 (2026-11-25, 2차)",
+          "category": "UI/UX",
+          "note": "AI 답변의 근거를 연결하는 방법(행정 문서 초안에 중요)",
+          "tags": [
+            "AI",
+            "출처"
+          ]
+        },
+        {
+          "title": "Shape of AI · 주의 문구(Caveat)",
+          "url": "https://www.shapeof.ai/patterns/caveat",
+          "source": "웹 검색 (2026-11-25, 2차)",
+          "category": "UI/UX",
+          "note": "오류 가능성을 알리는 문구 배치",
+          "tags": [
+            "AI",
+            "주의"
+          ]
+        },
+        {
+          "title": "Shape of AI · 인라인 동작(Inline action)",
+          "url": "https://www.shapeof.ai/patterns/inline-action",
+          "source": "웹 검색 (2026-11-25, 2차)",
+          "category": "UI/UX",
+          "note": "문서 안에서 선택 영역에 바로 AI 기능을 붙이는 패턴",
+          "tags": [
+            "AI",
+            "문서 편집"
+          ]
+        },
+        {
+          "title": "Microsoft HAX · 사람-AI 상호작용 가이드라인 18",
+          "url": "https://www.microsoft.com/en-us/haxtoolkit/ai-guidelines/",
+          "source": "웹 검색 (2026-11-25, 2차)",
+          "category": "UI/UX",
+          "note": "연구 기반 18개 원칙, 예: 시스템이 무엇을 할 수 있는지 분명히",
+          "tags": [
+            "AI",
+            "가이드라인"
+          ]
+        },
+        {
+          "title": "21st.dev · AI 앱 UI 키트 모음",
+          "url": "https://21st.dev/blog/ai-app-ui-kits",
+          "source": "웹 검색 (2026-11-25, 2차)",
+          "category": "UI/UX",
+          "note": "채팅·스트리밍·프롬프트 입력 UI 부품 참고",
+          "tags": [
+            "AI",
+            "UI 키트"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "motion",
+      "title": "모션·애니메이션",
+      "desc": "움직임의 길이·가속·목적과 움직임 줄이기 설정 대응",
+      "items": [
+        {
+          "title": "NN/g · 숨은 내용을 드러내는 타이밍",
+          "url": "https://www.nngroup.com/articles/timing-exposing-content/",
+          "source": "웹 검색 (2026-11-25, 2차)",
+          "category": "디자인",
+          "note": "메뉴·툴팁이 열리고 닫히는 지연 시간 기준",
+          "tags": [
+            "타이밍",
+            "메뉴"
+          ]
+        },
+        {
+          "title": "NN/g · 단추 상태로 상호작용 알리기",
+          "url": "https://www.nngroup.com/articles/button-states-communicate-interaction/",
+          "source": "웹 검색 (2026-11-25, 2차)",
+          "category": "디자인",
+          "note": "기본·올림·누름·포커스·비활성 상태 설계",
+          "tags": [
+            "단추",
+            "상태"
+          ]
+        },
+        {
+          "title": "NN/g · 스크롤 페이드 101",
+          "url": "https://www.nngroup.com/articles/scroll-fading-101/",
+          "source": "웹 검색 (2026-11-25, 2차)",
+          "category": "디자인",
+          "note": "스크롤 등장 효과는 500ms를 넘기면 느리게 느껴짐",
+          "tags": [
+            "스크롤",
+            "페이드"
+          ]
+        },
+        {
+          "title": "IBM Carbon · 모션",
+          "url": "https://carbondesignsystem.com/elements/motion/overview/",
+          "source": "웹 검색 (2026-11-25, 2차)",
+          "category": "디자인",
+          "note": "업무용(productive)과 표현용(expressive) 모션을 나누고 길이·가속 값을 토큰으로 제공",
+          "tags": [
+            "모션 토큰",
+            "easing"
+          ]
+        },
+        {
+          "title": "Material · 모션 시스템(전환 4가지)",
+          "url": "https://material.io/design/motion/the-motion-system.html",
+          "source": "웹 검색 (2026-11-25, 2차)",
+          "category": "디자인",
+          "note": "컨테이너 변형·공유 축·페이드 스루·페이드",
+          "tags": [
+            "전환",
+            "Material"
+          ]
+        },
+        {
+          "title": "Google Design · When Motion Got Principled",
+          "url": "https://design.google/library/material-design-motion-sharon-harris",
+          "source": "웹 검색 (2026-11-25, 2차)",
+          "category": "디자인",
+          "note": "Material 모션 원칙이 만들어진 과정",
+          "tags": [
+            "모션",
+            "역사"
+          ]
+        },
+        {
+          "title": "MDN · prefers-reduced-motion",
+          "url": "https://developer.mozilla.org/docs/Web/CSS/Reference/At-rules/@media/prefers-reduced-motion",
+          "source": "웹 검색 (2026-11-25, 2차)",
+          "category": "디자인",
+          "note": "움직임 줄이기 설정을 CSS로 감지",
+          "tags": [
+            "접근성",
+            "CSS"
+          ]
+        },
+        {
+          "title": "web.dev · 접근성: 애니메이션과 모션",
+          "url": "https://web.dev/learn/accessibility/motion",
+          "source": "웹 검색 (2026-11-25, 2차)",
+          "category": "디자인",
+          "note": "어지럼증을 유발하지 않는 모션 설계",
+          "tags": [
+            "접근성",
+            "모션"
+          ]
+        },
+        {
+          "title": "WebKit · Responsive Design for Motion",
+          "url": "https://webkit.org/blog/7551/responsive-design-for-motion/",
+          "source": "웹 검색 (2026-11-25, 2차)",
+          "category": "디자인",
+          "note": "움직임 줄이기 설정에 맞춰 효과를 대체하는 사례",
+          "tags": [
+            "접근성",
+            "반응형"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "tabs",
+      "title": "탭 바·내비게이션 UI",
+      "desc": "상단 탭, 하단 탭 바, 사이드 메뉴를 언제 어떻게 쓰는지",
+      "items": [
+        {
+          "title": "NN/g · 탭을 제대로 쓰는 법",
+          "url": "https://www.nngroup.com/articles/tabs-used-right/",
+          "source": "웹 검색 (2026-11-25, 2차)",
+          "category": "UI/UX",
+          "note": "선택 표시는 두 가지 이상, 페이지 안 탭과 이동용 탭을 섞지 말 것",
+          "tags": [
+            "탭",
+            "원칙"
+          ]
+        },
+        {
+          "title": "Apple HIG · Tab bars",
+          "url": "https://developer.apple.com/design/human-interface-guidelines/tab-bars",
+          "source": "웹 검색 (2026-11-25, 2차)",
+          "category": "UI/UX",
+          "note": "탭 바는 이동용, 동작 실행에 쓰지 말 것. 배지는 꼭 필요할 때만",
+          "tags": [
+            "탭 바",
+            "iOS"
+          ]
+        },
+        {
+          "title": "Smashing · 하단 내비게이션의 황금 규칙",
+          "url": "https://smashingmagazine.com/2016/11/the-golden-rules-of-mobile-navigation-design",
+          "source": "웹 검색 (2026-11-25, 2차)",
+          "category": "UI/UX",
+          "note": "3~5개 항목, 라벨 함께, 현재 위치 강조",
+          "tags": [
+            "하단 탭",
+            "모바일"
+          ]
+        },
+        {
+          "title": "UX Planet · 하단 탭 바 설계 모범 사례",
+          "url": "https://uxplanet.org/bottom-tab-bar-navigation-design-best-practices-48d46a3b0c36",
+          "source": "웹 검색 (2026-11-25, 2차)",
+          "category": "UI/UX",
+          "note": "최상위 화면만 넣고, 스크롤되는 탭 바는 피함",
+          "tags": [
+            "하단 탭",
+            "모범 사례"
+          ]
+        },
+        {
+          "title": "Babich · Bottom Tab Bar Design Best Practices",
+          "url": "https://babich.biz/blog/bottom-tab-bar-design",
+          "source": "웹 검색 (2026-11-25, 2차)",
+          "category": "UI/UX",
+          "note": "아이콘 대비와 라벨 크기 같은 흔한 실수",
+          "tags": [
+            "하단 탭",
+            "대비"
+          ]
+        },
+        {
+          "title": "Visa Design System · Tab bar",
+          "url": "https://design.visa.com/components/tab-bar/usage/",
+          "source": "웹 검색 (2026-11-25, 2차)",
+          "category": "UI/UX",
+          "note": "기업 디자인 시스템의 탭 바 사용 기준",
+          "tags": [
+            "탭 바",
+            "디자인 시스템"
+          ]
+        },
+        {
+          "title": "SAP Fiori (iOS) · Tab Bar",
+          "url": "https://www.sap.com/design-system/fiori-design-ios/v25-4/components/navigation-and-search/tab-bar/usage",
+          "source": "웹 검색 (2026-11-25, 2차)",
+          "category": "UI/UX",
+          "note": "업무용 앱의 탭 바 구성 예",
+          "tags": [
+            "탭 바",
+            "업무용"
+          ]
+        },
+        {
+          "title": "Adobe Spectrum · Tab bar (iOS)",
+          "url": "https://spectrum.adobe.com/page/tab-bar-ios",
+          "source": "웹 검색 (2026-11-25, 2차)",
+          "category": "UI/UX",
+          "note": "항목 수·라벨·배지 규칙",
+          "tags": [
+            "탭 바",
+            "Spectrum"
+          ]
+        },
+        {
+          "title": "싱가포르 정부 디자인 시스템 · Tab",
+          "url": "https://designsystem.tech.gov.sg/components/tab",
+          "source": "웹 검색 (2026-11-25, 2차)",
+          "category": "UI/UX",
+          "note": "공공 서비스 탭 컴포넌트 기준",
+          "tags": [
+            "탭",
+            "정부 디자인 시스템"
+          ]
+        },
+        {
+          "title": "구름 Vapor UI · Tabs",
+          "url": "https://vapor-ui.goorm.io/docs/components/tabs",
+          "source": "웹 검색 (2026-11-25, 2차)",
+          "category": "UI/UX",
+          "note": "국내 디자인 시스템의 탭 컴포넌트(한국어 문서)",
+          "tags": [
+            "탭",
+            "국내"
+          ]
+        },
+        {
+          "title": "Android TV 가이드 · 탭",
+          "url": "https://developer.android.com/design/ui/tv/guides/components/tabs?hl=ko",
+          "source": "웹 검색 (2026-11-25, 2차)",
+          "category": "UI/UX",
+          "note": "탭 유형과 쓰는 시점(한국어)",
+          "tags": [
+            "탭",
+            "Android"
+          ]
+        },
+        {
+          "title": "NN/g · 키보드만으로 이동하기",
+          "url": "https://www.nngroup.com/articles/keyboard-accessibility/",
+          "source": "웹 검색 (2026-11-25, 2차)",
+          "category": "UI/UX",
+          "note": "탭·메뉴를 키보드로 이동할 수 있게 설계",
+          "tags": [
+            "접근성",
+            "키보드"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "techniques",
+      "title": "디자인 기법",
+      "desc": "위계·간격·크기·대비로 화면을 정리하는 실전 기법",
+      "items": [
+        {
+          "title": "NN/g · 시각적 위계의 정의",
+          "url": "https://www.nngroup.com/articles/visual-hierarchy-ux-definition/",
+          "source": "웹 검색 (2026-11-25, 2차)",
+          "category": "디자인",
+          "note": "색·대비·크기·묶음으로 중요한 것부터 보이게. 크기는 3단계 이내",
+          "tags": [
+            "위계",
+            "원칙"
+          ]
+        },
+        {
+          "title": "NN/g · 좋은 시각 디자인이란",
+          "url": "https://www.nngroup.com/articles/good-visual-design/",
+          "source": "웹 검색 (2026-11-25, 2차)",
+          "category": "디자인",
+          "note": "보기 좋은 것보다 쓰기 쉬운 시각 디자인",
+          "tags": [
+            "시각 디자인"
+          ]
+        },
+        {
+          "title": "NN/g · 시각 디자인 용어집",
+          "url": "https://www.nngroup.com/articles/visual-design-cheat-sheet/",
+          "source": "웹 검색 (2026-11-25, 2차)",
+          "category": "디자인",
+          "note": "규모·위계·균형·대비·게슈탈트 용어 정리",
+          "tags": [
+            "용어",
+            "게슈탈트"
+          ]
+        },
+        {
+          "title": "NN/g · 시각 디자인 5원칙 (A4 PDF)",
+          "url": "https://media.nngroup.com/media/articles/attachments/Principles_Visual_Design-A4.pdf",
+          "source": "웹 검색 (2026-11-25, 2차)",
+          "category": "디자인",
+          "note": "인쇄해서 옆에 두기 좋은 한 장 요약",
+          "tags": [
+            "원칙",
+            "PDF"
+          ]
+        },
+        {
+          "title": "NN/g · 스퀸트 테스트(영상)",
+          "url": "https://www.nngroup.com/videos/squint-test/",
+          "source": "웹 검색 (2026-11-25, 2차)",
+          "category": "디자인",
+          "note": "눈을 가늘게 뜨고 봐서 위계가 살아 있는지 확인",
+          "tags": [
+            "검증",
+            "위계"
+          ]
+        },
+        {
+          "title": "NN/g · 디자인 패턴 가이드라인 학습 가이드",
+          "url": "https://www.nngroup.com/articles/design-pattern-guidelines/",
+          "source": "웹 검색 (2026-11-25, 2차)",
+          "category": "디자인",
+          "note": "자주 쓰는 UI 패턴별 NN/g 글 모음",
+          "tags": [
+            "패턴",
+            "학습"
+          ]
+        },
+        {
+          "title": "NN/g · 양식의 인지 부담을 줄이는 4원칙",
+          "url": "https://www.nngroup.com/articles/4-principles-reduce-cognitive-load/",
+          "source": "웹 검색 (2026-11-25, 2차)",
+          "category": "디자인",
+          "note": "입력 양식(신청서·등록 화면)에 바로 적용",
+          "tags": [
+            "양식",
+            "인지 부담"
+          ]
+        },
+        {
+          "title": "Nulab · Laws of UX 정리",
+          "url": "https://nulab.com/learn/design-and-ux/laws-of-ux/",
+          "source": "웹 검색 (2026-11-25, 2차)",
+          "category": "디자인",
+          "note": "힉의 법칙, 피츠의 법칙 등 UX 법칙 해설",
+          "tags": [
+            "UX 법칙"
+          ]
+        },
+        {
+          "title": "Shopify · 디자이너가 알아야 할 UX 법칙",
+          "url": "https://www.shopify.com/partners/blog/ux-laws",
+          "source": "웹 검색 (2026-11-25, 2차)",
+          "category": "디자인",
+          "note": "UX 법칙을 실제 화면 예로 설명",
+          "tags": [
+            "UX 법칙",
+            "사례"
+          ]
+        },
+        {
+          "title": "UXtweak · UX 법칙과 원칙",
+          "url": "https://blog.uxtweak.com/ux-laws-and-principles/",
+          "source": "웹 검색 (2026-11-25, 2차)",
+          "category": "디자인",
+          "note": "원칙별 적용 체크리스트",
+          "tags": [
+            "UX 법칙",
+            "체크리스트"
+          ]
+        },
+        {
+          "title": "Refactoring UI 서평 (DEV)",
+          "url": "https://dev.to/updivision/book-review-refactoring-ui-by-adam-wathan-steve-schoger-2f7m",
+          "source": "웹 검색 (2026-11-25, 2차)",
+          "category": "디자인",
+          "note": "크기·굵기·색으로 위계를 만드는 실전 기법 요약",
+          "tags": [
+            "Refactoring UI",
+            "위계"
+          ]
+        },
+        {
+          "title": "IBM Carbon · 타이포그래피 스타일 전략",
+          "url": "https://carbondesignsystem.com/elements/typography/style-strategies/",
+          "source": "웹 검색 (2026-11-25, 2차)",
+          "category": "디자인",
+          "note": "업무용 화면의 글자 크기 체계(고정형·유동형)",
+          "tags": [
+            "타이포그래피"
+          ]
+        }
+      ]
+    },
+    {
       "id": "pt",
       "title": "PT·발표",
       "desc": "발표 구성과 웹 발표 도구",
