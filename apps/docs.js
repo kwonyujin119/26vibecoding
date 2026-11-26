@@ -772,7 +772,7 @@
       '<div class="p-search docs-search">' + P.icons.search + '<input type="search" placeholder="제목·내용 검색" aria-label="문서 검색" value="' + esc(q) + '"></div>' +
       '<select class="docs-sort" aria-label="정렬"><option value="recent">최근 수정</option><option value="name">이름</option><option value="created">만든 날짜</option></select>' +
       '<div class="seg docs-view" role="group" aria-label="보기"><button type="button" data-view="list" aria-label="목록으로 보기" title="목록">' + I.rows + '</button><button type="button" data-view="grid" aria-label="쪽으로 보기" title="쪽">' + I.tiles + '</button></div></div>' +
-      '<div class="docs-cards"><div class="empty">불러오는 중…</div></div></section></div>';
+      '<div class="docs-cards">' + P.ui.skeleton(3) + '</div></section></div>';
     const cards = root.querySelector('.docs-cards');
     const search = root.querySelector('input[type="search"]');
     const sortSel = root.querySelector('.docs-sort');
@@ -843,7 +843,7 @@
       const row = card && rows.find((r) => r.id === card.dataset.id);
       try {
         if (act === 'new') await createDoc(ctx, tpls[0]);
-        else if (act === 'import') await importFlow(ctx);
+        else if (act === 'import') await importFlow(ctx, b);
         else if (act === 'rename' && row) {
           const name = await askText('새 문서 이름', row.data.title || '');
           if (name == null || !name.trim()) return;
@@ -1900,7 +1900,7 @@
           { v: 'pdf', t: 'PDF · 인쇄', s: '인쇄 창에서 "PDF로 저장" 선택', ic: '<span class="p-pop-ic">PDF</span>' },
           { v: 'html', t: '웹 문서 (.html)', s: '메일 본문·게시판 붙여넣기용', ic: '<span class="p-pop-ic">HTML</span>' },
           { v: 'txt', t: '텍스트 (.txt)', s: '서식 없이 글자만', ic: '<span class="p-pop-ic">TXT</span>' }
-        ]), (v) => doExport(v));
+        ]), (v) => (['hwpx', 'docx'].includes(v) ? P.ui.busy(anchor, () => doExport(v)) : doExport(v)));
       } else if (name === 'more') {
         openMenu(anchor, menuItems([
           { v: 'print', t: '인쇄', s: MOD + '+P', ic: '<span class="p-pop-ic">' + I.print + '</span>' },
@@ -2937,7 +2937,7 @@
       const f = file || (await pickFile('.docx,.hwpx,.html,.htm,.txt,.md', false))[0];
       if (!f) return;
       try {
-        const res = await importFile(f);
+        const res = await P.ui.busy(root.querySelector('[data-menu="more"]'), () => importFile(f));
         body.focus({ preventScroll: true });
         restoreSel(saved);
         insertHTMLAtCaret(res.html);
@@ -3799,9 +3799,14 @@
     return { html: sanitizeHTML(html), title, page };
   }
 
-  async function importFlow(ctx) {
+  async function importFlow(ctx, btn) {
     const files = await pickFile('.docx,.hwpx,.html,.htm,.txt,.md,.hwp,.doc', true);
     if (!files.length) return;
+    // 파일을 고른 뒤부터만 처리 중 표시 (고르기 창을 닫아도 단추가 멈추지 않게)
+    if (btn) return P.ui.busy(btn, () => importFiles(ctx, files));
+    return importFiles(ctx, files);
+  }
+  async function importFiles(ctx, files) {
     let firstId = null;
     let ok = 0;
     for (const f of files) {

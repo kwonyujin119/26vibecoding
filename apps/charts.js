@@ -876,7 +876,7 @@
       const sv = e.target.closest('[data-save]');
       if (sv) { const m = model(); saveToCollection(sv.dataset.save, m, Object.assign({}, state.opts, { title: defaultTitle(sv.dataset.save, m) })); return; }
       const pn = e.target.closest('[data-png]');
-      if (pn) { const m = model(); savePNG(pn.dataset.png, m, Object.assign({}, state.opts, { title: defaultTitle(pn.dataset.png, m) })); return; }
+      if (pn) { const m = model(); P.ui.busy(pn, () => savePNG(pn.dataset.png, m, Object.assign({}, state.opts, { title: defaultTitle(pn.dataset.png, m) }))).catch((err) => console.error(err)); return; }
       const use = e.target.closest('[data-use]');
       if (use) {
         const it = ($('.charts-saved')._items || []).find((x) => x.id === use.dataset.use);

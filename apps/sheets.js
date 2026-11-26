@@ -2986,11 +2986,11 @@
         f.click();
       });
     }
-    async function importInto() {
+    async function importInto(btn) {
       const file = await pickFile('.xlsx,.xls,.xlsm,.ods,.csv,.tsv,.txt');
       if (!file) return;
       try {
-        const res = await readFileAsSheets(file);
+        const res = await P.ui.busy(btn, () => readFileAsSheets(file));
         pushUndo();
         res.sheets.forEach((s) => { s.name = uniqueName(s.name); book.sheets.push(s); });
         P.ui.toast(res.sheets.length + '개 시트를 가져왔습니다.', 'ok');
@@ -3020,7 +3020,7 @@
     }
     function exportMenu(btn) {
       popMenu(btn, [
-        { label: 'XLSX(엑셀) 파일로 내려받기', onClick: exportXLSX },
+        { label: 'XLSX(엑셀) 파일로 내려받기', onClick: () => P.ui.busy(btn, exportXLSX) },
         { label: 'CSV(현재 시트)로 내려받기', onClick: exportCSV },
         { sep: true },
         { label: '인쇄 / PDF로 저장', onClick: printSheet }
@@ -3117,7 +3117,7 @@
       const b = e.target.closest('[data-act]');
       if (!b) return;
       if (st.editing && !commitEdit()) return;
-      ({ import: importInto, export: () => exportMenu(b), print: printSheet, chart: toChart, help: helpDialog })[b.dataset.act]();
+      ({ import: () => importInto(b), export: () => exportMenu(b), print: printSheet, chart: toChart, help: helpDialog })[b.dataset.act]();
     });
     $('.sheets-fx').addEventListener('click', fxMenu);
 
@@ -3211,7 +3211,7 @@
           TEMPLATES.map((t) => tile(t.id, t.title, t.desc)).join('') +
         '</div></section>' +
         '<section class="sheets-sec"><div class="sheets-listhead"><div class="section-title"><h2>내 통합문서</h2><span class="sheets-count tnum"></span></div><label class="p-search">' + P.icons.search + '<input type="search" placeholder="이름으로 찾기" aria-label="통합문서 검색"></label></div>' +
-        '<div class="sheets-files"><div class="sheets-files-msg">불러오는 중…</div></div></section>' +
+        '<div class="sheets-files">' + P.ui.skeleton(3) + '</div></section>' +
       '</div>';
     const filesEl = root.querySelector('.sheets-files');
     const search = root.querySelector('input[type=search]');
@@ -3261,7 +3261,7 @@
           const file = f.files && f.files[0];
           if (!file) return;
           try {
-            const res = await readFileAsSheets(file);
+            const res = await P.ui.busy(a, () => readFileAsSheets(file));
             const b = newBook(res.title);
             const used = new Set();
             res.sheets.forEach((s) => { s.name = safeSheetName(s.name, used); });

@@ -299,7 +299,7 @@
       who: P.settings.get('head-schedule.who', ALL),
       narrow: false
     };
-    root.innerHTML = '<div class="page sch-page"><div class="empty">불러오는 중…</div></div>';
+    root.innerHTML = '<div class="page sch-page">' + P.ui.skeleton(4) + '</div>';
     const page = root.firstChild;
     let clock = null;
 

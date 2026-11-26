@@ -2,7 +2,7 @@
 (function () {
   'use strict';
 
-  const VERSION = '1.1.0';
+  const VERSION = '1.2.0';
   const DEFAULT_TITLE = '공마일';
   const DEFAULT_SUBTITLE = '0MILE - 업무의 출발점 / 공무원이 마음껏 일할 수 있는 플랫폼';
 
@@ -92,6 +92,45 @@
     }
   };
 
+  /* ---------- 움직임 도구 ---------- */
+  const mqReduce = window.matchMedia ? matchMedia('(prefers-reduced-motion: reduce)') : { matches: false };
+  /* 사라짐 애니메이션(.out)을 보여 준 뒤 지움. animationend 가 안 오면 시간으로 지움 */
+  function animateOut(node, ms) {
+    if (!node || !node.isConnected) return;
+    if (node.classList.contains('out')) return;
+    node.classList.add('out');
+    let done = false;
+    const fin = () => { if (done) return; done = true; node.remove(); };
+    node.addEventListener('animationend', (e) => { if (e.target === node) fin(); });
+    setTimeout(fin, (ms || 210) + 40);
+  }
+
+  /* 처리 중 단추 (NN/g Button States · Cloudscape loading): aria-busy + disabled, 끝나면 되돌림.
+     P.ui.busy(button, promise 또는 함수) → 결과를 그대로 돌려줌 */
+  function busy(btn, work) {
+    const run = () => (typeof work === 'function' ? work() : work);
+    if (!btn || !(btn instanceof Element) || btn.getAttribute('aria-busy') === 'true') return Promise.resolve().then(run);
+    const wasDisabled = btn.disabled;
+    btn.setAttribute('aria-busy', 'true');
+    if ('disabled' in btn) btn.disabled = true;
+    const restore = () => {
+      btn.removeAttribute('aria-busy');
+      if ('disabled' in btn) btn.disabled = wasDisabled;
+    };
+    let p;
+    try { p = Promise.resolve(run()); } catch (e) { p = Promise.reject(e); }
+    return p.then((v) => { restore(); return v; }, (e) => { restore(); throw e; });
+  }
+
+  /* 뼈대 줄: 300ms 넘게 걸릴 때만 보이도록 CSS가 지연 표시 (Cloudscape skeleton) */
+  function skeleton(n) {
+    let h = '';
+    for (let i = 0; i < (n || 3); i++) {
+      h += '<div class="p-skel-row" aria-hidden="true"><span class="p-skel"></span><span class="p-skel-lines"><span class="p-skel" style="width:' + [52, 38, 46, 30][i % 4] + '%"></span><span class="p-skel" style="width:' + [24, 18, 28, 20][i % 4] + '%"></span></span></div>';
+    }
+    return '<div class="p-skel-list" role="status" aria-label="불러오는 중">' + h + '</div>';
+  }
+
   /* ---------- UI: 토스트 · 모달 · 확인 ---------- */
   function toastBox() {
     let box = document.getElementById('p-toasts');
@@ -138,8 +177,7 @@
       closed = true;
       const i = modalStack.indexOf(close);
       if (i >= 0) modalStack.splice(i, 1);
-      back.classList.add('out');
-      setTimeout(() => back.remove(), 160);
+      animateOut(back, 210);
       if (typeof o.onClose === 'function') { try { o.onClose(); } catch (e) { console.error(e); } }
       if (lastFocus && lastFocus.focus) { try { lastFocus.focus(); } catch (e) { /* 무시 */ } }
     }
@@ -201,8 +239,8 @@
     return new Promise((resolve) => {
       let result = null;
       const wrap = el('div', { class: 'field' });
-      wrap.innerHTML = '<label>' + esc(msg) + '</label>';
-      const input = el('input', { type: 'text', autofocus: true });
+      wrap.innerHTML = '<label for="p-prompt-in">' + esc(msg) + '</label>';
+      const input = el('input', { type: 'text', id: 'p-prompt-in', autofocus: true });
       input.value = def == null ? '' : String(def);
       wrap.appendChild(input);
       const close = modal({
@@ -229,6 +267,43 @@
 
   /* ---------- 스크립트 · 스타일 지연 로드 ---------- */
   const loaded = new Map();
+  /* 느린 불러오기 표시 (NN/g 진행 표시: 금방 끝나면 표시하지 않음, 400ms 넘으면 위쪽 가는 막대) */
+  let progN = 0;
+  let progTimer = null;
+  function progressBar() {
+    let bar = document.getElementById('p-progress');
+    if (!bar) {
+      const head = document.querySelector('.p-header');
+      if (!head) return null;
+      bar = el('div', { id: 'p-progress', class: 'p-progress', role: 'progressbar', 'aria-label': '불러오는 중', hidden: true });
+      head.appendChild(bar);
+    }
+    return bar;
+  }
+  function track(promise) {
+    progN++;
+    if (progN === 1) {
+      clearTimeout(progTimer);
+      progTimer = setTimeout(() => {
+        const bar = progressBar();
+        if (!bar || !progN) return;
+        bar.hidden = false;
+        requestAnimationFrame(() => { if (progN) bar.classList.add('on'); });
+      }, 400);
+    }
+    const end = () => {
+      progN = Math.max(0, progN - 1);
+      if (progN) return;
+      clearTimeout(progTimer);
+      const bar = document.getElementById('p-progress');
+      if (bar && !bar.hidden) {
+        bar.classList.remove('on');
+        setTimeout(() => { if (!progN) bar.hidden = true; }, 120);
+      }
+    };
+    promise.then(end, end);
+    return promise;
+  }
   function loadScript(src) {
     if (!loaded.has(src)) {
       loaded.set(src, new Promise((resolve, reject) => {
@@ -237,6 +312,7 @@
         s.onerror = () => { loaded.delete(src); s.remove(); reject(new Error('스크립트를 불러오지 못했습니다: ' + src)); };
         document.head.appendChild(s);
       }));
+      track(loaded.get(src));
     }
     return loaded.get(src);
   }
@@ -249,6 +325,7 @@
         l.onerror = () => { loaded.delete(key); l.remove(); reject(new Error('스타일을 불러오지 못했습니다: ' + href)); };
         document.head.appendChild(l);
       }));
+      track(loaded.get(key));
     }
     return loaded.get(key);
   }
@@ -483,10 +560,10 @@
       checkCol(col);
       let clean;
       try { clean = toJSON(data); } catch (e) { return Promise.reject(new Error('저장할 수 없는 데이터 형식입니다.')); }
-      return guard(active.put(col, String(id), clean));
+      return watchOverdue(col, guard(active.put(col, String(id), clean)));
     },
     list(col) { checkCol(col); return guard(active.list(col)); },
-    remove(col, id) { checkCol(col); return guard(active.remove(col, String(id))); },
+    remove(col, id) { checkCol(col); return watchOverdue(col, guard(active.remove(col, String(id)))); },
     uid,
     on(evt, fn) {
       if (evt !== 'change' || typeof fn !== 'function') return () => {};
@@ -497,6 +574,11 @@
     },
     collections() { return guard(active.cols()); }
   };
+
+  function watchOverdue(col, p) {
+    if (col === OVERDUE_COL) p.then(() => refreshOverdue(true), () => {});
+    return p;
+  }
 
   async function copyAll(from, to, onProgress) {
     const cols = await from.cols();
@@ -579,6 +661,7 @@
     const cur = current;
     unmountCurrent();
     storeListeners.forEach((fn) => { try { fn(activeKind); } catch (e) { console.error(e); } });
+    refreshOverdue(true);
     if (cur) mountRoute();
   }
 
@@ -623,7 +706,7 @@
     const onDoc = (e) => { if (!pop.contains(e.target) && !btn.contains(e.target)) close(); };
     const onKey = (e) => { if (e.key === 'Escape') { close(); btn.focus(); } };
     function close() {
-      pop.remove();
+      animateOut(pop, 170);
       btn.setAttribute('aria-expanded', 'false');
       document.removeEventListener('mousedown', onDoc);
       document.removeEventListener('keydown', onKey);
@@ -658,17 +741,19 @@
       if (isSb) {
         f.innerHTML =
           '<p class="muted p-form-help">Supabase(무료 클라우드 DB)에 프로젝트를 만들고 <b>SQL Editor</b>에서 저장소의 <code>server/supabase.sql</code> 을 한 번 실행하세요. 같은 작업공간 코드를 쓰는 사람끼리 데이터를 함께 봅니다. 부서원이 이미 설정했다면 <b>받은 연결 정보 넣기</b>로 한 번에 채울 수 있습니다.</p>' +
-          '<div class="field"><label for="p-sb-url">Supabase URL</label><input id="p-sb-url" name="url" type="url" placeholder="https://xxxx.supabase.co" required></div>' +
-          '<div class="field"><label for="p-sb-key">anon(공개) 키</label><input id="p-sb-key" name="key" type="text" spellcheck="false" placeholder="eyJ… 또는 sb_publishable_…" required></div>' +
-          '<div class="field"><label for="p-sb-ws">작업공간 코드 <small class="muted">부서끼리 공유하는 비밀 코드, 8자 이상</small></label><input id="p-sb-ws" name="workspace" type="text" spellcheck="false" minlength="8" required></div>';
+          '<h3 class="section-title">프로젝트 연결</h3>' +
+          '<div class="field"><label for="p-sb-url">Supabase URL</label><input id="p-sb-url" name="url" type="url" placeholder="https://xxxx.supabase.co" required aria-describedby="p-sb-url-err"><p class="field-err" id="p-sb-url-err" role="alert"></p></div>' +
+          '<div class="field"><label for="p-sb-key">anon(공개) 키</label><input id="p-sb-key" name="key" type="text" spellcheck="false" placeholder="eyJ… 또는 sb_publishable_…" required aria-describedby="p-sb-key-err"><p class="field-err" id="p-sb-key-err" role="alert"></p></div>' +
+          '<h3 class="section-title">함께 쓰기</h3>' +
+          '<div class="field"><label for="p-sb-ws">작업공간 코드</label><input id="p-sb-ws" name="workspace" type="text" spellcheck="false" minlength="8" required placeholder="예: haengjeong-2026-team" aria-describedby="p-sb-ws-hint p-sb-ws-err"><p class="field-hint" id="p-sb-ws-hint">부서끼리 공유하는 비밀 코드, 8자 이상</p><p class="field-err" id="p-sb-ws-err" role="alert"></p></div>';
         f.url.value = c.url || '';
         f.key.value = c.key || '';
         f.workspace.value = c.workspace || '';
       } else {
         f.innerHTML =
           '<p class="muted p-form-help">사무실 PC에서 <code>python server/local_server.py 8787</code> 을 실행한 뒤 그 주소를 적으세요. 비워 두면 지금 열린 주소를 서버로 씁니다(서버 주소로 플랫폼을 열었을 때).</p>' +
-          '<div class="field"><label for="p-sv-url">서버 주소</label><input id="p-sv-url" name="url" type="text" spellcheck="false" placeholder="예: http://192.168.0.10:8787"></div>' +
-          '<div class="field"><label for="p-sv-key">접속 키 <small class="muted">서버를 --key 로 실행한 경우만</small></label><input id="p-sv-key" name="key" type="text" spellcheck="false"></div>';
+          '<div class="field"><label for="p-sv-url">서버 주소</label><input id="p-sv-url" name="url" type="text" spellcheck="false" placeholder="예: http://192.168.0.10:8787" aria-describedby="p-sv-url-err"><p class="field-err" id="p-sv-url-err" role="alert"></p></div>' +
+          '<div class="field"><label for="p-sv-key">접속 키</label><input id="p-sv-key" name="key" type="text" spellcheck="false" placeholder="비워 두면 키 없이 접속" aria-describedby="p-sv-key-hint"><p class="field-hint" id="p-sv-key-hint">서버를 --key 로 실행한 경우만 적습니다.</p></div>';
         f.url.value = c.url || '';
         f.key.value = c.key || '';
       }
@@ -684,7 +769,7 @@
       tools.querySelector('[data-act="share"]').addEventListener('click', async () => {
         const v = read();
         const bad = validate(v);
-        if (bad) { status.className = 'p-form-status err'; status.textContent = bad; return; }
+        if (bad) { status.className = 'p-form-status'; status.textContent = ''; return; }
         const text = SHARE_TAG + kind + ':' + btoa(unescape(encodeURIComponent(JSON.stringify(v))));
         try { await navigator.clipboard.writeText(text); toast('연결 정보를 복사했습니다. 부서원에게 메신저로 보내 주세요.', 'ok'); }
         catch (e) { promptDialog('아래 글을 복사해 부서원에게 보내 주세요.', text); }
@@ -711,20 +796,47 @@
         }
         return { url: f.url.value.trim(), key: f.key.value.trim() };
       }
-      function validate(v) {
+      /* 칸별 확인: 오류는 해당 칸 바로 아래에 (NN/g 양식 인지 부하 줄이기) */
+      function fieldErrors(v) {
+        const out = {};
         if (isSb) {
-          if (!/^https:\/\/.+/i.test(v.url)) return 'Supabase URL은 https:// 로 시작해야 합니다.';
-          if (!v.key) return 'anon 키를 입력하세요.';
-          if (v.workspace.length < 8) return '작업공간 코드는 8자 이상으로 정하세요.';
+          if (!/^https:\/\/.+/i.test(v.url)) out.url = 'Supabase URL은 https:// 로 시작해야 합니다.';
+          if (!v.key) out.key = 'anon 키를 입력하세요.';
+          if (v.workspace.length < 8) out.workspace = '작업공간 코드는 8자 이상으로 정하세요.';
         } else if (!v.url && location.protocol === 'file:') {
-          return '서버 주소를 입력하세요.';
+          out.url = '서버 주소를 입력하세요.';
         }
-        return '';
+        return out;
       }
+      function showErrors(errs, only) {
+        ['url', 'key', 'workspace'].forEach((k) => {
+          if (!f[k] || (only && only !== k)) return;
+          const box = f.querySelector('#' + f[k].id + '-err');
+          f[k].setAttribute('aria-invalid', errs[k] ? 'true' : 'false');
+          if (box) box.textContent = errs[k] || '';
+        });
+      }
+      function validate(v) {
+        const errs = fieldErrors(v);
+        showErrors(errs);
+        const k = Object.keys(errs)[0];
+        if (k && f[k]) { try { f[k].focus(); } catch (e) { /* 무시 */ } }
+        return k ? errs[k] : '';
+      }
+      // 칸을 떠날 때 그 칸만 확인, 고치는 중에는 오류 표시를 지움
+      f.addEventListener('focusout', (e) => {
+        const n = e.target;
+        if (!n.name || !n.value) return;
+        showErrors(fieldErrors(read()), n.name);
+      });
+      f.addEventListener('input', (e) => {
+        const n = e.target;
+        if (n.getAttribute('aria-invalid') === 'true' && !fieldErrors(read())[n.name]) showErrors({}, n.name);
+      });
       async function test() {
         const v = read();
         const bad = validate(v);
-        if (bad) { status.className = 'p-form-status err'; status.textContent = bad; return false; }
+        if (bad) { status.className = 'p-form-status'; status.textContent = ''; return false; }
         status.className = 'p-form-status'; status.textContent = '연결 확인 중…';
         try {
           await createBackend(kind, v).ping();
@@ -835,21 +947,21 @@
     const th = settings.get('theme', 'auto');
     const wrap = el('div', { class: 'p-settings' });
     wrap.innerHTML =
-      '<section id="p-set-brand"><h3>기본 정보</h3>' +
+      '<section id="p-set-brand"><h3 class="section-title">기본 정보</h3>' +
       '<div class="field"><label for="p-set-title">플랫폼 제목</label><input id="p-set-title" maxlength="40" placeholder="' + esc(DEFAULT_TITLE) + '" value="' + esc(settings.get('title', '')) + '"></div>' +
-      '<div class="field"><label for="p-set-sub">부제</label><input id="p-set-sub" maxlength="80" value="' + esc(b.subtitle) + '"></div>' +
-      '<div class="field"><label for="p-set-logo">로고 글자 <small class="muted">1~2자, 비우면 제목 첫 글자</small></label><input id="p-set-logo" maxlength="2" value="' + esc(settings.get('logo', '')) + '"></div>' +
+      '<div class="field"><label for="p-set-sub">부제 <small class="muted">비우면 표시하지 않음</small></label><input id="p-set-sub" maxlength="80" placeholder="예: 업무의 출발점" value="' + esc(b.subtitle) + '"></div>' +
+      '<div class="field"><label for="p-set-logo">로고 글자 <small class="muted">1~2자, 비우면 제목 첫 글자</small></label><input id="p-set-logo" maxlength="2" placeholder="예: 공" value="' + esc(settings.get('logo', '')) + '"></div>' +
       '</section>' +
-      '<section><h3>화면</h3><div class="p-seg" role="radiogroup" aria-label="테마">' +
+      '<section><h3 class="section-title">화면</h3><div class="p-seg" role="radiogroup" aria-label="테마">' +
       [['light', '밝게', icons.sun], ['dark', '어둡게', icons.moon], ['auto', '자동', icons.auto]].map(([v, l, ic]) =>
         '<button type="button" role="radio" aria-checked="' + (th === v) + '" data-theme-val="' + v + '">' + ic + l + '</button>').join('') +
       '</div></section>' +
-      '<section id="p-set-storage"><h3>저장 위치</h3><div class="p-set-kinds">' +
+      '<section id="p-set-storage"><h3 class="section-title">저장 위치</h3><div class="p-set-kinds">' +
       Object.keys(KINDS).map((k) => '<div class="p-set-kind' + (k === activeKind ? ' active' : '') + '"><span class="p-pop-ic">' + KINDS[k].icon + '</span><div><b>' + esc(KINDS[k].label) + (k === activeKind ? ' <span class="chip">사용 중</span>' : '') + '</b><small class="muted">' + esc(KINDS[k].desc) + '</small></div>' +
         '<div class="p-set-kind-btns">' + (k !== 'local' ? '<button type="button" class="btn btn-ghost btn-sm" data-cfg="' + k + '">설정</button>' : '') +
         (k !== activeKind ? '<button type="button" class="btn btn-sm" data-use="' + k + '">전환</button>' : '') + '</div></div>').join('') +
       '</div></section>' +
-      '<section><h3>데이터 백업</h3><p class="muted">현재 저장 위치의 모든 데이터를 JSON 파일로 내보내거나 다시 가져옵니다.</p><div class="toolbar">' +
+      '<section><h3 class="section-title">데이터 백업</h3><p class="muted">현재 저장 위치의 모든 데이터를 JSON 파일로 내보내거나 다시 가져옵니다.</p><div class="toolbar">' +
       '<button type="button" class="btn" data-act="export">' + icons.download + '백업 내보내기</button>' +
       '<button type="button" class="btn" data-act="import">' + icons.upload + '백업 가져오기</button></div></section>' +
       '<p class="muted p-set-ver">버전 ' + esc(VERSION) + ' · <a href="#/changelog">업데이트 기록</a></p>';
@@ -878,7 +990,7 @@
       } else if (t.dataset.use) {
         close();
         switchTo(t.dataset.use);
-      } else if (t.dataset.act === 'export') exportBackup();
+      } else if (t.dataset.act === 'export') busy(t, exportBackup);
       else if (t.dataset.act === 'import') { close(); importBackup(); }
     });
     if (section === 'storage') setTimeout(() => { const s = wrap.querySelector('#p-set-storage'); if (s) s.scrollIntoView({ block: 'start' }); }, 50);
@@ -954,7 +1066,7 @@
     const t0 = Date.now();
     const tick = () => {
       if (it.done || current !== entry || !root.isConnected) return;
-      if (document.querySelector('.p-modal-back')) return; // 이미 창이 열림
+      if (document.querySelector('.p-modal-back:not(.out)')) return; // 이미 창이 열림
       const btn = Array.from(root.querySelectorAll(sel)).find((b) => b.offsetParent !== null && !b.disabled);
       if (btn) { it.done = true; btn.click(); return; }
       if (Date.now() - t0 < 5000) setTimeout(tick, 80);
@@ -968,9 +1080,50 @@
     }
     current = null;
   }
+  /* 화면 전환 종류 (Material motion system): 다른 앱 = fade through, 같은 앱 안 = shared axis X(깊이로 앞/뒤) */
+  let lastRoute = null;
+  function routeKind(id, params) {
+    const key = id + '/' + params.join('/');
+    const prev = lastRoute;
+    lastRoute = { id, depth: params.length, key };
+    if (!prev || prev.key === key) return '';
+    if (prev.id !== id) return 'through';
+    return params.length < prev.depth ? 'back' : 'fwd';
+  }
+  let enterTimer = null;
+  function playEnter(view, kind) {
+    view.classList.remove('p-enter-through', 'p-enter-fwd', 'p-enter-back', 'p-enter-fade');
+    clearTimeout(enterTimer);
+    void view.offsetWidth;
+    view.classList.add('p-enter-' + kind);
+    enterTimer = setTimeout(() => view.classList.remove('p-enter-' + kind), 420);
+  }
   function mountRoute() {
     const view = document.getElementById('view');
     if (!view) return;
+    const r = parseHash();
+    const kind = routeKind(r.id, r.params);
+    refreshOverdue(false);
+    if (!kind) { mountNow(view); return; }
+    const root = document.documentElement;
+    if (mqReduce.matches) { mountNow(view); playEnter(view, 'fade'); return; }
+    if (typeof document.startViewTransition === 'function' && !document.hidden) {
+      let vt = null;
+      root.dataset.vt = kind;
+      try { vt = document.startViewTransition(() => mountNow(view)); } catch (e) { vt = null; }
+      if (vt) {
+        const none = () => {};
+        if (vt.ready) vt.ready.catch(none);
+        if (vt.updateCallbackDone) vt.updateCallbackDone.catch((e) => console.error(e));
+        if (vt.finished) vt.finished.catch(none).then(() => { if (root.dataset.vt === kind) delete root.dataset.vt; });
+        return;
+      }
+      delete root.dataset.vt;
+    }
+    mountNow(view);
+    playEnter(view, kind);
+  }
+  function mountNow(view) {
     const { id, params } = parseHash();
     const app = apps.get(id);
     unmountCurrent();
@@ -1029,6 +1182,101 @@
     return '<div class="page"><div class="empty card"><h2>' + esc(app.title) + ' 화면을 여는 중 문제가 생겼습니다</h2><p class="muted">' + esc(e && e.message) + '</p><button class="btn btn-primary" type="button" onclick="location.reload()">새로고침</button></div></div>';
   }
 
+  /* ---------- 기한 지난 업무 배지 (Smashing 아래 탭 규칙: 꼭 알아야 할 정보만 배지로) ---------- */
+  const OVERDUE_APP = 'schedule';
+  const OVERDUE_COL = 'schedule-tasks';
+  let overdueN = 0;
+  let overdueAt = 0;
+  let overdueTimer = null;
+  const localYmd = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  function countOverdue(rows) {
+    const td = localYmd(new Date());
+    return (rows || []).filter((r) => {
+      const d = r && r.data && typeof r.data === 'object' ? r.data : {};
+      return typeof d.due === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d.due) && d.due < td && d.status !== '완료' && d.status !== '보류';
+    }).length;
+  }
+  function refreshOverdue(force) {
+    if (!force && Date.now() - overdueAt < 20000) return;
+    clearTimeout(overdueTimer);
+    overdueTimer = setTimeout(async () => {
+      if (!active || !apps.has(OVERDUE_APP)) { paintOverdue(0); return; }
+      overdueAt = Date.now();
+      let rows;
+      try { rows = await active.list(OVERDUE_COL); } catch (e) { return; }
+      paintOverdue(countOverdue(rows));
+    }, force ? 60 : 200);
+  }
+  function badgeHTML(n) {
+    return '<span class="p-nbadge" data-overdue="' + n + '" title="기한 지난 업무 ' + n + '건" aria-hidden="true">' + (n > 99 ? '99+' : n) + '</span><span class="sr-only p-nbadge-sr">, 기한 지난 업무 ' + n + '건</span>';
+  }
+  function paintOverdue(n) {
+    overdueN = n;
+    const app = apps.get(OVERDUE_APP);
+    const gid = app ? groupOf(app).id : '';
+    const targets = Array.from(document.querySelectorAll('.p-tab[data-app="' + OVERDUE_APP + '"], .p-allapp[href="#/' + OVERDUE_APP + '"]'));
+    const bt = gid ? document.querySelector('.p-bt[data-group="' + gid + '"] .p-tab-ic') : null;
+    if (bt) targets.push(bt);
+    targets.forEach((t) => {
+      t.querySelectorAll('.p-nbadge, .p-nbadge-sr').forEach((x) => x.remove());
+      if (n > 0) t.insertAdjacentHTML('beforeend', badgeHTML(n));
+    });
+  }
+
+  /* ---------- 탭·세그먼트 키보드 (NN/g 키보드 접근성, WAI-ARIA tabs/radio 패턴) ----------
+     ←/→, Home/End 로 이동. tablist·radiogroup 은 고르기까지(.click), 그 밖의 .seg 는 초점만 옮김 */
+  const ROVE_GROUP = '.seg, .p-seg, [role="tablist"], [role="radiogroup"]';
+  const ROVE_SELECT = '[role="tablist"], [role="radiogroup"]';
+  function roveItems(group) {
+    return Array.from(group.children).filter((n) => n.matches('button, a[href], [role="tab"], [role="radio"]') && !n.disabled && n.getAttribute('aria-disabled') !== 'true' && n.offsetParent !== null);
+  }
+  function setRoving(group, cur) {
+    if (!group.matches(ROVE_SELECT)) return;
+    roveItems(group).forEach((n) => n.setAttribute('tabindex', n === cur ? '0' : '-1'));
+  }
+  function refSelector(node, group) {
+    if (node.id) return '#' + CSS.escape(node.id);
+    const attr = Array.from(node.attributes).find((a) => a.name.startsWith('data-'));
+    if (!attr) return '';
+    const gcls = Array.from(group.classList).filter((c) => c !== 'seg' && c !== 'p-seg')[0];
+    return (gcls ? '.' + CSS.escape(gcls) + ' > ' : '') + '[' + attr.name + '="' + CSS.escape(attr.value) + '"]';
+  }
+  document.addEventListener('keydown', (e) => {
+    if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || e.isComposing) return;
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
+    const item = e.target;
+    if (!(item instanceof Element)) return;
+    const group = item.parentElement;
+    if (!group || !group.matches(ROVE_GROUP)) return;
+    const items = roveItems(group);
+    const i = items.indexOf(item);
+    if (i < 0 || items.length < 2) return;
+    const j = e.key === 'Home' ? 0 : e.key === 'End' ? items.length - 1 : e.key === 'ArrowRight' ? (i + 1) % items.length : (i - 1 + items.length) % items.length;
+    e.preventDefault();
+    e.stopPropagation(); // 화면의 ←/→ 단축키(날짜 이동 등)와 겹치지 않게
+    const next = items[j];
+    setRoving(group, next);
+    next.focus();
+    if (!group.matches(ROVE_SELECT)) return;
+    const sel = refSelector(next, group);
+    next.click();
+    // 다시 그려진 경우 같은 항목에 초점을 되돌림
+    const refocus = () => {
+      if (next.isConnected) { if (document.activeElement !== next) next.focus(); return; }
+      const n = sel ? document.querySelector(sel) : null;
+      if (n) { n.focus(); if (n.parentElement) setRoving(n.parentElement, n); }
+    };
+    refocus();
+    setTimeout(refocus, 0);
+    requestAnimationFrame(refocus);
+  }, true);
+  document.addEventListener('focusin', (e) => {
+    const t = e.target;
+    if (!(t instanceof Element) || !t.parentElement || !t.parentElement.matches(ROVE_SELECT)) return;
+    const group = t.parentElement;
+    setRoving(t.parentElement, t);
+  });
+
   /* ---------- 탐색 표시: 옆 메뉴 · 위 줄 · 아래 탭 ---------- */
   const mqPhone = window.matchMedia ? matchMedia('(max-width: 759px)') : { matches: false };
   const mqTablet = window.matchMedia ? matchMedia('(min-width: 760px) and (max-width: 1023px)') : { matches: false };
@@ -1069,6 +1317,7 @@
       bottom.innerHTML = tabsB.join('');
     }
     markActive(parseHash().id);
+    paintOverdue(overdueN);
   }
   function markActive(id) {
     document.querySelectorAll('.p-tab, .p-bt[data-app]').forEach((a) => {
@@ -1098,6 +1347,7 @@
     const g = el('div', { class: 'p-allapps' });
     g.innerHTML = groupedApps().map((x) => '<section class="p-allapps-group">' + (x.g.label ? '<div class="section-title"><span>' + esc(x.g.label) + '</span></div>' : '') + appListHTML(x.list, cur) + '</section>').join('');
     const close = modal({ title: '전체 메뉴', body: g });
+    paintOverdue(overdueN);
     g.addEventListener('click', (e) => { if (e.target.closest('a')) close(); });
   }
   function openGroupSheet(gid) {
@@ -1113,6 +1363,7 @@
     }
     g.innerHTML = html;
     const close = modal({ title: x.g.label, body: g });
+    paintOverdue(overdueN);
     g.addEventListener('click', (e) => {
       if (e.target.closest('a')) { close(); return; }
       const b = e.target.closest('[data-q]');
@@ -1296,7 +1547,7 @@
       closed = true;
       const k = modalStack.indexOf(close);
       if (k >= 0) modalStack.splice(k, 1);
-      back.remove();
+      animateOut(back, 210);
       paletteClose = null;
       if (lastFocus && lastFocus.focus && lastFocus.isConnected) { try { lastFocus.focus({ preventScroll: true }); } catch (e) { /* 무시 */ } }
     }
@@ -1382,7 +1633,7 @@
     registerApp,
     store,
     settings: { get: settings.get, set: settings.set },
-    ui: { toast, confirm: confirmDialog, prompt: promptDialog, modal, download, palette: openPalette },
+    ui: { toast, confirm: confirmDialog, prompt: promptDialog, modal, download, palette: openPalette, busy, skeleton },
     loadScript,
     loadCSS,
     esc,

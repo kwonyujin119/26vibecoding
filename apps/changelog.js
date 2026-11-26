@@ -34,7 +34,7 @@
     let alive = true;
     el.innerHTML = '<div class="page cl-page">' +
       '<div class="page-head"><div><h1>업데이트 기록</h1></div><span class="cl-cur num">지금 v' + esc(P.version) + '</span></div>' +
-      '<div class="cl-list"><div class="empty">불러오는 중…</div></div></div>';
+      '<div class="cl-list">' + P.ui.skeleton(4) + '</div></div>';
     const body = el.querySelector('.cl-list');
     fetch('data/changelog.json', { cache: 'no-cache' })
       .then((r) => (r.ok ? r.json() : null))

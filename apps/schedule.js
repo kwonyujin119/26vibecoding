@@ -38,7 +38,7 @@
       me: P.settings.get('schedule.me', ''),
       narrow: false
     };
-    root.innerHTML = '<div class="page sch-page"><div class="empty">불러오는 중…</div></div>';
+    root.innerHTML = '<div class="page sch-page">' + P.ui.skeleton(4) + '</div>';
     const page = root.firstChild;
 
     /* ---------- 데이터 도우미 ---------- */

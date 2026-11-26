@@ -82,7 +82,7 @@
       '<button type="button" role="radio" data-layout="list" aria-label="목록" title="목록" aria-checked="' + (state.layout !== 'grid') + '">' + IC_LIST + '</button>' +
       '<button type="button" role="radio" data-layout="grid" aria-label="격자" title="격자" aria-checked="' + (state.layout === 'grid') + '">' + IC_GRID + '</button></div>' +
       '</div>' +
-      '<div class="rf-list"><div class="empty">불러오는 중…</div></div>' +
+      '<div class="rf-list">' + P.ui.skeleton(4) + '</div>' +
       '</div></div></div>';
     const list = el.querySelector('.rf-list');
     const secsBox = el.querySelector('.rf-secs');

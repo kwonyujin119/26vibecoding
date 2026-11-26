@@ -1154,7 +1154,7 @@
       '<button type="button" class="btn" data-a="outline" title="개요로 만들기">' + I.outline + '<span>개요로</span></button>' +
       '<button type="button" class="btn btn-primary" data-a="new">' + I.plus + '새 PT</button></div></div>' +
       '<section class="slides-sec slides-sec-tpl" aria-label="서식으로 시작"><h2 class="section-title">서식</h2><div class="slides-tpls"></div></section>' +
-      '<section class="slides-sec"><div class="slides-list-head"><h2 class="slides-h2">내 PT <span class="slides-count"></span></h2><label class="p-search">' + P.icons.search + '<input type="search" placeholder="제목 검색" aria-label="PT 찾기"></label></div><div class="slides-cards"></div></section></div>';
+      '<section class="slides-sec"><div class="slides-list-head"><h2 class="slides-h2">내 PT <span class="slides-count"></span></h2><label class="p-search">' + P.icons.search + '<input type="search" placeholder="제목 검색" aria-label="PT 찾기"></label></div><div class="slides-cards">' + P.ui.skeleton(2) + '</div></section></div>';
     const tplBox = root.querySelector('.slides-tpls');
     TEMPLATES.forEach((t) => {
       const d = deckFromTemplate(t);
@@ -2419,10 +2419,10 @@
     }
     function exportMenu(anchor) {
       popover(anchor, [
-        { label: '파워포인트 (PPTX)', icon: I.download, hint: '편집 가능', onClick: exportPPTX },
+        { label: '파워포인트 (PPTX)', icon: I.download, hint: '편집 가능', onClick: () => P.ui.busy(anchor, exportPPTX) },
         { label: 'PDF (인쇄)', icon: I.download, hint: '한 장에 한 쪽', onClick: () => { finishEdit(); P.ui.toast('인쇄 창에서 "PDF로 저장"을 고르세요.', 'info'); printDeck(root, deck); } },
-        { label: '현재 슬라이드 PNG', icon: I.image, onClick: () => exportPNG(false) },
-        { label: '모든 슬라이드 PNG (ZIP)', icon: I.image, onClick: () => exportPNG(true) },
+        { label: '현재 슬라이드 PNG', icon: I.image, onClick: () => P.ui.busy(anchor, () => exportPNG(false)) },
+        { label: '모든 슬라이드 PNG (ZIP)', icon: I.image, onClick: () => P.ui.busy(anchor, () => exportPNG(true)) },
         '-',
         { label: '개요 텍스트 복사', icon: I.outline, onClick: async () => {
           const t = deckToOutline(deck);

@@ -65,6 +65,23 @@
 
 > 제목·테마 설정은 기기(브라우저)별로 저장됩니다. 부서 공통 제목을 처음부터 보이게 하려면 `js/core.js` 의 `DEFAULT_TITLE`, `DEFAULT_SUBTITLE` 값을 바꾸세요.
 
+## 디자인 레퍼런스 적용 (1.2.0)
+
+| 레퍼런스 | 적용한 곳 |
+|---|---|
+| IBM Carbon Motion (productive·expressive) | `css/app.css` 의 움직임 값: `--ease-standard` `--ease-entrance` `--ease-exit` `--ease-expressive`, `--dur-fast` 100ms · `--dur` 150ms · `--dur-moderate` 240ms · `--dur-slow` 300ms |
+| NN/g "Executing UX Animations: Duration" | 사라짐은 나타남의 약 70% 길이(`--dur-exit-*`). 대화상자·명령 팔레트·저장 위치 메뉴는 사라짐 애니메이션 뒤에 지움 |
+| Material motion system (fade through, shared axis) | 다른 앱으로 이동은 흐려졌다 나타남, 같은 앱 안(목록 → 편집)은 20px 옆으로 밀림. View Transitions 사용, 없으면 새 화면만 나타남. 첫 화면은 움직이지 않음 |
+| MDN prefers-reduced-motion, web.dev 접근성 모션, WebKit "Responsive Design for Motion" | 움직임 줄이기 설정에서는 위치 이동 대신 100ms 이하 흐려짐만 사용 |
+| NN/g "Button States: Communicate Interaction" | `.btn` 모든 종류에 올림·누름(조금 어둡게 + 안쪽 1px)·초점 테두리·사용 불가·처리 중(`aria-busy`) 상태. `P.ui.busy(단추, 작업)` |
+| NN/g "Progress Indicators", Cloudscape 로딩 상태 | 1초 안 작업은 표시 없음. `P.loadScript/loadCSS` 가 0.4초 넘으면 위쪽 가는 막대, 목록은 0.3초 넘을 때만 뼈대 줄(`P.ui.skeleton`). 내보내기·가져오기 단추에 회전 표시 |
+| NN/g "Tabs, Used Right" | 선택된 탭은 흰 바탕 + 굵기 + 글자색, 탭 묶음은 밑줄까지 |
+| NN/g 키보드 접근성 | `.seg` · `[role=tablist]` · `[role=radiogroup]` 에서 ←/→, Home/End 이동(core 한 곳에서 처리) |
+| Apple HIG Tab bars, Smashing 아래 탭 규칙 | 휴대폰 아래 탭은 항상 이름 표시, 현재 탭은 강조색 + 굵은 글자 + 굵은 아이콘, 44px 이상. 배지는 기한 지난 업무 수에만 |
+| NN/g "Timing Guidelines for Exposing Hidden Content" | 접힌 메뉴 이름표: 마우스 0.3초 뒤, 키보드 초점은 바로, 숨김 0.1초 |
+| NN/g 시각적 위계 (영역당 글자 크기 3단계 이하, 흐려 보기 점검) | 홈·레퍼런스·API 모음·업데이트 기록 글자 크기를 `--fs-*` 로 정리, 업데이트 기록 판 제목을 화면 제목보다 작게 |
+| NN/g "4 Principles to Reduce Cognitive Load in Forms" | 설정·저장 위치 설정·입력 창: 칸 위 이름표, 묶음 제목, 예시 값, 칸 바로 아래 오류 안내, 주 단추는 오른쪽 아래 |
+
 ## 구조 (개발 참고)
 
 ```

@@ -45,7 +45,7 @@
       '<div class="ap-tools"><label class="p-search">' + P.icons.search + '<span class="sr-only">검색</span><input type="search" placeholder="이름·기관·용도 검색"></label>' +
       '<div class="seg" role="radiogroup" aria-label="인증 거르기">' + [['all', '전체'], ['free', '무료'], ['key', '키 필요']].map(([v, l]) => '<button type="button" role="radio" data-auth="' + v + '" aria-checked="' + (v === auth) + '">' + l + '</button>').join('') + '</div>' +
       '<span class="ap-count num" aria-live="polite"></span></div>' +
-      '<div class="ap-list"><div class="empty">불러오는 중…</div></div></div>';
+      '<div class="ap-list">' + P.ui.skeleton(4) + '</div></div>';
     const list = el.querySelector('.ap-list');
     const count = el.querySelector('.ap-count');
     const search = el.querySelector('input[type="search"]');
