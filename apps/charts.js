@@ -1053,6 +1053,30 @@
     return '<svg class="charts-tpl-pv" viewBox="0 0 100 60" preserveAspectRatio="none" aria-hidden="true"><path class="charts-tpl-ax" d="M4 56H96"/>' +
       vals.map((v, i) => '<rect class="' + (i === vals.indexOf(mx) ? 'hi' : '') + '" x="' + (6 + i * bw * 1.6).toFixed(1) + '" y="' + (56 - (v / mx) * 46).toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + ((v / mx) * 46).toFixed(1) + '" rx="1"/>').join('') + '</svg>';
   }
+  /* 분석 데스크: 저장한 차트 = 핀으로 꽂은 인쇄 도표 한 장(저장 때 그린 그림 그대로). 그림이 없으면 자료로 막대를 그림 */
+  function dataBars(d) {
+    const rows = (d && d.data && Array.isArray(d.data.rows)) ? d.data.rows : [];
+    let col = 1;
+    const ncol = d && d.data && Array.isArray(d.data.columns) ? d.data.columns.length : 0;
+    for (let c = 1; c < ncol; c++) { if (rows.some((r) => parseNum(r[c]))) { col = c; break; } }
+    const vals = rows.slice(0, 10).map((r) => { const x = parseNum(r[col]); return x ? Math.max(0, x.n) : 0; });
+    if (!vals.length) return P.files.icons.chart;
+    const mx = Math.max(1, ...vals);
+    const bw = 88 / (vals.length * 1.5);
+    return '<svg class="charts-sheet-svg" viewBox="0 0 100 62" preserveAspectRatio="none" aria-hidden="true"><path class="ax" d="M5 57H97"/>' +
+      vals.map((v, i) => '<rect class="' + (v === mx ? 'hi' : '') + '" x="' + (7 + i * bw * 1.5).toFixed(1) + '" y="' + (57 - (v / mx) * 48).toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + ((v / mx) * 48).toFixed(1) + '"/>').join('') + '</svg>';
+  }
+  function chartSheet(it) {
+    const d = it.data || {};
+    const h = P.files.hash(it.id);
+    const tilt = (((h % 9) - 4) * 0.38).toFixed(2);
+    const rows = d.data && d.data.rows ? d.data.rows.length : 0;
+    const kn = KINDS[d.kind] ? KINDS[d.kind].name : '차트';
+    return '<span class="charts-sheet" style="--tilt:' + tilt + 'deg;--pin:' + ((h >> 4) % 2 ? 1 : 0) + '" aria-hidden="true"><span class="charts-sheet-pin"></span>' +
+      '<span class="charts-sheet-fig">' + (d.thumb ? '<img src="' + esc(d.thumb) + '" alt="" loading="lazy">' : dataBars(d)) + '</span>' +
+      '<span class="charts-sheet-cap"><b>도표</b><span>' + esc(kn) + (rows ? ' · ' + rows + '행' : '') + '</span></span></span>';
+  }
+  const BLANK_SHEET = '<span class="charts-blank-sheet" aria-hidden="true"><span class="charts-blank-ax"></span><span class="charts-blank-plus">' + P.icons.plus + '</span></span>';
   async function mountList(root, ctx) {
     const folder = ctx.params[0] === 'f' ? ctx.params[1] || null : null;
     // 엑셀에서 넘어온 자료는 새 차트로 바로
@@ -1067,12 +1091,14 @@
       ctx.navigate('charts/new' + (f ? '/f/' + encodeURIComponent(f) : ''));
     };
     const tplHTML = '<div class="charts-tpls">' +
-      '<button type="button" class="charts-tpl" data-tpl="blank"><span class="charts-tpl-thumb charts-tpl-blank" aria-hidden="true">' + P.icons.plus + '</span><b>빈 차트</b><small>붙여넣기·파일로 시작</small></button>' +
+      '<button type="button" class="charts-tpl" data-tpl="blank"><span class="charts-tpl-thumb charts-tpl-blank" aria-hidden="true">' + BLANK_SHEET + '</span><b>빈 분석지</b><small>붙여넣기·파일로 시작</small></button>' +
       SAMPLES.map((smp) => '<button type="button" class="charts-tpl" data-tpl="' + smp.id + '"><span class="charts-tpl-thumb">' + sampleThumb(smp) + '</span><b>' + esc(smp.title) + '</b><small>예시 자료</small></button>').join('') + '</div>';
     let chartReady = null;
     const needChart = () => (chartReady = chartReady || P.loadScript(LIB.chart).then(() => themeDefaults()));
     const fb = P.files.browser(root, {
       col: COL, kind: 'charts', folder, defaultView: 'grid',
+      skin: 'desk',
+      hero: { no: '06 · 분석 데스크', desc: '자료를 넣고 도표를 골라 저장', slot: 'tab-charts', seal: '분석' },
       title: '차트', itemName: '차트', newLabel: '새 차트', mineLabel: '내 차트', searchHint: '제목·자료 이름 검색',
       pageClass: 'charts-list', itemClass: 'charts-file', newAttrs: { 'data-act': 'new' },
       textOf: (it) => String(it.data.title || '') + ' ' + String(it.data.source || ''),
@@ -1087,7 +1113,10 @@
       icon: () => P.files.icons.chart,
       badge: (it) => '<span class="badge">' + esc(KINDS[it.data.kind] ? KINDS[it.data.kind].name : '차트') + '</span>',
       meta: (it) => { const d = it.data.data; return [d && d.rows ? d.rows.length + '행' : '', it.data.source || ''].filter(Boolean).join(' · '); },
-      thumb: (it) => (it.data.thumb ? '<img src="' + esc(it.data.thumb) + '" alt="" loading="lazy">' : P.files.icons.chart),
+      thumb: (it) => chartSheet(it),
+      listThumb: (it) => (it.data.thumb ? '<img src="' + esc(it.data.thumb) + '" alt="" loading="lazy">' : dataBars(it.data)),
+      leadTile: () => '<article class="p-fb-tile p-fb-lead charts-lead"><button type="button" class="p-fb-open" data-fb="new"><span class="p-fb-thumb">' + BLANK_SHEET + '</span>' +
+        '<span class="p-fb-txt"><b>빈 분석지</b><small>표를 붙여넣어 새 차트</small></span></button></article>',
       empty: { slot: 'empty-charts', title: '아직 저장한 차트가 없습니다', desc: '새 차트에서 표를 붙여넣거나 XLSX·CSV를 넣고, 마음에 드는 차트를 골라 저장하세요.' },
       io: {
         importers: [

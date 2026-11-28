@@ -29,6 +29,7 @@
     const st = {
       tab: tab0,
       evView: P.settings.get('schedule.evView', 'list'),
+      tView: P.settings.get('schedule.tasksView', 'board') === 'table' ? 'table' : 'board',
       q: '',
       cats: { events: new Set(), tasks: new Set() },
       showPast: false,
@@ -107,17 +108,31 @@
     /* ---------- 틀 ---------- */
     const initial = (name) => P.esc(Array.from(String(name || '').trim())[0] || '?');
     const ownerAv = (name, t) => '<span class="sc-owner-cell"><span class="avatar avatar-sm sch-av" style="--c:' + K.colorFor(name) + '" aria-hidden="true">' + initial(name) + '</span><span>' + K.mark(name, t) + '</span></span>';
+    /* 머리 띠는 한 번만 그림(그림 자리가 다시 불러와지며 깜빡이지 않게), 나머지는 .sch-main 에 */
+    function frame() {
+      let main = page.querySelector(':scope > .sch-main');
+      if (!main) {
+        page.innerHTML = K.hero({
+          slot: 'tab-schedule', cls: 'sc-hero', title: board().name, h1Class: 'sc-board-name',
+          kicker: '<span class="sch-hero-no">상황판</span><span class="sc-hero-date num"></span>',
+          sub: '부서 일정과 주요업무를 한 판에',
+          acts:
+            '<button type="button" class="btn" data-act="brief" aria-label="아침 브리핑" title="오늘 일정·내일 건수·기한 임박 업무를 복사">' + K.IC.sun + '<span>아침 브리핑</span></button>' +
+            '<button type="button" class="btn btn-ghost p-icon-btn" data-act="more" aria-label="더보기" title="더보기">' + K.IC.more + '</button>' +
+            '<button type="button" class="btn btn-primary sch-hide-sm" data-act="new" title="새 항목 (N)">' + P.icons.plus + '<span>새 항목</span></button>'
+        }) + '<div class="sch-main"></div>';
+        main = page.querySelector(':scope > .sch-main');
+      }
+      const h1 = page.querySelector('.sc-board-name');
+      if (h1.textContent !== board().name) h1.textContent = board().name;
+      const td = K.today();
+      page.querySelector('.sc-hero-date').textContent = K.md(td) + ' · ' + K.parse(td).getFullYear();
+      return main;
+    }
     function render() {
       st.narrow = window.matchMedia('(max-width: 760px)').matches;
-      const b = board();
       const counts = { events: occurrences(events().filter((e) => !e.cancelled)).get(K.today()), tasks: tasks().filter((x) => x.status !== '완료' && x.status !== '보류').length };
-      page.innerHTML =
-        '<div class="page-head sch-head"><div><h1 class="sc-board-name">' + P.esc(b.name) + '</h1></div>' +
-        '<div class="toolbar sch-actions">' +
-        '<button type="button" class="btn" data-act="brief" aria-label="아침 브리핑" title="오늘 일정·내일 건수·기한 임박 업무를 복사">' + K.IC.sun + '<span>아침 브리핑</span></button>' +
-        '<button type="button" class="btn btn-ghost p-icon-btn" data-act="more" aria-label="더보기" title="더보기">' + K.IC.more + '</button>' +
-        '<button type="button" class="btn btn-primary sch-hide-sm" data-act="new" title="새 항목 (N)">' + P.icons.plus + '<span>새 항목</span></button>' +
-        '</div></div>' +
+      frame().innerHTML =
         '<div class="sc-top">' +
         '<div class="seg sc-tabs" role="tablist" aria-label="보드 탭">' + TABS.map(([id, label], i) => {
           const n = id === 'events' ? (counts.events || []).length : counts[id];
@@ -128,12 +143,15 @@
         '<label class="p-search sc-search">' + P.icons.search + '<span class="sr-only">검색</span><input type="search" placeholder="검색" title="띄어쓰기로 나눈 단어를 모두 포함 (/)" value="' + P.esc(st.q) + '" data-search></label>' +
         (st.tab === 'events' ? '<div class="seg sc-evseg" role="radiogroup" aria-label="보기">' +
           '<button type="button" role="radio" aria-checked="' + (st.evView === 'list') + '" data-ev-view="list" title="목록">' + K.IC.list + '<span>목록</span></button>' +
-          '<button type="button" role="radio" aria-checked="' + (st.evView === 'cal') + '" data-ev-view="cal" title="달력 (C)">' + K.IC.calendar + '<span>달력</span></button></div>' : '') +
+          '<button type="button" role="radio" aria-checked="' + (st.evView === 'cal') + '" data-ev-view="cal" title="달력 (C)">' + K.IC.calendar + '<span>달력</span></button></div>'
+          : '<div class="seg sc-evseg sc-tvseg" role="radiogroup" aria-label="주요업무 보기">' +
+          '<button type="button" role="radio" aria-checked="' + (st.tView === 'board') + '" data-tasks-view="board" title="상황판 (B)">' + K.IC.board + '<span>보드</span></button>' +
+          '<button type="button" role="radio" aria-checked="' + (st.tView === 'table') + '" data-tasks-view="table" title="표 (B)">' + K.IC.table + '<span>표</span></button></div>') +
         '</div></div>' +
         '<div class="chips sch-filter" role="group" aria-label="거르기"></div>' +
         '<div class="sch-body" id="sc-panel" role="tabpanel" aria-labelledby="sc-tab-' + st.tab + '"></div>' +
         '<button type="button" class="sch-fab" data-act="new" aria-label="새 항목">' + P.icons.plus + '</button>';
-      page.querySelector('.sch-bar').appendChild(bar.el);
+      page.querySelector('.sc-top .sch-bar').appendChild(bar.el);
       renderFilter();
       renderBody();
     }
@@ -259,14 +277,47 @@
         '<div class="sc-task-status"><span class="' + (STATUS_BADGE[x.status] || 'badge') + '">' + P.esc(x.status || '예정') + '</span></div>' +
         '<div class="sc-task-act">' + (x.linked ? '' : '<button type="button" class="btn btn-sm' + (x.status === '완료' ? ' btn-ghost' : '') + '" data-done="' + P.esc(x.id) + '" title="' + (x.status === '완료' ? '진행으로 되돌리기' : '완료로 표시') + '">' + (x.status === '완료' ? '되돌리기' : P.icons.check + '완료') + '</button>') + '</div></article>';
     }
+    /* ---------- 주요업무: 자석 상황판 (예정 · 진행 · 완료 · 보류) ----------
+       마우스·펜은 끌어서 칸 옮기기, 키보드는 카드에서 Alt+←/→ 또는 ⋯ 메뉴 '상태 옮기기', 터치는 메뉴 */
+    const COL_HINT = { 예정: '착수 전', 진행: '처리 중', 완료: '끝난 일', 보류: '멈춘 일' };
+    function magnetCard(x, t) {
+      const td = K.today();
+      const over = x.due && x.due < td && x.status !== '완료' && x.status !== '보류';
+      const prog = Math.max(0, Math.min(100, x.progress || 0));
+      const done = x.status === '완료';
+      const key = x.linked ? 'data-ev="' + P.esc(x.eventId) + '"' : 'data-task="' + P.esc(x.id) + '"';
+      return '<article class="sc-task sc-mag' + (over ? ' over' : '') + (x.linked ? ' linked' : '') + (done ? ' done' : '') + '" style="--c:' + catColor(x.category || '기타') + ';--m:' + (x.owner ? K.colorFor(x.owner) : 'var(--muted)') + '" data-card="' + P.esc(x.id) + '" data-st="' + P.esc(x.status || '예정') + '">' +
+        '<button type="button" class="sc-task-open" ' + key + ' aria-label="' + P.esc(x.title + ', ' + (x.status || '예정') + (x.owner ? ', 담당 ' + x.owner : '') + (x.due ? ', 기한 ' + K.md(x.due) : '')) + (x.linked ? '' : '. Alt+화살표로 상태 옮기기') + '"' + (x.linked ? '' : ' aria-keyshortcuts="Alt+ArrowLeft Alt+ArrowRight"') + '></button>' +
+        '<div class="sc-mag-top"><span class="sc-tag" style="--c:' + catColor(x.category || '기타') + '">' + K.mark(x.category || '기타', t) + '</span>' +
+        (x.linked ? '<span class="sc-link" title="주요업무 구분 일정에서 자동 연동. 상태는 날짜로 정해집니다">' + K.IC.calendar + '일정 연동</span>' : '') + '</div>' +
+        '<div class="sc-task-name"><h3>' + K.mark(x.title, t) + '</h3>' + (x.detail ? '<p class="sc-task-detail">' + K.mark(x.detail, t) + '</p>' : '') + '</div>' +
+        '<div class="sc-mag-meta"><span class="sc-mag-owner">' + (x.owner ? '<b class="sc-magnet" aria-hidden="true"></b>' + K.mark(x.owner, t) : '<span class="muted">담당 미정</span>') + '</span>' + dueBadge(x, over) + '</div>' +
+        '<div class="sc-task-prog"><div class="sc-progress" role="progressbar" aria-valuenow="' + prog + '" aria-valuemin="0" aria-valuemax="100" aria-label="진척률"><span style="width:' + prog + '%"></span></div><span class="num">' + (x.progress || 0) + '%</span></div>' +
+        '<div class="sc-task-act">' + (x.linked ? '' :
+          '<button type="button" class="btn btn-ghost btn-sm p-icon-btn sc-mag-done" data-done="' + P.esc(x.id) + '" title="' + (done ? '진행으로 되돌리기' : '완료로 표시') + '" aria-label="' + (done ? '진행으로 되돌리기' : '완료로 표시') + '">' + (done ? K.IC.left : P.icons.check) + '</button>' +
+          '<button type="button" class="btn btn-ghost btn-sm p-icon-btn" data-card-menu="' + P.esc(x.id) + '" aria-haspopup="menu" aria-label="' + P.esc(x.title) + ' 메뉴" title="상태 옮기기 · 열기">' + K.IC.more + '</button>') + '</div></article>';
+    }
+    function boardView(list, t) {
+      const byDue = (a, b) => String(a.due || '9999').localeCompare(String(b.due || '9999')) || String(a.title).localeCompare(String(b.title), 'ko');
+      const cols = st.status === 'all' ? STATUSES : [st.status];
+      return '<div class="sc-kanban" style="--n:' + cols.length + '" aria-label="주요업무 상황판">' + cols.map((s, i) => {
+        const items = list.filter((x) => (x.status || '예정') === s).sort(s === '완료' ? (a, b) => String(b.due || '').localeCompare(String(a.due || '')) : byDue);
+        const closed = s === '완료' || s === '보류';
+        return '<section class="sc-group sc-col' + (closed ? ' closed' : '') + '" data-col="' + s + '" aria-labelledby="sc-col-' + i + '">' +
+          '<h3 class="sc-col-head" id="sc-col-' + i + '"><span class="sc-col-no num">' + (STATUSES.indexOf(s) + 1) + '.</span><span class="sc-col-name">' + s + '</span><span class="sc-col-hint">' + COL_HINT[s] + '</span><span class="sc-col-n num">' + items.length + '</span></h3>' +
+          '<div class="sc-col-body">' + (items.length ? items.map((x) => magnetCard(x, t)).join('') : '<p class="sc-col-empty">' + (s === '진행' ? '카드를 이곳으로 끌어 오세요' : '비어 있음') + '</p>') + '</div></section>';
+      }).join('') + '</div>' + (st.narrow ? '' : '<p class="sc-kb-hint muted">카드를 끌어 다른 칸에 놓으면 상태가 바뀝니다. 키보드: 카드에서 Alt+←/→ · 메뉴 ⋯</p>');
+    }
+
     function tasksView() {
       const t = ts();
       const td = K.today();
       const cs = st.cats.tasks;
       const list = tasks().filter((x) => (st.status === 'all' || x.status === st.status) && (!st.owner || x.owner === st.owner) && (!cs.size || cs.has(x.category)) && (!t.length || K.matchAll(taskHay(x), t)));
       if (!list.length) {
-        return '<div class="empty card"><p>' + (tasks().length ? '조건에 맞는 업무가 없습니다.' : '주요업무가 없습니다.') + '</p><button type="button" class="btn btn-primary btn-sm" data-act="new">' + P.icons.plus + '업무 추가</button></div>';
+        return '<div class="empty card"><p>' + (tasks().length ? '조건에 맞는 업무가 없습니다.' : '주요업무가 없습니다.') + '</p><div class="toolbar sc-empty-acts"><button type="button" class="btn btn-primary btn-sm" data-act="new">' + P.icons.plus + '업무 추가</button>' + (tasks().length ? '' : '<button type="button" class="btn btn-sm" data-act="sample">예시 데이터</button>') + '</div></div>';
       }
+      if (st.tView === 'board') return boardView(list, t);
       const byDue = (a, b) => String(a.due || '9999').localeCompare(String(b.due || '9999')) || STATUSES.indexOf(a.status) - STATUSES.indexOf(b.status);
       const closed = (x) => x.status === '완료' || x.status === '보류';
       const groups = [
@@ -567,6 +618,11 @@
       try { history.replaceState(null, '', '#/schedule/' + tab); } catch (e) { /* 무시 */ }
       render();
     }
+    function setTasksView(v) {
+      st.tView = v === 'table' ? 'table' : 'board';
+      P.settings.set('schedule.tasksView', st.tView);
+      render();
+    }
     function setEvView(v) {
       st.evView = v;
       P.settings.set('schedule.evView', v);
@@ -586,9 +642,98 @@
       render();
     }
 
+    /* ---------- 상황판: 상태 옮기기 (끌어 놓기 · 키보드 · 메뉴) ---------- */
+    const TO = { 예정: '예정으로', 진행: '진행으로', 완료: '완료로', 보류: '보류로' };
+    async function setStatus(id, s, focus) {
+      const x = repo.get(COL_TASK, id);
+      if (!x || (x.status || '예정') === s || !STATUSES.includes(s)) return false;
+      const patch = { status: s };
+      if (s === '완료') { patch.progress = 100; patch.prevProgress = x.progress; }
+      else if (x.status === '완료') patch.progress = x.prevProgress != null && x.prevProgress < 100 ? x.prevProgress : 90;
+      try { await repo.put(COL_TASK, id, Object.assign({}, x, patch), '상태 옮기기'); } catch (e) { return false; }
+      P.ui.toast('\'' + x.title + '\' ' + TO[s] + ' 옮겼습니다. (Ctrl+Z 실행 취소)', 'ok');
+      render();
+      const card = page.querySelector('.sc-mag[data-card="' + (window.CSS && CSS.escape ? CSS.escape(id) : id) + '"]');
+      if (card) {
+        if (K.motionOK()) { card.classList.add('is-dropped'); setTimeout(() => card.classList.remove('is-dropped'), 700); }
+        if (focus) { const b = card.querySelector('.sc-task-open'); if (b) b.focus(); }
+        card.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      }
+      return true;
+    }
+    function cardMenu(anchor, id) {
+      const x = repo.get(COL_TASK, id);
+      if (!x) return;
+      const cur = x.status || '예정';
+      K.popMenu(anchor, STATUSES.filter((s) => s !== cur).map((s) => ({ label: TO[s] + ' 옮기기', desc: '상태 옮기기 · ' + COL_HINT[s], icon: K.IC.move, onClick: () => setStatus(id, s, true) }))
+        .concat([{ label: '열기', desc: '업무 내용 고치기', icon: P.icons.edit, onClick: () => openTask(id) }]));
+    }
+    let drag = null;
+    let dropAt = 0;
+    function dragEnd(commit) {
+      const g = drag;
+      drag = null;
+      window.removeEventListener('pointermove', dragMove);
+      window.removeEventListener('pointerup', dragUp);
+      window.removeEventListener('pointercancel', dragCancel);
+      document.removeEventListener('keydown', dragKey, true);
+      if (!g || !g.on) return;
+      dropAt = Date.now();
+      document.documentElement.classList.remove('sc-dragging');
+      g.ghost.remove();
+      g.card.classList.remove('is-lifted');
+      page.querySelectorAll('.sc-col.is-over').forEach((c) => c.classList.remove('is-over'));
+      if (commit && g.over && g.over !== g.card.dataset.st) setStatus(g.id, g.over, false);
+    }
+    function dragMove(ev) {
+      const g = drag;
+      if (!g || ev.pointerId !== g.pid) return;
+      const dx = ev.clientX - g.x0;
+      const dy = ev.clientY - g.y0;
+      if (!g.on) {
+        if (Math.hypot(dx, dy) < 6) return;
+        g.on = true;
+        const r = g.card.getBoundingClientRect();
+        g.ox = g.x0 - r.left;
+        g.oy = g.y0 - r.top;
+        g.ghost = g.card.cloneNode(true);
+        g.ghost.classList.add('sc-ghost');
+        g.ghost.removeAttribute('data-card');
+        g.ghost.setAttribute('aria-hidden', 'true');
+        g.ghost.style.width = r.width + 'px';
+        document.body.appendChild(g.ghost);
+        g.card.classList.add('is-lifted');
+        document.documentElement.classList.add('sc-dragging');
+      }
+      ev.preventDefault();
+      g.ghost.style.transform = 'translate3d(' + (ev.clientX - g.ox) + 'px,' + (ev.clientY - g.oy) + 'px,0)';
+      const under = document.elementFromPoint(ev.clientX, ev.clientY);
+      const col = under && under.closest('.sc-col');
+      const s = col && page.contains(col) ? col.dataset.col : null;
+      if (s !== g.over) {
+        page.querySelectorAll('.sc-col.is-over').forEach((c) => c.classList.remove('is-over'));
+        if (col && s !== g.card.dataset.st) col.classList.add('is-over');
+        g.over = s;
+      }
+    }
+    const dragUp = (ev) => { if (drag && ev.pointerId === drag.pid) dragEnd(true); };
+    const dragCancel = () => dragEnd(false);
+    const dragKey = (ev) => { if (ev.key === 'Escape' && drag && drag.on) { ev.preventDefault(); ev.stopPropagation(); dragEnd(false); } };
+    page.addEventListener('pointerdown', (ev) => {
+      if (ev.button !== 0 || ev.pointerType === 'touch' || drag) return;
+      const card = ev.target.closest('.sc-mag');
+      if (!card || card.classList.contains('linked') || ev.target.closest('.sc-task-act')) return;
+      drag = { card, id: card.dataset.card, pid: ev.pointerId, x0: ev.clientX, y0: ev.clientY, on: false, over: null };
+      window.addEventListener('pointermove', dragMove);
+      window.addEventListener('pointerup', dragUp);
+      window.addEventListener('pointercancel', dragCancel);
+      document.addEventListener('keydown', dragKey, true);
+    });
+
     page.addEventListener('click', (ev) => {
       const t = ev.target.closest('button, .sch-cal-day');
       if (!t || !page.contains(t)) return;
+      if (Date.now() - dropAt < 350) return; // 끌어 놓은 직후의 클릭은 무시
       const d = t.dataset;
       if (d.act === 'new') openNew();
       else if (d.act === 'brief') briefing();
@@ -607,6 +752,8 @@
         ]);
       } else if (d.tab) setTab(d.tab);
       else if (d.evView) setEvView(d.evView);
+      else if (d.tasksView) setTasksView(d.tasksView);
+      else if (d.cardMenu) cardMenu(t, d.cardMenu);
       else if (d.cat != null) {
         const set = st.cats[st.tab];
         if (set.has(d.cat)) set.delete(d.cat); else set.add(d.cat);
@@ -634,7 +781,16 @@
       searchTimer = setTimeout(() => { st.q = ev.target.value; renderBody(); }, 160);
     });
     page.addEventListener('keydown', (ev) => {
-      if (ev.target.hasAttribute('data-search') && ev.key === 'Escape') { ev.target.value = ''; st.q = ''; renderBody(); ev.target.blur(); }
+      if (ev.target.hasAttribute('data-search') && ev.key === 'Escape') { ev.target.value = ''; st.q = ''; renderBody(); ev.target.blur(); return; }
+      const card = ev.target.closest && ev.target.matches('.sc-task-open[data-task]') ? ev.target.closest('.sc-mag') : null;
+      if (card && ev.altKey && !ev.ctrlKey && !ev.metaKey && (ev.key === 'ArrowLeft' || ev.key === 'ArrowRight')) {
+        ev.preventDefault();
+        const i = STATUSES.indexOf(card.dataset.st) + (ev.key === 'ArrowRight' ? 1 : -1);
+        if (i >= 0 && i < STATUSES.length) setStatus(card.dataset.card, STATUSES[i], true);
+      } else if (card && (ev.key === 'ContextMenu' || (ev.shiftKey && ev.key === 'F10'))) {
+        ev.preventDefault();
+        cardMenu(card.querySelector('[data-card-menu]') || ev.target, card.dataset.card);
+      }
     });
     page.addEventListener('submit', (ev) => ev.preventDefault());
 
@@ -651,6 +807,7 @@
       else if (k === 'c') { ev.preventDefault(); setEvView(st.tab === 'events' && st.evView === 'cal' ? 'list' : 'cal'); }
       else if (ev.key === '/') { ev.preventDefault(); const s = page.querySelector('[data-search]'); if (s) { s.focus(); s.select(); } }
       else if (k === '1' || k === '2') { ev.preventDefault(); setTab(TABS[Number(k) - 1][0]); }
+      else if (k === 'b' && st.tab === 'tasks') { ev.preventDefault(); setTasksView(st.tView === 'board' ? 'table' : 'board'); }
     }
     document.addEventListener('keydown', onKey);
     let rt = null;
@@ -674,6 +831,7 @@
     });
 
     return () => {
+      dragEnd(false);
       clearTimeout(searchTimer);
       stopRefresh();
       document.removeEventListener('keydown', onKey);

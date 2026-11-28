@@ -1213,6 +1213,8 @@
     const deckOf = (row) => { const d = normalizeDeck(row.data); d.createdAt = row.data.createdAt; return d; };
     const fb = P.files.browser(root, {
       col: COL, kind: APP_ID, folder, defaultView: 'grid',
+      skin: 'lighttable',
+      hero: { no: '04 · 라이트테이블', desc: '발표 자료를 슬라이드로', slot: 'tab-slides', seal: 'PT' },
       title: 'PT', itemName: 'PT', newLabel: '새 PT', mineLabel: '내 PT', searchHint: '제목 검색',
       pageClass: 'slides-list', itemClass: 'slides-card', newAttrs: { 'data-a': 'new' },
       templates: { title: '서식', html: tplHTML, cls: 'slides-sec-tpl', aside: '<span class="toolbar slides-quick"><button type="button" class="btn btn-sm btn-ghost" data-a="outline" data-fb-act="outline">' + I.outline + '<span>개요로 만들기</span></button><button type="button" class="btn btn-sm btn-ghost" data-a="photos" data-fb-act="photos">' + I.image + '<span>사진으로 만들기</span></button></span>' },
@@ -1236,7 +1238,17 @@
       icon: () => I.slide,
       badge: (it) => '<span class="badge">' + ((it.data.slides && it.data.slides.length) || 0) + '장</span>',
       meta: (it) => { const th = THEMES[it.data.theme]; return th ? th.name + ' 테마' : ''; },
-      thumb: (it) => { try { const d = normalizeDeck(it.data); return miniHTML(d, d.slides[0], {}); } catch (e) { return ''; } },
+      /* 라이트테이블 위 슬라이드 묶음: 표지 + 뒤에 2·3장(마우스를 올리면 부채꼴로 펼침) */
+      thumb: (it) => {
+        try {
+          const d = normalizeDeck(it.data);
+          const n = d.slides.length;
+          let fan = '';
+          for (let k = Math.min(2, n - 1); k >= 1; k--) fan += '<span class="slides-fan f' + k + '">' + miniHTML(d, d.slides[k], {}) + '</span>';
+          return '<span class="slides-stack" data-n="' + n + '">' + fan + '<span class="slides-cover">' + miniHTML(d, d.slides[0], {}) + '</span><span class="slides-cnt tnum">' + n + '장</span></span>';
+        } catch (e) { return ''; }
+      },
+      listThumb: (it) => { try { const d = normalizeDeck(it.data); return miniHTML(d, d.slides[0], {}); } catch (e) { return I.slide; } },
       afterRender: (box) => requestAnimationFrame(() => scaleMinis(box)),
       empty: { slot: 'empty-slides', title: '아직 PT가 없습니다', desc: '서식을 고르거나, 개요 글을 붙여 넣으면 슬라이드가 한 번에 만들어집니다.' },
       io: {

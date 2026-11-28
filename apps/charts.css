@@ -205,3 +205,57 @@ select.charts-type:focus { box-shadow: var(--ring); }
 .charts-samples .list-row[aria-current="true"] { background: var(--accent-soft); }
 .charts-samples .list-row[aria-current="true"] b { color: var(--accent); }
 .charts-src:not(:empty) + .charts-dim::before { content: "· "; }
+
+/* ===== 목록: 분석 데스크 (css/files.css 의 [data-skin="desk"] 판 위) =====
+   저장한 차트 = 핀으로 꽂은 인쇄 도표(살짝 비뚤게, 뒤에 한 장 더). 새 차트 = 모눈 '빈 분석지' */
+.charts-list[data-skin] .p-fb-tile:not(.p-fb-folder) .p-fb-thumb { display: block; aspect-ratio: 4 / 3.3; overflow: visible; border: 0; border-radius: 0; background: none; }
+.charts-sheet {
+  position: relative; display: flex; flex-direction: column; width: 100%; height: 100%; padding: 9% 7% 0;
+  background: var(--fb-noise), #FDFCF8; border: 1px solid #E3DCCB; border-radius: 1px;
+  box-shadow: 0 1px 1px rgba(40, 30, 10, .08), 0 12px 20px -14px rgba(40, 30, 10, .55);
+  transform: rotate(var(--tilt)); transition: transform 320ms var(--ease-expressive);
+}
+.charts-sheet::before {
+  content: ""; position: absolute; inset: -1px; z-index: -1; border: 1px solid #E3DCCB; background: #F6F2E8;
+  transform: rotate(calc(var(--tilt) * -2.2)) translate(3px, 2px); box-shadow: 0 6px 12px -10px rgba(40, 30, 10, .5);
+}
+.charts-sheet-pin {
+  position: absolute; top: -6px; left: calc(50% - 6px + var(--pin) * 30%); z-index: 2; width: 13px; height: 13px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 32%, #F59A72, var(--signal) 58%, #8C2A0C); box-shadow: 0 4px 5px -1px rgba(0, 0, 0, .4), inset 0 -1px 1px rgba(0, 0, 0, .2);
+}
+.charts-sheet-fig { flex: 1 1 auto; min-height: 0; display: grid; place-items: center; overflow: hidden; background: #fff; border: 1px solid #EEE9DD; color: #8a8f99; }
+.charts-sheet-fig > img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.charts-sheet-fig > svg:not(.charts-sheet-svg) { width: 34%; height: auto; }
+.charts-sheet-svg { width: 100%; height: 100%; padding: 6% 4% 2%; }
+.charts-sheet-svg .ax { stroke: #B9B4A8; stroke-width: 1; vector-effect: non-scaling-stroke; fill: none; }
+.charts-sheet-svg rect { fill: #5B6787; }
+.charts-sheet-svg rect.hi { fill: #C43F15; }
+.charts-sheet-cap { flex: none; display: flex; align-items: baseline; gap: 6px; min-width: 0; padding: 5px 1px 6px; font-size: 10px; color: #6b6f78; white-space: nowrap; overflow: hidden; }
+.charts-sheet-cap b { flex: none; color: #1A1D26; font-weight: 750; letter-spacing: .04em; }
+.charts-sheet-cap span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+:root[data-theme="dark"] .charts-sheet, :root[data-theme="dark"] .charts-sheet::before { filter: brightness(.9); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .charts-sheet, :root:not([data-theme="light"]) .charts-sheet::before { filter: brightness(.9); } }
+@media (hover: hover) and (pointer: fine) {
+  :root:not([data-fx-level="off"]) .charts-list[data-skin] .p-fb-tile > .p-fb-open:hover .charts-sheet { transform: rotate(0deg); }
+}
+@media (prefers-reduced-motion: reduce) { .charts-sheet { transition: none; } }
+.charts-list[data-skin] .p-fb-tile.is-sel .charts-sheet { box-shadow: 0 0 0 2px var(--accent), 0 12px 20px -14px rgba(40, 30, 10, .55); }
+.charts-list[data-skin] .p-fb-tile > .p-fb-open:hover .p-fb-thumb { border-color: transparent; }
+
+/* 빈 분석지: 모눈 · 축 · 더하기 */
+.charts-blank-sheet {
+  position: relative; display: block; width: 100%; height: 100%; border: 1px dashed color-mix(in srgb, var(--accent) 35%, var(--fb-edge)); border-radius: 1px;
+  background:
+    linear-gradient(color-mix(in srgb, var(--accent) 9%, transparent) 1px, transparent 1px) 0 0 / 100% 10px,
+    linear-gradient(90deg, color-mix(in srgb, var(--accent) 9%, transparent) 1px, transparent 1px) 0 0 / 10px 100%,
+    linear-gradient(color-mix(in srgb, var(--accent) 16%, transparent) 1px, transparent 1px) 0 0 / 100% 50px,
+    linear-gradient(90deg, color-mix(in srgb, var(--accent) 16%, transparent) 1px, transparent 1px) 0 0 / 50px 100%,
+    var(--fb-paper);
+  transition: border-color var(--dur);
+}
+.charts-blank-ax { position: absolute; left: 14%; bottom: 16%; width: 72%; height: 64%; border-left: 1.5px solid color-mix(in srgb, var(--text) 45%, transparent); border-bottom: 1.5px solid color-mix(in srgb, var(--text) 45%, transparent); }
+.charts-blank-plus { position: absolute; left: 50%; top: 48%; display: grid; place-items: center; width: 38px; height: 38px; margin: -19px 0 0 -19px; border-radius: 50%; background: var(--surface); border: 1px solid var(--fb-edge); color: var(--accent); box-shadow: 0 6px 12px -8px rgba(30, 20, 5, .5); }
+.charts-blank-plus svg { width: 18px; height: 18px; }
+.charts-tpl-thumb.charts-tpl-blank { padding: 0; border: 0; background: none; overflow: hidden; }
+.charts-tpl:hover .charts-blank-sheet, .p-fb-lead > .p-fb-open:hover .charts-blank-sheet { border-color: var(--accent); }
+.charts-list[data-skin] .p-fb-lead .p-fb-thumb { display: block; aspect-ratio: 4 / 3.3; border: 0; background: none; overflow: visible; }
