@@ -1,10 +1,10 @@
-/* 부서 스케줄러 — 일정표 · 주요업무 · 개인업무 (보급용 범용 보드) */
+/* 부서 스케줄러: 일정표 · 주요업무 (보급용 범용 보드). 개인 할 일은 '내 일정'(my-schedule.js, 이 기기 전용)으로 옮김 */
 (function () {
   'use strict';
 
   const COL_EV = 'schedule-events';
   const COL_TASK = 'schedule-tasks';
-  const COL_ME = 'schedule-personal';
+  // 예전 '개인업무' 컬렉션(schedule-personal)은 지우지 않고 남겨 둠. 내 일정이 한 번 옮겨 가고 여기서는 보여 주지 않음
   const COL_CFG = 'schedule-config';
   const MAJOR = '주요업무';
   const STATUSES = ['예정', '진행', '완료', '보류'];
@@ -16,14 +16,16 @@
       { name: '보고', color: '#8A6A4E' }, { name: '기타', color: '#737985' }
     ]
   };
-  const TABS = [['events', '일정표'], ['tasks', '주요업무'], ['personal', '개인업무']];
+  const TABS = [['events', '일정표'], ['tasks', '주요업무']];
 
   function mount(root, ctx) {
     const K = window.SchedKit;
     if (!K) { root.innerHTML = '<div class="page"><div class="empty card">스케줄러 도구(head-schedule.js)를 불러오지 못했습니다.</div></div>'; return; }
+    if (ctx.params[0] === 'personal') { setTimeout(() => P.navigate('my-schedule/todos'), 0); return; }
     const bar = K.statusBar();
-    const repo = K.makeRepo([COL_EV, COL_TASK, COL_ME, COL_CFG], bar.set);
-    const tab0 = TABS.some((t) => t[0] === ctx.params[0]) ? ctx.params[0] : P.settings.get('schedule.tab', 'events');
+    const repo = K.makeRepo([COL_EV, COL_TASK, COL_CFG], bar.set);
+    const isTab = (t) => TABS.some((x) => x[0] === t);
+    const tab0 = isTab(ctx.params[0]) ? ctx.params[0] : isTab(P.settings.get('schedule.tab', 'events')) ? P.settings.get('schedule.tab', 'events') : 'events';
     const st = {
       tab: tab0,
       evView: P.settings.get('schedule.evView', 'list'),
@@ -34,8 +36,6 @@
       cal: K.today(),
       status: 'all',
       owner: '',
-      pView: P.settings.get('schedule.pView', 'today'),
-      me: P.settings.get('schedule.me', ''),
       narrow: false
     };
     root.innerHTML = '<div class="page sch-page">' + P.ui.skeleton(4) + '</div>';
@@ -110,7 +110,7 @@
     function render() {
       st.narrow = window.matchMedia('(max-width: 760px)').matches;
       const b = board();
-      const counts = { events: occurrences(events().filter((e) => !e.cancelled)).get(K.today()), tasks: tasks().filter((x) => x.status !== '완료' && x.status !== '보류').length, personal: st.me ? repo.all(COL_ME).filter((x) => x.name === st.me && !x.done).length : 0 };
+      const counts = { events: occurrences(events().filter((e) => !e.cancelled)).get(K.today()), tasks: tasks().filter((x) => x.status !== '완료' && x.status !== '보류').length };
       page.innerHTML =
         '<div class="page-head sch-head"><div><h1 class="sc-board-name">' + P.esc(b.name) + '</h1></div>' +
         '<div class="toolbar sch-actions">' +
@@ -122,7 +122,7 @@
         '<div class="seg sc-tabs" role="tablist" aria-label="보드 탭">' + TABS.map(([id, label], i) => {
           const n = id === 'events' ? (counts.events || []).length : counts[id];
           return '<button type="button" role="tab" id="sc-tab-' + id + '" aria-controls="sc-panel" aria-selected="' + (st.tab === id) + '" data-tab="' + id + '" title="' + label + ' (' + (i + 1) + ')">' + label +
-            (n ? '<span class="sc-count num" title="' + (id === 'events' ? '오늘 일정' : id === 'tasks' ? '진행 중·예정 업무' : '남은 할 일') + '">' + n + '</span>' : '') + '</button>';
+            (n ? '<span class="sc-count num" title="' + (id === 'events' ? '오늘 일정' : '진행 중·예정 업무') + '">' + n + '</span>' : '') + '</button>';
         }).join('') + '</div>' +
         '<div class="sch-bar">' +
         '<label class="p-search sc-search">' + P.icons.search + '<span class="sr-only">검색</span><input type="search" placeholder="검색" title="띄어쓰기로 나눈 단어를 모두 포함 (/)" value="' + P.esc(st.q) + '" data-search></label>' +
@@ -140,7 +140,6 @@
 
     function renderFilter() {
       const box = page.querySelector('.sch-filter');
-      if (st.tab === 'personal') { box.innerHTML = ''; return; }
       let html = '';
       if (st.tab === 'tasks') {
         html += ['all'].concat(STATUSES).map((s) => '<button type="button" class="chip" data-status="' + s + '" aria-pressed="' + (st.status === s) + '">' + (s === 'all' ? '전체 상태' : s) + '</button>').join('');
@@ -160,8 +159,7 @@
       const body = page.querySelector('.sch-body');
       if (!body) return;
       if (st.tab === 'events') body.innerHTML = st.evView === 'cal' && !st.q ? eventsCal() : eventsList();
-      else if (st.tab === 'tasks') body.innerHTML = tasksView();
-      else body.innerHTML = personalView();
+      else body.innerHTML = tasksView();
     }
 
     /* ---------- 일정표 ---------- */
@@ -285,47 +283,6 @@
             (kind === 'closed' && !t.length && st.status === 'all' ? '<button type="button" class="btn btn-ghost btn-sm" data-act="done-fold" aria-expanded="' + !fold + '">' + (fold ? '펼치기' : '접기') + '</button>' : '') + '</h3>' +
             (fold ? '' : items.map((x) => taskCard(x, t)).join('')) + '</section>';
         }).join('') + '</div>';
-    }
-
-    /* ---------- 개인업무 ---------- */
-    function personalView() {
-      const names = Array.from(new Set(repo.all(COL_ME).map((x) => x.name).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'ko'));
-      if (!st.me) {
-        return '<div class="sc-me-pick"><p>이름을 정하면 내 할 일만 모아 봅니다.</p>' +
-          '<form class="sc-me-form" data-form="me"><input name="me" maxlength="20" placeholder="이름" aria-label="이름" required><button class="btn btn-primary" type="submit">시작</button></form>' +
-          (names.length ? '<div class="chips">' + names.map((n) => '<button type="button" class="chip" data-me="' + P.esc(n) + '">' + P.esc(n) + '</button>').join('') + '</div>' : '') + '</div>';
-      }
-      const t = ts();
-      const td = K.today();
-      const we = K.addDays(K.weekStart(td), 6);
-      const mine = repo.all(COL_ME).filter((x) => x.name === st.me && (!t.length || K.matchAll([x.title, x.note, x.due].join(' '), t)));
-      let list;
-      if (t.length) list = mine;
-      else if (st.pView === 'today') list = mine.filter((x) => (!x.done && x.due && x.due <= td) || (x.done && String(x.doneAt || '').slice(0, 10) === td));
-      else if (st.pView === 'week') list = mine.filter((x) => !x.done && (!x.due || x.due <= we));
-      else if (st.pView === 'done') list = mine.filter((x) => x.done);
-      else list = mine.filter((x) => !x.done);
-      list.sort((a, b) => (a.done - b.done) || (st.pView === 'done' ? String(b.doneAt || '').localeCompare(String(a.doneAt || '')) : String(a.due || '9999').localeCompare(String(b.due || '9999'))));
-      const left = mine.filter((x) => !x.done);
-      const overdue = left.filter((x) => x.due && x.due < td).length;
-      const dueText = (x) => {
-        if (!x.due) return '';
-        if (x.done) return '<span class="sc-pdue num">' + K.md(x.due) + '</span>';
-        const n = K.diffDays(td, x.due);
-        return '<span class="sc-pdue' + (n < 0 ? ' over' : n === 0 ? ' today' : '') + '"><span class="num">' + (n === 0 ? '오늘' : n === 1 ? '내일' : K.md(x.due)) + '</span>' + (n < 0 ? '<small>' + dLabel(x.due) + '</small>' : '') + '</span>';
-      };
-      return '<div class="sc-me">' +
-        '<div class="sc-me-head"><div class="sc-me-who"><span class="avatar avatar-lg sch-av" style="--c:' + K.colorFor(st.me) + '" aria-hidden="true">' + initial(st.me) + '</span><div><h2>' + P.esc(st.me) + '</h2><p class="num">남은 일 ' + left.length + (overdue ? ' · <b class="sc-over-text">지남 ' + overdue + '</b>' : '') + '</p></div></div>' +
-        '<button type="button" class="btn btn-ghost btn-sm" data-act="me-change">이름 바꾸기</button></div>' +
-        '<div class="seg sc-pviews" role="group" aria-label="보기">' + [['today', '오늘'], ['week', '이번 주'], ['all', '전체'], ['done', '완료']].map(([v, l]) => '<button type="button" data-pview="' + v + '" aria-pressed="' + (st.pView === v) + '">' + l + '</button>').join('') + '</div>' +
-        '<div class="sc-todo-box">' +
-        '<form class="sc-quick" data-form="quick"><span class="sc-quick-ic" aria-hidden="true">' + P.icons.plus + '</span><input name="title" maxlength="100" placeholder="할 일 추가" aria-label="새 할 일" autocomplete="off">' +
-        '<input name="due" type="date" aria-label="기한" value="' + (st.pView === 'today' ? td : '') + '"><button type="submit" class="btn btn-sm btn-primary">추가</button></form>' +
-        (list.length ? '<ul class="sc-todos">' + list.map((x) => '<li class="sc-todo' + (x.done ? ' done' : '') + '"><label class="sc-check"><input type="checkbox" data-toggle="' + P.esc(x.id) + '"' + (x.done ? ' checked' : '') + '><span class="sr-only">완료</span></label>' +
-            '<button type="button" class="sc-todo-main" data-me-item="' + P.esc(x.id) + '"><span class="sc-todo-title">' + K.mark(x.title, t) + '</span>' +
-            (x.note ? '<span class="sc-todo-note">' + K.mark(x.note, t) + '</span>' : '') + '</button>' + dueText(x) + '</li>').join('') + '</ul>'
-          : '<p class="sc-todo-empty">' + (st.pView === 'today' ? '오늘 할 일이 없습니다.' : st.pView === 'done' ? '완료한 일이 없습니다.' : '할 일이 없습니다.') + '</p>') +
-        '</div></div>';
     }
 
     /* ---------- 입력 창 ---------- */
@@ -465,40 +422,9 @@
       f.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' && (ev.ctrlKey || ev.metaKey)) { ev.preventDefault(); onSave().then((ok) => { if (ok) close(); }); } });
     }
 
-    function openPersonal(id) {
-      const cur = repo.get(COL_ME, id);
-      if (!cur) return;
-      const f = document.createElement('form');
-      f.className = 'sch-form';
-      f.innerHTML = '<div class="field"><label for="sp-title">할 일</label><input id="sp-title" name="title" maxlength="100" required></div>' +
-        '<div class="field"><label for="sp-due">기한</label><input id="sp-due" name="due" type="date"></div>' +
-        '<div class="field"><label for="sp-note">메모</label><textarea id="sp-note" name="note" rows="3" maxlength="1000"></textarea></div>' +
-        '<label class="sch-toggle"><input type="checkbox" name="done"' + (cur.done ? ' checked' : '') + '> 완료</label><p class="p-form-status err" role="alert"></p>';
-      ['title', 'due', 'note'].forEach((k) => { f[k].value = cur[k] || ''; });
-      f.addEventListener('submit', (ev) => ev.preventDefault());
-      async function onSave() {
-        const d = Object.assign({}, cur, { title: f.title.value.trim(), due: f.due.value, note: f.note.value.trim(), done: f.done.checked });
-        if (!d.title) { f.querySelector('.p-form-status').textContent = '할 일을 입력하세요.'; return false; }
-        if (d.done && !cur.done) d.doneAt = new Date().toISOString();
-        try { await repo.put(COL_ME, id, d, '할 일 수정'); } catch (e) { return false; }
-        render();
-        return true;
-      }
-      P.ui.modal({
-        title: '할 일 수정', body: f,
-        actions: [
-          { label: '삭제', onClick: async () => { await repo.remove(COL_ME, id, '할 일 삭제'); P.ui.toast('할 일을 지웠습니다. (Ctrl+Z 실행 취소)', 'ok'); render(); } },
-          { label: '닫기' }, { label: '저장', primary: true, onClick: onSave }
-        ]
-      });
-    }
-
     function openNew() {
       if (st.tab === 'tasks') openTask(null);
-      else if (st.tab === 'personal') {
-        const input = page.querySelector('.sc-quick [name="title"], .sc-me-form [name="me"]');
-        if (input) input.focus();
-      } else openEvent(null);
+      else openEvent(null);
     }
 
     /* ---------- 보드 설정 ---------- */
@@ -580,9 +506,9 @@
     /* ---------- 내보내기 · 가져오기 ---------- */
     const clean = (o) => { const c = Object.assign({}, o); delete c.updatedAt; return c; };
     function exportJSON() {
-      const payload = { format: 'schedule-board', exportedAt: new Date().toISOString(), board: board(), events: events().map(clean), tasks: repo.all(COL_TASK).map(clean), personal: repo.all(COL_ME).map(clean) };
+      const payload = { format: 'schedule-board', exportedAt: new Date().toISOString(), board: board(), events: events().map(clean), tasks: repo.all(COL_TASK).map(clean) };
       P.ui.download('schedule-board-' + K.stamp() + '.json', JSON.stringify(payload, null, 1), 'application/json');
-      P.ui.toast('일정 ' + payload.events.length + '·업무 ' + payload.tasks.length + '·개인 ' + payload.personal.length + '건을 내보냈습니다.', 'ok');
+      P.ui.toast('일정 ' + payload.events.length + '·업무 ' + payload.tasks.length + '건을 내보냈습니다.', 'ok');
     }
     async function importJSON() {
       const data = await K.readJSONFile();
@@ -591,16 +517,15 @@
       const arr = (a) => (Array.isArray(a) ? a.filter((x) => x && typeof x === 'object' && x.title) : []);
       const evs = arr(data.events).filter((e) => K.isDate(e.date));
       const tks = arr(data.tasks);
-      const pss = arr(data.personal).filter((x) => x.name);
-      if (!(await P.ui.confirm('일정 ' + evs.length + '건, 업무 ' + tks.length + '건, 개인업무 ' + pss.length + '건을 가져옵니다.\n같은 항목은 파일 내용으로 덮어씁니다.' + (data.board ? '\n보드 이름·구분도 파일 설정으로 바뀝니다.' : ''), { okLabel: '가져오기' }))) return;
+      const pss = arr(data.personal).length;
+      if (!(await P.ui.confirm('일정 ' + evs.length + '건, 업무 ' + tks.length + '건을 가져옵니다.\n같은 항목은 파일 내용으로 덮어씁니다.' + (data.board ? '\n보드 이름·구분도 파일 설정으로 바뀝니다.' : '') + (pss ? '\n예전 개인업무 ' + pss + '건은 내 일정 → 가져오기에서 같은 파일로 옮길 수 있습니다.' : ''), { okLabel: '가져오기' }))) return;
       const ch = [];
       const add = (col, list) => list.forEach((x) => ch.push({ col, id: String(x.id || P.store.uid()), data: x }));
       add(COL_EV, evs);
       add(COL_TASK, tks);
-      add(COL_ME, pss);
       if (data.board && Array.isArray(data.board.categories)) ch.push({ col: COL_CFG, id: 'board', data: { name: String(data.board.name || DEFAULT_BOARD.name), categories: data.board.categories } });
       try { await repo.apply('가져오기', ch); } catch (e) { return; }
-      P.ui.toast((evs.length + tks.length + pss.length) + '건을 가져왔습니다.', 'ok');
+      P.ui.toast((evs.length + tks.length) + '건을 가져왔습니다.', 'ok');
       render();
     }
     function exportCSV() {
@@ -673,12 +598,11 @@
       else if (d.act === 'done-fold') { st.showDone = !st.showDone; renderBody(); }
       else if (d.act === 'sample') addSample();
       else if (d.act === 'clear-cats') { st.cats[st.tab].clear(); renderFilter(); renderBody(); }
-      else if (d.act === 'me-change') { st.me = ''; P.settings.set('schedule.me', ''); renderBody(); }
       else if (d.act === 'more') {
         K.popMenu(t, [
           { label: '보드 설정', desc: '보드 이름 · 구분 목록과 색', icon: P.icons.gear, onClick: openSettings },
           { label: '일정 CSV 내보내기', desc: '엑셀에서 열기', icon: P.icons.download, onClick: exportCSV },
-          { label: '보드 내보내기', desc: '일정·업무·개인업무 JSON 백업', icon: P.icons.download, onClick: exportJSON },
+          { label: '보드 내보내기', desc: '일정·업무 JSON 백업', icon: P.icons.download, onClick: exportJSON },
           { label: '보드 가져오기', desc: '내보낸 JSON 파일', icon: P.icons.upload, onClick: importJSON }
         ]);
       } else if (d.tab) setTab(d.tab);
@@ -694,9 +618,6 @@
       else if (d.ev) openEvent(d.ev);
       else if (d.task) openTask(d.task);
       else if (d.done) toggleTask(d.done);
-      else if (d.pview) { st.pView = d.pview; P.settings.set('schedule.pView', d.pview); renderBody(); }
-      else if (d.me) { st.me = d.me; P.settings.set('schedule.me', d.me); render(); }
-      else if (d.meItem) openPersonal(d.meItem);
       else if (t.classList.contains('sch-cal-day')) {
         if (st.cal === d.day && !st.narrow) openEvent(null, { date: d.day });
         else { st.cal = d.day; renderBody(); }
@@ -704,12 +625,7 @@
     });
     page.addEventListener('change', async (ev) => {
       const t = ev.target;
-      if (t.dataset.toggle) {
-        const x = repo.get(COL_ME, t.dataset.toggle);
-        if (!x) return;
-        try { await repo.put(COL_ME, x.id, Object.assign({}, x, { done: t.checked, doneAt: t.checked ? new Date().toISOString() : '' }), t.checked ? '할 일 완료' : '완료 취소'); } catch (e) { t.checked = !t.checked; return; }
-        setTimeout(renderBody, t.checked ? 350 : 0);
-      } else if (t.hasAttribute('data-owner')) { st.owner = t.value; renderBody(); }
+      if (t.hasAttribute('data-owner')) { st.owner = t.value; renderBody(); }
     });
     let searchTimer = null;
     page.addEventListener('input', (ev) => {
@@ -720,26 +636,7 @@
     page.addEventListener('keydown', (ev) => {
       if (ev.target.hasAttribute('data-search') && ev.key === 'Escape') { ev.target.value = ''; st.q = ''; renderBody(); ev.target.blur(); }
     });
-    page.addEventListener('submit', async (ev) => {
-      ev.preventDefault();
-      const f = ev.target;
-      if (f.dataset.form === 'me') {
-        const name = f.me.value.trim();
-        if (!name) return;
-        st.me = name;
-        P.settings.set('schedule.me', name);
-        render();
-      } else if (f.dataset.form === 'quick') {
-        const title = f.title.value.trim();
-        if (!title) { f.title.focus(); return; }
-        try { await repo.put(COL_ME, P.store.uid(), { name: st.me, title, due: f.due.value, done: false, note: '' }, '할 일 추가'); } catch (e) { return; }
-        const due = f.due.value;
-        renderBody();
-        const nf = page.querySelector('.sc-quick');
-        if (nf) { nf.due.value = due; nf.title.focus(); }
-        if (st.pView === 'today' && (!due || due > K.today())) P.ui.toast('추가했습니다. \'이번 주·전체\' 보기에서 볼 수 있습니다.', 'info');
-      }
-    });
+    page.addEventListener('submit', (ev) => ev.preventDefault());
 
     function onKey(ev) {
       if ((ev.ctrlKey || ev.metaKey) && !ev.altKey && !K.isTyping(ev)) {
@@ -753,7 +650,7 @@
       if (k === 'n') { ev.preventDefault(); openNew(); }
       else if (k === 'c') { ev.preventDefault(); setEvView(st.tab === 'events' && st.evView === 'cal' ? 'list' : 'cal'); }
       else if (ev.key === '/') { ev.preventDefault(); const s = page.querySelector('[data-search]'); if (s) { s.focus(); s.select(); } }
-      else if (k === '1' || k === '2' || k === '3') { ev.preventDefault(); setTab(TABS[Number(k) - 1][0]); }
+      else if (k === '1' || k === '2') { ev.preventDefault(); setTab(TABS[Number(k) - 1][0]); }
     }
     document.addEventListener('keydown', onKey);
     let rt = null;
@@ -790,7 +687,7 @@
     title: '부서 스케줄러',
     short: '스케줄러',
     order: 2,
-    desc: '부서 일정표 · 주요업무 · 개인업무를 한 보드에서, 아침 브리핑 문구까지',
+    desc: '부서 일정표 · 주요업무를 한 보드에서, 아침 브리핑 문구까지',
     icon: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4M7.5 14h3M7.5 17.5h6"/></svg>',
     mount
   });

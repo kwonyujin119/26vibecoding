@@ -114,7 +114,9 @@
   }
 
   /* 캐시 + 저장 + 실행 취소 기록을 함께 다루는 저장소 */
-  function makeRepo(cols, onStatus) {
+  /* store: 생략하면 P.store, 이 기기 전용 자료는 P.store.local */
+  function makeRepo(cols, onStatus, store) {
+    const S = store || P.store;
     const cache = {};
     cols.forEach((c) => { cache[c] = new Map(); });
     const undoStack = [];
@@ -125,7 +127,7 @@
 
     async function load() {
       await Promise.all(cols.map(async (c) => {
-        const rows = await P.store.list(c);
+        const rows = await S.list(c);
         cache[c] = new Map(rows.map((r) => [r.id, Object.assign({}, r.data, { id: r.id, updatedAt: r.updatedAt })]));
       }));
     }
@@ -138,8 +140,8 @@
       pending++;
       status('saving');
       try {
-        if (data) await P.store.put(col, id, strip(data));
-        else await P.store.remove(col, id);
+        if (data) await S.put(col, id, strip(data));
+        else await S.remove(col, id);
         pending--;
         status(pending ? 'saving' : 'saved');
       } catch (e) {

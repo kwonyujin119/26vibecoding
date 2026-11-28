@@ -490,7 +490,7 @@
     Object.keys(deck.assets).forEach((k) => { if (!used.has(k)) delete deck.assets[k]; });
   }
   function serialize(deck) {
-    return { v: 1, title: deck.title, theme: deck.theme, transition: deck.transition || 'fade', slides: deck.slides, assets: deck.assets, slideCount: deck.slides.length, createdAt: deck.createdAt || new Date().toISOString() };
+    return { v: 1, title: deck.title, theme: deck.theme, transition: deck.transition || 'fade', slides: deck.slides, assets: deck.assets, slideCount: deck.slides.length, createdAt: deck.createdAt || new Date().toISOString(), folder: deck.folder || null };
   }
 
   /* ---------- 서식(템플릿) ---------- */
@@ -1148,141 +1148,116 @@
   }
 
   /* ========== 목록 화면 ========== */
+  /* ---------- 가져오기·내보내기 (목록·편집기 공통) ---------- */
+  function deckFromOutlineText(text, title) {
+    const slides = outlineToSlides(String(text || ''), { split: true });
+    if (!slides.length) throw new Error('개요에서 슬라이드를 만들지 못했습니다. "# 제목" 줄이나 빈 줄로 장을 나눠 주세요.');
+    const deck = blankDeck('', 'clean');
+    deck.slides = slides;
+    const t = slides[0].els.find((e) => e.role === 'title');
+    deck.title = title || (t && t.text) || '개요로 만든 PT';
+    return deck;
+  }
+  async function deckFromPhotos(files) {
+    const deck = blankDeck('사진 모음', 'dark');
+    deck.slides = [];
+    for (const f of files.filter((x) => /^image\//.test(x.type))) {
+      try {
+        const im = await readImage(f);
+        const aid = 'a' + uid();
+        deck.assets[aid] = im.data;
+        deck.slides.push(makeSlide('photo', { asset: aid, nw: im.w, nh: im.h, body: baseName(f.name) }));
+      } catch (e) { P.ui.toast(f.name + ': ' + e.message, 'warn'); }
+    }
+    if (!deck.slides.length) throw new Error('사진을 읽지 못했습니다.');
+    deck.slides.unshift(makeSlide('cover', { title: '사진 모음' }));
+    return deck;
+  }
+  async function deckFromJSON(file) {
+    const data = JSON.parse(await file.text());
+    if (!data || !Array.isArray(data.slides)) throw new Error('PT 파일 형식이 아닙니다.');
+    return normalizeDeck(data);
+  }
+  async function deckZip(deck) {
+    await P.loadScript(VENDOR_JSZIP);
+    const zip = new window.JSZip();
+    for (let i = 0; i < deck.slides.length; i++) zip.file('slide-' + String(i + 1).padStart(2, '0') + '.png', await slidePNG(deck, deck.slides[i], 1.5));
+    return zip.generateAsync({ type: 'blob' });
+  }
+  const FI = () => P.files.icons;
+  const SLIDE_IMPORTERS = (runOutline, runPhotos, runJSON) => [
+    { id: 'outline', label: '개요 텍스트', ext: 'TXT', accept: '.txt,.md', run: runOutline },
+    { id: 'photos', label: '사진 여러 장', ext: 'JPG · PNG', accept: 'image/*', multiple: true, run: runPhotos },
+    { id: 'json', label: 'PT 백업', ext: 'JSON', accept: '.json,application/json', run: runJSON }
+  ];
+
   function mountList(root, ctx) {
     let alive = true;
-    let items = [];
-    root.innerHTML = '<div class="page slides-list">' +
-      '<div class="page-head"><div><h1>PT</h1></div>' +
-      '<div class="toolbar slides-list-acts"><button type="button" class="btn btn-ghost" data-a="import" title="PT 파일(.json) 열기">' + I.upload + '<span>파일 열기</span></button>' +
-      '<button type="button" class="btn" data-a="photos" title="사진으로 만들기">' + I.image + '<span>사진으로</span></button>' +
-      '<button type="button" class="btn" data-a="outline" title="개요로 만들기">' + I.outline + '<span>개요로</span></button>' +
-      '<button type="button" class="btn btn-primary" data-a="new">' + I.plus + '새 PT</button></div></div>' +
-      '<section class="slides-sec slides-sec-tpl" aria-label="서식으로 시작"><h2 class="section-title">서식</h2><div class="slides-tpls"></div></section>' +
-      '<section class="slides-sec"><div class="slides-list-head"><h2 class="slides-h2">내 PT <span class="slides-count"></span></h2><label class="p-search">' + P.icons.search + '<input type="search" placeholder="제목 검색" aria-label="PT 찾기"></label></div><div class="slides-cards">' + P.ui.skeleton(2) + '</div></section></div>';
-    const tplBox = root.querySelector('.slides-tpls');
-    TEMPLATES.forEach((t) => {
+    const folder = ctx.params[0] === 'f' ? ctx.params[1] || null : null;
+    const tplHTML = '<div class="slides-tpls">' + TEMPLATES.map((t) => {
       const d = deckFromTemplate(t);
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.className = 'slides-tpl';
-      b.title = t.desc;
-      b.innerHTML = miniHTML(d, d.slides[0], { edit: t.id === 'blank' }) + '<span class="slides-tpl-txt"><b>' + esc(t.name) + '</b><small>' + d.slides.length + '장</small></span>';
-      b.addEventListener('click', () => createDeck(deckFromTemplate(t)));
-      tplBox.appendChild(b);
-    });
-    const cards = root.querySelector('.slides-cards');
-    const search = root.querySelector('input[type="search"]');
-
-    async function createDeck(deck) {
+      return '<button type="button" class="slides-tpl" data-tpl="' + esc(t.id) + '" title="' + esc(t.desc) + '">' + miniHTML(d, d.slides[0], { edit: t.id === 'blank' }) +
+        '<span class="slides-tpl-txt"><b>' + esc(t.name) + '</b><small>' + d.slides.length + '장</small></span></button>';
+    }).join('') + '</div>';
+    async function createDeck(deck, f) {
       const id = uid();
       deck.createdAt = new Date().toISOString();
+      const data = serialize(deck);
+      data.folder = f || null;
+      data.createdAt = deck.createdAt;
       try {
-        await P.store.put(COL, id, serialize(deck));
+        await P.store.put(COL, id, data);
         ctx.navigate(APP_ID + '/' + id);
       } catch (e) { /* core가 알림 */ }
     }
-    function render() {
-      const q = search.value.trim().toLowerCase();
-      const list = items.filter((it) => !q || String(it.data.title || '').toLowerCase().includes(q));
-      root.querySelector('.slides-count').textContent = items.length ? String(items.length) : '';
-      if (!items.length) {
-        cards.innerHTML = '<div class="empty slides-empty empty-art"><div class="fx-img-slot" data-slot="empty-slides"></div><div class="empty-txt"><h3>아직 PT가 없습니다</h3><p>서식을 고르거나, 개요 글을 붙여 넣으면 슬라이드가 한 번에 만들어집니다.</p><button type="button" class="btn btn-primary" data-a="new-empty">' + I.plus + '새 PT</button></div></div>';
-        cards.querySelector('[data-a="new-empty"]').addEventListener('click', () => createDeck(blankDeck()));
-        return;
+    const deckOf = (row) => { const d = normalizeDeck(row.data); d.createdAt = row.data.createdAt; return d; };
+    const fb = P.files.browser(root, {
+      col: COL, kind: APP_ID, folder, defaultView: 'grid',
+      title: 'PT', itemName: 'PT', newLabel: '새 PT', mineLabel: '내 PT', searchHint: '제목 검색',
+      pageClass: 'slides-list', itemClass: 'slides-card', newAttrs: { 'data-a': 'new' },
+      templates: { title: '서식', html: tplHTML, cls: 'slides-sec-tpl', aside: '<span class="toolbar slides-quick"><button type="button" class="btn btn-sm btn-ghost" data-a="outline" data-fb-act="outline">' + I.outline + '<span>개요로 만들기</span></button><button type="button" class="btn btn-sm btn-ghost" data-a="photos" data-fb-act="photos">' + I.image + '<span>사진으로 만들기</span></button></span>' },
+      onTemplate: (id, f) => createDeck(deckFromTemplate(TEMPLATES.find((x) => x.id === id)), f),
+      newItem: (f) => createDeck(blankDeck(), f),
+      onAction: async (act, btn, f) => {
+        if (act === 'outline') {
+          const r = await outlineDialog({ withTheme: true, actions: [{ id: 'new', label: '새 PT 만들기' }] });
+          if (!r || !r.slides.length) return;
+          const deck = blankDeck('', r.theme || 'clean');
+          deck.slides = r.slides;
+          const t = r.slides[0].els.find((e) => e.role === 'title');
+          deck.title = (t && t.text) || '개요로 만든 PT';
+          createDeck(deck, f);
+        } else if (act === 'photos') {
+          const files = (await pickFiles('image/*', true)).filter((x) => /^image\//.test(x.type));
+          if (!files.length) return;
+          try { createDeck(await P.ui.busy(btn, () => deckFromPhotos(files)), f); } catch (e) { P.ui.toast(e.message, 'error'); }
+        }
+      },
+      icon: () => I.slide,
+      badge: (it) => '<span class="badge">' + ((it.data.slides && it.data.slides.length) || 0) + '장</span>',
+      meta: (it) => { const th = THEMES[it.data.theme]; return th ? th.name + ' 테마' : ''; },
+      thumb: (it) => { try { const d = normalizeDeck(it.data); return miniHTML(d, d.slides[0], {}); } catch (e) { return ''; } },
+      afterRender: (box) => requestAnimationFrame(() => scaleMinis(box)),
+      empty: { slot: 'empty-slides', title: '아직 PT가 없습니다', desc: '서식을 고르거나, 개요 글을 붙여 넣으면 슬라이드가 한 번에 만들어집니다.' },
+      io: {
+        attrs: { import: { 'data-a': 'import' } },
+        importers: SLIDE_IMPORTERS(
+          async (file, c) => createDeck(deckFromOutlineText(await file.text(), baseName(file.name)), c.folder),
+          async (files, c) => createDeck(await deckFromPhotos(files), c.folder),
+          async (file, c) => createDeck(await deckFromJSON(file), c.folder)
+        ),
+        exporters: [
+          { id: 'pptx', label: '파워포인트', ext: 'PPTX', desc: '편집 가능', icon: FI().slide, file: async (r) => ({ name: safeFile(r.data.title) + '.pptx', blob: await buildPPTX(deckOf(r)) }) },
+          { id: 'pdf', label: 'PDF (인쇄)', ext: 'PDF', desc: '한 장에 한 쪽', icon: FI().print, single: true, run: (rows) => { P.ui.toast('인쇄 창에서 "PDF로 저장"을 고르세요.', 'info'); printDeck(root, deckOf(rows[0])); } },
+          { id: 'png', label: '첫 슬라이드 그림', ext: 'PNG', desc: '표지 한 장', icon: FI().image, file: async (r) => { const d = deckOf(r); return { name: safeFile(d.title) + '-1.png', blob: await slidePNG(d, d.slides[0], 1.5) }; } },
+          { id: 'zip', label: '모든 슬라이드 그림', ext: 'ZIP', desc: '슬라이드마다 한 장씩 묶음', icon: FI().zip, file: async (r) => { const d = deckOf(r); return { name: safeFile(d.title) + '-images.zip', blob: await deckZip(d) }; } }
+        ]
       }
-      if (!list.length) { cards.innerHTML = '<div class="empty slides-empty"><p>검색 결과 없음</p></div>'; return; }
-      cards.innerHTML = '';
-      list.forEach((it) => {
-        const d = normalizeDeck(it.data);
-        const card = document.createElement('div');
-        card.className = 'slides-card';
-        card.innerHTML = '<a class="slides-card-open" href="#/' + APP_ID + '/' + encodeURIComponent(it.id) + '" aria-label="' + esc(d.title || '제목 없음') + ' 열기">' + miniHTML(d, d.slides[0], {}) + '</a>' +
-          '<div class="slides-card-meta"><a class="slides-card-title" href="#/' + APP_ID + '/' + encodeURIComponent(it.id) + '">' + esc(d.title || '제목 없음') + '</a>' +
-          '<small>' + d.slides.length + '장 · ' + esc(relTime(it.updatedAt)) + '</small></div>' +
-          '<div class="slides-card-acts"><button type="button" class="btn btn-ghost btn-sm p-icon-btn" data-a="rename" title="이름 변경" aria-label="이름 변경">' + I.edit + '</button>' +
-          '<button type="button" class="btn btn-ghost btn-sm p-icon-btn" data-a="dup" title="복제" aria-label="복제">' + I.copy + '</button>' +
-          '<button type="button" class="btn btn-ghost btn-sm p-icon-btn" data-a="del" title="삭제" aria-label="삭제">' + I.trash + '</button></div>';
-        card.querySelector('[data-a="rename"]').addEventListener('click', async () => {
-          const name = await P.ui.prompt('새 이름', d.title);
-          if (name == null || !name.trim()) return;
-          const fresh = await P.store.get(COL, it.id);
-          if (!fresh) return;
-          fresh.title = name.trim();
-          await P.store.put(COL, it.id, fresh);
-          P.ui.toast('이름을 바꿨습니다.', 'ok');
-          load();
-        });
-        card.querySelector('[data-a="dup"]').addEventListener('click', async () => {
-          const fresh = await P.store.get(COL, it.id);
-          if (!fresh) return;
-          fresh.title = (fresh.title || 'PT') + ' (사본)';
-          fresh.createdAt = new Date().toISOString();
-          await P.store.put(COL, uid(), fresh);
-          P.ui.toast('복제했습니다.', 'ok');
-          load();
-        });
-        card.querySelector('[data-a="del"]').addEventListener('click', async () => {
-          const ok = await P.ui.confirm('"' + (d.title || '제목 없음') + '"을(를) 삭제할까요?\n삭제하면 되돌릴 수 없습니다.', { danger: true, okLabel: '삭제' });
-          if (!ok) return;
-          await P.store.remove(COL, it.id);
-          P.ui.toast('삭제했습니다.', 'ok');
-          load();
-        });
-        cards.appendChild(card);
-      });
-      requestAnimationFrame(() => scaleMinis(cards));
-    }
-    async function load() {
-      try {
-        const all = await P.store.list(COL);
-        if (!alive) return;
-        items = all.filter((x) => x && x.data);
-      } catch (e) { items = []; }
-      render();
-    }
-    search.addEventListener('input', render);
-    root.querySelector('[data-a="new"]').addEventListener('click', () => createDeck(blankDeck()));
-    root.querySelector('[data-a="outline"]').addEventListener('click', async () => {
-      const r = await outlineDialog({ withTheme: true, actions: [{ id: 'new', label: '새 PT 만들기' }] });
-      if (!r || !r.slides.length) return;
-      const deck = blankDeck('', r.theme || 'clean');
-      deck.slides = r.slides;
-      const t = r.slides[0].els.find((e) => e.role === 'title');
-      deck.title = (t && t.text) || '개요로 만든 PT';
-      createDeck(deck);
-    });
-    root.querySelector('[data-a="photos"]').addEventListener('click', async () => {
-      const files = (await pickFiles('image/*', true)).filter((f) => /^image\//.test(f.type));
-      if (!files.length) return;
-      const deck = blankDeck('사진 모음', 'dark');
-      deck.slides = [];
-      for (const f of files) {
-        try {
-          const im = await readImage(f);
-          const aid = 'a' + uid();
-          deck.assets[aid] = im.data;
-          deck.slides.push(makeSlide('photo', { asset: aid, nw: im.w, nh: im.h, body: baseName(f.name) }));
-        } catch (e) { P.ui.toast(f.name + ': ' + e.message, 'warn'); }
-      }
-      if (!deck.slides.length) return;
-      deck.slides.unshift(makeSlide('cover', { title: '사진 모음' }));
-      createDeck(deck);
-    });
-    root.querySelector('[data-a="import"]').addEventListener('click', async () => {
-      const f = (await pickFiles('.json,application/json', false))[0];
-      if (!f) return;
-      try {
-        const data = JSON.parse(await f.text());
-        if (!data || !Array.isArray(data.slides)) throw new Error('PT 파일 형식이 아닙니다.');
-        const deck = normalizeDeck(data);
-        createDeck(deck);
-      } catch (e) { P.ui.toast('파일을 열지 못했습니다: ' + e.message, 'error'); }
     });
     let ro = null;
     if (window.ResizeObserver) { ro = new ResizeObserver(() => scaleMinis(root)); ro.observe(root); }
-    requestAnimationFrame(() => scaleMinis(tplBox));
-    load();
-    return () => { alive = false; if (ro) ro.disconnect(); closePopover(); };
+    requestAnimationFrame(() => scaleMinis(root));
+    return () => { alive = false; if (ro) ro.disconnect(); closePopover(); fb.destroy(); };
   }
 
   /* ========== 발표 모드 ========== */
@@ -1469,6 +1444,7 @@
     }
     const deck = normalizeDeck(data);
     deck.createdAt = data.createdAt;
+    deck.folder = data.folder || null;
     root.style.height = '100%';
     gcAssets(deck);
 
@@ -1478,12 +1454,12 @@
 
     root.innerHTML = '<div class="slides-ed">' +
       '<div class="slides-top">' +
-        '<a class="btn btn-ghost p-icon-btn" href="#/' + APP_ID + '" title="PT 목록" aria-label="PT 목록">' + I.back + '</a>' +
+        '<a class="btn btn-ghost slides-back" href="' + P.files.backHref(APP_ID, data.folder) + '" title="PT 목록" aria-label="PT 목록">' + I.back + '<span class="slides-back-lbl">목록</span></a>' +
         '<input class="slides-title" type="text" aria-label="PT 제목" maxlength="120">' +
         '<span class="slides-status" aria-live="polite"></span>' +
         '<span class="slides-grow"></span>' +
         '<button type="button" class="btn btn-sm" data-a="check" title="품질 점검">' + I.check + '<span class="slides-lbl">점검</span><b class="slides-badge" hidden></b></button>' +
-        '<button type="button" class="btn btn-sm" data-a="export" title="내보내기">' + I.download + '<span class="slides-lbl">내보내기</span></button>' +
+        '<span class="slides-io"></span>' +
         '<button type="button" class="btn btn-sm btn-primary" data-a="present" title="발표 시작 (F5)">' + I.play + '<span class="slides-lbl">발표</span></button>' +
         '<button type="button" class="btn btn-sm btn-ghost p-icon-btn slides-props-tg" data-a="props" title="속성 패널" aria-label="속성 패널">' + I.panel + '</button>' +
       '</div>' +
@@ -2455,21 +2431,46 @@
         P.ui.toast('모든 슬라이드를 PNG 묶음(ZIP)으로 저장했습니다.', 'ok');
       } catch (e) { console.error(e); P.ui.toast('이미지를 만들지 못했습니다: ' + e.message, 'error'); }
     }
-    function exportMenu(anchor) {
-      popover(anchor, [
-        { label: '파워포인트 (PPTX)', icon: I.download, hint: '편집 가능', onClick: () => P.ui.busy(anchor, exportPPTX) },
-        { label: 'PDF (인쇄)', icon: I.download, hint: '한 장에 한 쪽', onClick: () => { finishEdit(); P.ui.toast('인쇄 창에서 "PDF로 저장"을 고르세요.', 'info'); printDeck(root, deck); } },
-        { label: '현재 슬라이드 PNG', icon: I.image, onClick: () => P.ui.busy(anchor, () => exportPNG(false)) },
-        { label: '모든 슬라이드 PNG (ZIP)', icon: I.image, onClick: () => P.ui.busy(anchor, () => exportPNG(true)) },
+    const FIc = P.files.icons;
+    const io = P.files.ioButtons({
+      kind: APP_ID, size: 'sm', compact: true,
+      attrs: { export: { 'data-a': 'export' } }, itemClass: 'slides-pop-item', exportTitle: '이 PT',
+      when: () => !st.exitPresent,
+      importers: SLIDE_IMPORTERS(
+        async (file) => {
+          const r = deckFromOutlineText(await file.text());
+          finishEdit();
+          change(() => { const at = deck.slides.length; deck.slides.push(...r.slides); st.cur = at; st.sel = null; }, null, { all: true });
+          P.ui.toast('"' + file.name + '"에서 슬라이드 ' + r.slides.length + '장을 뒤에 넣었습니다.', 'ok');
+        },
+        async (files) => { finishEdit(); await addImages(files); },
+        async (file) => {
+          const d = await deckFromJSON(file);
+          const nid = uid();
+          d.createdAt = new Date().toISOString();
+          const out = serialize(d);
+          out.folder = data.folder || null;
+          out.createdAt = d.createdAt;
+          await P.store.put(COL, nid, out);
+          P.ui.toast('PT 백업을 새 PT로 열었습니다.', 'ok');
+          ctx.navigate(APP_ID + '/' + nid);
+        }
+      ),
+      exporters: [
+        { id: 'pptx', label: '파워포인트', ext: 'PPTX', desc: '편집 가능', icon: FIc.slide, run: exportPPTX },
+        { id: 'pdf', label: 'PDF (인쇄)', ext: 'PDF', desc: '한 장에 한 쪽', icon: FIc.print, run: () => { finishEdit(); P.ui.toast('인쇄 창에서 "PDF로 저장"을 고르세요.', 'info'); printDeck(root, deck); } },
+        { id: 'png', label: '현재 슬라이드 PNG', ext: 'PNG', desc: '1.5배 해상도 그림 한 장', icon: FIc.image, run: () => exportPNG(false) },
+        { id: 'zip', label: '모든 슬라이드 PNG', ext: 'ZIP', desc: '슬라이드마다 한 장씩 묶음', icon: FIc.zip, run: () => exportPNG(true) },
         '-',
-        { label: '개요 텍스트 복사', icon: I.outline, onClick: async () => {
+        { id: 'outline', label: '개요 텍스트', ext: 'TXT', desc: '복사해서 문서에 붙여 넣기', icon: FIc.text, run: async () => {
           const t = deckToOutline(deck);
           try { await navigator.clipboard.writeText(t); P.ui.toast('개요를 복사했습니다. 문서에 붙여 넣을 수 있습니다.', 'ok'); }
           catch (e) { P.ui.download(safeFile(deck.title) + '-outline.txt', t, 'text/plain'); }
         } },
-        { label: 'PT 파일 백업 (.json)', icon: I.download, onClick: () => P.ui.download(safeFile(deck.title) + '.json', JSON.stringify(serialize(deck)), 'application/json') }
-      ], { alignRight: true });
-    }
+        { id: 'json', label: 'PT 파일 백업', ext: 'JSON', desc: '이 플랫폼에서 다시 열기', icon: FIc.doc, run: () => P.ui.download(safeFile(deck.title) + '.json', JSON.stringify(serialize(deck)), 'application/json') }
+      ]
+    });
+    root.querySelector('.slides-io').replaceWith(io.el);
     async function outlineImport() {
       finishEdit();
       const r = await outlineDialog({ actions: [{ id: 'replace', label: '전체 바꾸기' }, { id: 'append', label: '뒤에 추가' }] });
@@ -2527,7 +2528,6 @@
       else if (a === 'theme') openThemes();
       else if (a === 'outline') outlineImport();
       else if (a === 'check') openQuality();
-      else if (a === 'export') exportMenu(b);
       else if (a === 'present') startPresent(0);
       else if (a === 'help') helpDialog();
       else if (a === 'props') {
@@ -2666,7 +2666,7 @@
     desc: '16:9 슬라이드 편집, 테마·레이아웃, 발표 모드, 개요로 만들기, 파워포인트(PPTX)·PDF 내보내기',
     mount(root, ctx) {
       const id = ctx.params[0];
-      if (!id) return mountList(root, ctx);
+      if (!id || id === 'f') return mountList(root, ctx);
       return mountEditor(root, ctx, id);
     }
   });

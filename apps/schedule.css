@@ -421,16 +421,7 @@
 .sc-status-seg button { flex: 1 1 auto; justify-content: center; padding: 0 8px; }
 .sch-form input[type="range"] { width: 100%; accent-color: var(--accent); }
 
-/* 개인업무: 체크 목록 */
-.sc-me { max-width: 760px; }
-.sc-me-pick { max-width: 440px; padding: 18px 20px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); }
-.sc-me-pick > p { margin: 0 0 10px; font-weight: 600; }
-.sc-me-form { display: flex; gap: 8px; margin-bottom: 10px; }
-.sc-me-form:last-child { margin-bottom: 0; }
-.sc-me-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 14px; }
-.sc-me-who { display: flex; align-items: center; gap: 12px; min-width: 0; }
-.sc-me-who h2 { margin: 0; font-size: 17px; }
-.sc-me-who p { margin: 0; font-size: 12.5px; color: var(--muted); }
+/* 할 일 목록 (내 일정 · my-schedule.js 가 같이 씀) */
 .sc-pviews { margin: 0 0 10px; }
 .sc-todo-box { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); }
 .sc-quick { display: grid; grid-template-columns: 20px minmax(0, 1fr) 148px auto; gap: 8px 10px; align-items: center; padding: 8px 10px 8px 18px; border-bottom: 1px solid var(--line); }

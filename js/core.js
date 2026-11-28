@@ -2,7 +2,7 @@
 (function () {
   'use strict';
 
-  const VERSION = '1.4.0';
+  const VERSION = '1.5.0';
   const DEFAULT_TITLE = '공마일';
   const DEFAULT_SUBTITLE = '0MILE - 업무의 출발점 / 공무원이 마음껏 일할 수 있는 플랫폼';
 
@@ -526,11 +526,23 @@
     if (kind === 'server') return !!c;
     return true;
   }
+  /* 이 기기 전용 컬렉션: 저장 위치를 클라우드·사무실 서버로 바꿔도 항상 이 브라우저(IndexedDB/localStorage)에 저장.
+     저장 위치 전환 복사, 공유 위치 백업에서 빠짐. 개인 인증이 생기기 전까지 개인 자료를 지키는 장치 */
+  const localBk = makeLocal();
+  const localOnly = new Set((() => { const v = settings.get('store.localOnly', []); return Array.isArray(v) ? v.filter((c) => typeof c === 'string' && c) : []; })());
+  const isLocalOnly = (col) => localOnly.has(col);
+  function markLocal(cols) {
+    const before = localOnly.size;
+    (Array.isArray(cols) ? cols : [cols]).forEach((c) => { if (typeof c === 'string' && c) localOnly.add(c); });
+    if (localOnly.size !== before) settings.set('store.localOnly', Array.from(localOnly));
+    return Array.from(localOnly);
+  }
+
   function createBackend(kind, cfg) {
     const c = cfg || backendConfig(kind) || {};
     if (kind === 'supabase') return makeSupabase(c);
     if (kind === 'server') return makeServer(c);
-    return makeLocal();
+    return localBk;
   }
 
   let active = null;
@@ -539,7 +551,13 @@
   const storeListeners = new Set();
   let lastErrToast = 0;
 
-  function guard(promise) {
+  function guard(promise, local) {
+    if (local) {
+      return promise.catch((e) => {
+        if (Date.now() - lastErrToast > 5000) { lastErrToast = Date.now(); toast(e.message || '브라우저 저장소 오류', 'error'); }
+        throw e;
+      });
+    }
     return promise.then((v) => {
       if (connState === 'error') { connState = 'ok'; renderStorageButton(); }
       return v;
@@ -553,27 +571,40 @@
     if (typeof col !== 'string' || !col) throw new Error('컬렉션 이름이 필요합니다.');
   }
 
-  const store = {
-    backend: () => activeKind,
-    get(col, id) { checkCol(col); return guard(active.get(col, String(id))); },
-    put(col, id, data) {
-      checkCol(col);
-      let clean;
-      try { clean = toJSON(data); } catch (e) { return Promise.reject(new Error('저장할 수 없는 데이터 형식입니다.')); }
-      return watchOverdue(col, guard(active.put(col, String(id), clean)));
-    },
-    list(col) { checkCol(col); return guard(active.list(col)); },
-    remove(col, id) { checkCol(col); return watchOverdue(col, guard(active.remove(col, String(id)))); },
-    uid,
-    on(evt, fn) {
-      if (evt !== 'change' || typeof fn !== 'function') return () => {};
-      storeListeners.add(fn);
-      const off = () => storeListeners.delete(fn);
-      if (mounted) mounted.offs.push(off);
-      return off;
-    },
-    collections() { return guard(active.cols()); }
-  };
+  /* 이 기기 전용으로 표시한 컬렉션은 저장 위치와 상관없이 브라우저 저장소로 보냄 */
+  const pick = (col) => (isLocalOnly(col) ? localBk : active);
+  const isLocalBk = (bk) => bk === localBk;
+  function makeStoreApi(choose, kindFn) {
+    return {
+      backend: kindFn,
+      get(col, id) { checkCol(col); const bk = choose(col); return guard(bk.get(col, String(id)), isLocalBk(bk)); },
+      put(col, id, data) {
+        checkCol(col);
+        let clean;
+        try { clean = toJSON(data); } catch (e) { return Promise.reject(new Error('저장할 수 없는 데이터 형식입니다.')); }
+        const bk = choose(col);
+        return watchOverdue(col, guard(bk.put(col, String(id), clean), isLocalBk(bk)));
+      },
+      list(col) { checkCol(col); const bk = choose(col); return guard(bk.list(col), isLocalBk(bk)); },
+      remove(col, id) { checkCol(col); const bk = choose(col); return watchOverdue(col, guard(bk.remove(col, String(id)), isLocalBk(bk))); },
+      uid,
+      on(evt, fn) {
+        if (evt !== 'change' || typeof fn !== 'function') return () => {};
+        storeListeners.add(fn);
+        const off = () => storeListeners.delete(fn);
+        if (mounted) mounted.offs.push(off);
+        return off;
+      }
+    };
+  }
+  const store = makeStoreApi(pick, () => activeKind);
+  store.collections = () => guard(active.cols());
+  /* P.store.local: 같은 사용법, 항상 이 브라우저. mark(['컬렉션']) 으로 이 기기 전용 지정 */
+  store.local = makeStoreApi(() => localBk, () => 'local');
+  store.local.collections = () => guard(localBk.cols(), true);
+  store.local.mark = markLocal;
+  store.local.isLocal = isLocalOnly;
+  store.local.marked = () => Array.from(localOnly);
 
   function watchOverdue(col, p) {
     if (col === OVERDUE_COL) p.then(() => refreshOverdue(true), () => {});
@@ -581,7 +612,7 @@
   }
 
   async function copyAll(from, to, onProgress) {
-    const cols = await from.cols();
+    const cols = (await from.cols()).filter((c) => !isLocalOnly(c));
     let total = 0;
     const batches = [];
     for (const c of cols) {
@@ -622,7 +653,7 @@
       let r = 'cancel';
       modal({
         title: '저장 위치 전환',
-        body: '<p class="p-modal-msg"><b>' + esc(KINDS[activeKind].label) + '</b> → <b>' + esc(KINDS[kind].label) + '</b><br>현재 데이터를 새 위치로 복사할까요?<br><span class="muted">같은 항목은 덮어씁니다. 복사하지 않으면 새 위치의 데이터만 보입니다.</span></p>',
+        body: '<p class="p-modal-msg"><b>' + esc(KINDS[activeKind].label) + '</b> → <b>' + esc(KINDS[kind].label) + '</b><br>현재 데이터를 새 위치로 복사할까요?<br><span class="muted">같은 항목은 덮어씁니다. 복사하지 않으면 새 위치의 데이터만 보입니다.' + (localOnly.size ? '<br>내 일정처럼 이 기기 전용 자료는 복사하지 않고 이 기기에 그대로 남습니다.' : '') + '</span></p>',
         onClose: () => resolve(r),
         actions: [
           { label: '취소' },
@@ -872,7 +903,8 @@
   async function exportBackup() {
     const t = toast('백업 파일을 만드는 중…', 'info');
     try {
-      const cols = await active.cols();
+      // 공유 위치(클라우드·서버) 백업에는 이 기기 전용 자료를 넣지 않음. 이 브라우저 저장이면 모두 포함
+      const cols = (await active.cols()).filter((c) => activeKind === 'local' || !isLocalOnly(c));
       const items = {};
       let n = 0;
       for (const c of cols) { items[c] = await active.list(c); n += items[c].length; }
@@ -903,7 +935,7 @@
         for (const c of cols) {
           const rows = Array.isArray(data.items[c]) ? data.items[c] : [];
           for (let i = rows.length - 1; i >= 0; i--) {
-            if (rows[i] && rows[i].id != null) await active.put(c, String(rows[i].id), toJSON(rows[i].data), rows[i].updatedAt);
+            if (rows[i] && rows[i].id != null) await pick(c).put(c, String(rows[i].id), toJSON(rows[i].data), rows[i].updatedAt);
           }
         }
         toast(total + '개 항목을 가져왔습니다.', 'ok');
@@ -968,7 +1000,7 @@
         '<div class="p-set-kind-btns">' + (k !== 'local' ? '<button type="button" class="btn btn-ghost btn-sm" data-cfg="' + k + '">설정</button>' : '') +
         (k !== activeKind ? '<button type="button" class="btn btn-sm" data-use="' + k + '">전환</button>' : '') + '</div></div>').join('') +
       '</div></section>' +
-      '<section><h3 class="section-title">데이터 백업</h3><p class="muted">현재 저장 위치의 모든 데이터를 JSON 파일로 내보내거나 다시 가져옵니다.</p><div class="toolbar">' +
+      '<section><h3 class="section-title">데이터 백업</h3><p class="muted">현재 저장 위치의 모든 데이터를 JSON 파일로 내보내거나 다시 가져옵니다.' + (localOnly.size && activeKind !== 'local' ? ' 이 기기 전용 자료(내 일정)는 빠지니 내 일정 화면에서 따로 내보내세요.' : '') + '</p><div class="toolbar">' +
       '<button type="button" class="btn" data-act="export">' + icons.download + '백업 내보내기</button>' +
       '<button type="button" class="btn" data-act="import">' + icons.upload + '백업 가져오기</button></div></section>' +
       '<p class="muted p-set-ver">버전 ' + esc(VERSION) + ' · <a href="#/changelog">업데이트 기록</a></p>';
@@ -1417,6 +1449,7 @@
     add('schedule', '일정 추가', () => runIntent('schedule/events', 'new'), { key: 'event', icon: icons.calendar, kw: '부서 일정 스케줄 등록' });
     add('schedule', '주요업무 추가', () => runIntent('schedule/tasks', 'new'), { key: 'task', icon: icons.check, kw: '업무 할일 과제' });
     add('head-schedule', '부서장 일정 추가', () => runIntent('head-schedule', 'new'), { key: 'head', icon: icons.clock, kw: '국장 과장 일정 등록' });
+    add('my-schedule', '내 일정 추가', () => runIntent('my-schedule', 'new'), { key: 'mine', icon: icons.calendar, kw: '개인 일정 할일 내일정 my' });
     return out;
   }
   function systemActions() {

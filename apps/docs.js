@@ -744,9 +744,11 @@
       createdAt: now
     };
   }
-  async function createDoc(ctx, tpl, title) {
+  async function createDoc(ctx, tpl, title, folder) {
     const id = P.store.uid();
-    await P.store.put(COL, id, newDocData(tpl, title));
+    const data = newDocData(tpl, title);
+    data.folder = folder || null;
+    await P.store.put(COL, id, data);
     ctx.navigate(APP_ID + '/' + encodeURIComponent(id));
   }
 
@@ -754,122 +756,69 @@
     const t = tpls.find((x) => x.kind === kind && x.id !== 'blank');
     return t ? t.name.replace(/\(.*\)/, '') : '일반';
   }
+  /* 목록에서 내보내기: 화면 밖에 본문을 그려 편집기와 같은 변환기를 씀 */
+  async function withOffscreenBody(data, fn) {
+    const pg = pageOf(data.page);
+    const d = pageDims(pg);
+    const f = FONT_BY_KEY.get(pg.font) || FONTS[0];
+    const host = document.createElement('div');
+    host.setAttribute('aria-hidden', 'true');
+    host.style.cssText = 'position:fixed;left:-30000px;top:0;width:' + mm2px(d.w) + 'px;height:10px;overflow:visible;visibility:hidden;pointer-events:none;';
+    const body = document.createElement('div');
+    body.className = 'docs-body docs-paper-text';
+    body.style.cssText = 'left:0;top:0;width:' + (mm2px(d.w) - mm2px(pg.ml) - mm2px(pg.mr)) + 'px;font-family:' + f.css.replace(/"/g, "'") + ';font-size:' + pg.size + 'pt;line-height:' + (pg.lh / 100) + ';';
+    body.innerHTML = sanitizeHTML(data.html || BR);
+    host.appendChild(body);
+    document.body.appendChild(host);
+    try {
+      renumber(body);
+      await Promise.all(Array.from(body.querySelectorAll('img')).map((im) => (im.complete ? null : im.decode().catch(() => null))));
+      return await fn(body, pg);
+    } finally { host.remove(); }
+  }
+  const DOC_FORMATS = [
+    { id: 'hwpx', label: '한글 문서', ext: 'HWPX', desc: '한글 2014 이상에서 열기', icon: P.files.icons.doc },
+    { id: 'docx', label: '워드 문서', ext: 'DOCX', desc: 'MS Word·한컴오피스·구글 문서', icon: P.files.icons.doc },
+    { id: 'pdf', label: 'PDF · 인쇄', ext: 'PDF', desc: '인쇄 창에서 "PDF로 저장" 선택', icon: P.files.icons.print },
+    { id: 'html', label: '웹 문서', ext: 'HTML', desc: '메일 본문·게시판 붙여넣기용', icon: P.files.icons.code },
+    { id: 'txt', label: '텍스트', ext: 'TXT', desc: '서식 없이 글자만', icon: P.files.icons.text }
+  ];
+  async function docFile(row, fmt) {
+    const data = row.data || {};
+    const name = safeName(data.title);
+    return withOffscreenBody(data, async (body, pg) => {
+      if (fmt === 'txt') return { name: name + '.txt', data: exportTXT(body), mime: 'text/plain' };
+      if (fmt === 'html') return { name: name + '.html', data: exportHTMLDoc(body, pg, name), mime: 'text/html' };
+      if (fmt === 'hwpx') return { name: name + '.hwpx', blob: await exportHWPX(body, pg, name) };
+      return { name: name + '.docx', blob: await exportDOCX(body, pg, name) };
+    });
+  }
   function mountList(root, ctx) {
     const tpls = templates();
-    let rows = [];
-    let q = P.settings.get('docs.q', '');
-    let sort = P.settings.get('docs.sort', 'recent');
-    let view = P.settings.get('docs.view', 'list') === 'grid' ? 'grid' : 'list';
-    root.innerHTML =
-      '<div class="page docs-list">' +
-      '<div class="page-head"><div><h1>문서</h1></div>' +
-      '<div class="toolbar"><button type="button" class="btn" data-act="import">' + P.icons.upload + '가져오기</button>' +
-      '<button type="button" class="btn btn-primary" data-act="new">' + P.icons.plus + '새 문서</button></div></div>' +
-      '<section class="docs-tpls" aria-label="서식으로 시작"><h2 class="section-title">서식</h2><div class="docs-tpl-row">' +
-      tpls.map((t) => '<button type="button" class="docs-tpl" data-tpl="' + t.id + '" title="' + esc(t.desc) + '"><span class="docs-tpl-thumb docs-thumb-' + t.id + '" aria-hidden="true">' + thumbLines(t.id) + '</span><b>' + esc(t.name) + '</b></button>').join('') +
-      '</div></section>' +
-      '<section class="docs-mine" aria-label="내 문서"><div class="docs-list-tools"><h2 class="docs-h2">내 문서 <span class="docs-count"></span></h2>' +
-      '<div class="p-search docs-search">' + P.icons.search + '<input type="search" placeholder="제목·내용 검색" aria-label="문서 검색" value="' + esc(q) + '"></div>' +
-      '<select class="docs-sort" aria-label="정렬"><option value="recent">최근 수정</option><option value="name">이름</option><option value="created">만든 날짜</option></select>' +
-      '<div class="seg docs-view" role="group" aria-label="보기"><button type="button" data-view="list" aria-label="목록으로 보기" title="목록">' + I.rows + '</button><button type="button" data-view="grid" aria-label="쪽으로 보기" title="쪽">' + I.tiles + '</button></div></div>' +
-      '<div class="docs-cards">' + P.ui.skeleton(3) + '</div></section></div>';
-    const cards = root.querySelector('.docs-cards');
-    const search = root.querySelector('input[type="search"]');
-    const sortSel = root.querySelector('.docs-sort');
-    sortSel.value = sort;
-    function paintView() {
-      cards.dataset.mode = view;
-      root.querySelectorAll('button[data-view]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.view === view ? 'true' : 'false'));
-    }
-    paintView();
-
-    function acts() {
-      return '<span class="docs-card-acts">' +
-        '<button type="button" class="btn btn-ghost btn-sm" data-act="rename" title="이름 바꾸기" aria-label="이름 바꾸기">' + P.icons.edit + '</button>' +
-        '<button type="button" class="btn btn-ghost btn-sm" data-act="dup" title="복제" aria-label="복제">' + I.copy + '</button>' +
-        '<button type="button" class="btn btn-ghost btn-sm" data-act="del" title="삭제" aria-label="삭제">' + P.icons.trash + '</button></span>';
-    }
-    function render() {
-      const qq = q.trim().toLowerCase();
-      let list = rows.filter((r) => !qq || String(r.data.title || '').toLowerCase().includes(qq) || String(r.data.preview || '').toLowerCase().includes(qq));
-      if (sort === 'name') list = list.slice().sort((a, b) => String(a.data.title || '').localeCompare(String(b.data.title || ''), 'ko'));
-      else if (sort === 'created') list = list.slice().sort((a, b) => String(b.data.createdAt || '').localeCompare(String(a.data.createdAt || '')));
-      root.querySelector('.docs-count').textContent = rows.length ? String(rows.length) : '';
-      if (!rows.length) {
-        cards.innerHTML = '<div class="empty empty-art"><div class="fx-img-slot" data-slot="empty-docs"></div><div class="empty-txt"><h3>아직 문서가 없습니다</h3><p>위 서식에서 고르거나 빈 문서로 시작하세요. HWPX·DOCX 파일은 가져오기로 엽니다.</p><button type="button" class="btn btn-primary" data-act="new">' + P.icons.plus + '새 문서</button></div></div>';
-        return;
+    const folder = ctx.params[0] === 'f' ? ctx.params[1] || null : null;
+    const tplHTML = '<div class="docs-tpl-row">' +
+      tpls.map((t) => '<button type="button" class="docs-tpl" data-tpl="' + t.id + '" title="' + esc(t.desc) + '"><span class="docs-tpl-thumb docs-thumb-' + t.id + '" aria-hidden="true">' + thumbLines(t.id) + '</span><b>' + esc(t.name) + '</b></button>').join('') + '</div>';
+    const fb = P.files.browser(root, {
+      col: COL, kind: APP_ID, folder,
+      title: '문서', itemName: '문서', newLabel: '새 문서', mineLabel: '내 문서', searchHint: '제목·내용 검색',
+      pageClass: 'docs-list', itemClass: 'docs-card', newAttrs: { 'data-act': 'new' },
+      templates: { title: '서식', html: tplHTML, cls: 'docs-tpls' },
+      onTemplate: (id, f) => createDoc(ctx, tpls.find((x) => x.id === id), null, f),
+      newItem: (f) => createDoc(ctx, tpls[0], null, f),
+      icon: () => '<span class="docs-glyph"></span>',
+      badge: (it) => '<span class="badge">' + esc(kindName(tpls, it.data.kind)) + '</span>',
+      meta: (it) => [(it.data.pages || 1) + '쪽', String(it.data.preview || '').slice(0, 80)].filter(Boolean).join(' · '),
+      thumb: (it) => '<span class="docs-a4" aria-hidden="true"><span class="docs-a4-t">' + esc(it.data.title || '') + '</span><span class="docs-a4-p">' + esc(String(it.data.preview || '').slice(0, 220)) + '</span></span>',
+      empty: { slot: 'empty-docs', title: '아직 문서가 없습니다', desc: '위 서식에서 고르거나 빈 문서로 시작하세요. HWPX·DOCX 파일은 가져오기로 엽니다.' },
+      io: {
+        attrs: { import: { 'data-act': 'import' } },
+        importers: [{ id: 'doc', label: '문서 파일', ext: 'HWPX · DOCX · TXT · HTML', accept: '.hwpx,.docx,.txt,.html,.htm,.md,.hwp,.doc', multiple: true, run: (files, c) => importFiles(ctx, files, c.folder) }],
+        exporters: DOC_FORMATS.map((x) => (x.id === 'pdf'
+          ? Object.assign({}, x, { single: true, run: (rows) => { ctx.navigate(APP_ID + '/' + encodeURIComponent(rows[0].id) + '/print'); } })
+          : Object.assign({}, x, { file: (row) => docFile(row, x.id) })))
       }
-      if (!list.length) { cards.innerHTML = '<div class="empty"><p>"' + esc(q) + '" 검색 결과 없음</p></div>'; return; }
-      const href = (r) => '#/docs/' + encodeURIComponent(r.id);
-      const meta = (r) => esc(relTime(r.updatedAt));
-      if (view === 'grid') {
-        cards.innerHTML = list.map((r) => {
-          const d = r.data || {};
-          return '<article class="docs-card docs-tile" data-id="' + esc(r.id) + '">' +
-            '<a class="docs-card-main" href="' + href(r) + '">' +
-            '<span class="docs-a4" aria-hidden="true"><span class="docs-a4-t">' + esc(d.title || '') + '</span><span class="docs-a4-p">' + esc((d.preview || '').slice(0, 220)) + '</span></span>' +
-            '<span class="docs-card-txt"><b>' + esc(d.title || '제목 없음') + '</b>' +
-            '<small>' + meta(r) + ' · ' + esc(kindName(tpls, d.kind)) + '</small></span></a>' + acts() + '</article>';
-        }).join('');
-        return;
-      }
-      cards.innerHTML = '<div class="docs-rows-head" aria-hidden="true"><span>이름</span><span>종류</span><span>수정</span><span class="num">쪽</span><span></span></div>' +
-        list.map((r) => {
-          const d = r.data || {};
-          return '<article class="docs-card docs-row" data-id="' + esc(r.id) + '">' +
-            '<a class="docs-card-main" href="' + href(r) + '"><span class="docs-glyph" aria-hidden="true"></span>' +
-            '<span class="docs-card-txt"><b>' + esc(d.title || '제목 없음') + '</b><small><span class="docs-m-time">' + meta(r) + '</span><span class="docs-p-prev">' + esc((d.preview || '').slice(0, 80) || ' ') + '</span></small></span></a>' +
-            '<span class="docs-c-kind"><span class="badge">' + esc(kindName(tpls, d.kind)) + '</span></span>' +
-            '<span class="docs-c-time">' + meta(r) + '</span>' +
-            '<span class="docs-c-pages num">' + (d.pages || 1) + '</span>' + acts() + '</article>';
-        }).join('');
-    }
-    async function load() {
-      try { rows = await P.store.list(COL); } catch (e) { rows = []; }
-      if (root.isConnected) render();
-    }
-    root.addEventListener('click', async (e) => {
-      const v = e.target.closest('button[data-view]');
-      if (v) { view = v.dataset.view; P.settings.set('docs.view', view); paintView(); render(); return; }
-      const b = e.target.closest('[data-act],[data-tpl]');
-      if (!b) return;
-      if (b.dataset.tpl) {
-        const t = tpls.find((x) => x.id === b.dataset.tpl);
-        try { await createDoc(ctx, t); } catch (err) { /* core가 알림 */ }
-        return;
-      }
-      const act = b.dataset.act;
-      const card = b.closest('.docs-card');
-      const row = card && rows.find((r) => r.id === card.dataset.id);
-      try {
-        if (act === 'new') await createDoc(ctx, tpls[0]);
-        else if (act === 'import') await importFlow(ctx, b);
-        else if (act === 'rename' && row) {
-          const name = await askText('새 문서 이름', row.data.title || '');
-          if (name == null || !name.trim()) return;
-          row.data.title = name.trim().slice(0, 120);
-          await P.store.put(COL, row.id, row.data);
-          P.ui.toast('이름을 바꿨습니다.', 'ok');
-          load();
-        } else if (act === 'dup' && row) {
-          const copy = clone(row.data);
-          copy.title = (copy.title || '문서') + ' (사본)';
-          copy.createdAt = new Date().toISOString();
-          await P.store.put(COL, P.store.uid(), copy);
-          P.ui.toast('복제했습니다.', 'ok');
-          load();
-        } else if (act === 'del' && row) {
-          const ok = await P.ui.confirm('"' + (row.data.title || '제목 없음') + '" 문서를 삭제할까요?\n삭제하면 되돌릴 수 없습니다.', { danger: true, okLabel: '삭제' });
-          if (!ok) return;
-          await P.store.remove(COL, row.id);
-          P.ui.toast('삭제했습니다.', 'ok');
-          load();
-        }
-      } catch (err) { /* core가 알림 */ }
     });
-    search.addEventListener('input', () => { q = search.value; P.settings.set('docs.q', q); render(); });
-    sortSel.addEventListener('change', () => { sort = sortSel.value; P.settings.set('docs.sort', sort); render(); });
-    load();
+    return () => fb.destroy();
   }
   function thumbLines(id) {
     const L = (w, cls) => '<i class="' + (cls || '') + '" style="width:' + w + '%"></i>';
@@ -1136,13 +1085,13 @@
     root.innerHTML =
       '<div class="docs-editor">' +
       '<div class="docs-top">' +
-      '<a class="btn btn-ghost docs-icon" href="#/docs" title="문서 목록" aria-label="문서 목록">' + I.back + '</a>' +
+      '<a class="btn btn-ghost docs-icon docs-back" href="' + P.files.backHref(APP_ID, data.folder) + '" title="문서 목록" aria-label="문서 목록">' + I.back + '<span class="docs-back-lbl">목록</span></a>' +
       '<input class="docs-title" type="text" aria-label="문서 제목" maxlength="120">' +
       '<span class="docs-save" role="status" aria-live="polite"></span>' +
       '<span class="docs-top-sp"></span>' +
       '<button type="button" class="btn btn-ghost docs-icon" data-cmd="find" title="찾기·바꾸기 (' + MOD + '+F)" aria-label="찾기·바꾸기">' + I.find + '</button>' +
       '<button type="button" class="btn btn-sm docs-check-btn" data-cmd="check" title="공문서 점검">' + I.check + '<span>점검</span></button>' +
-      '<button type="button" class="btn btn-sm btn-primary" data-menu="export" aria-haspopup="menu">' + I.export + '<span class="docs-hide-sm">내보내기</span></button>' +
+      '<span class="docs-io"></span>' +
       '<button type="button" class="btn btn-ghost docs-icon" data-menu="more" title="더 보기" aria-label="더 보기" aria-haspopup="menu">' + I.more + '</button>' +
       '</div>' +
       '<div class="docs-ribbon" role="toolbar" aria-label="서식 도구">' +
@@ -1893,15 +1842,7 @@
       }
     }
     function openTopMenu(name, anchor) {
-      if (name === 'export') {
-        openMenu(anchor, '<div class="p-pop-title">내보내기</div>' + menuItems([
-          { v: 'hwpx', t: '한글 문서 (.hwpx)', s: '한글 2014 이상에서 열기', ic: '<span class="p-pop-ic">HWPX</span>' },
-          { v: 'docx', t: '워드 문서 (.docx)', s: 'MS Word·한컴오피스·구글 문서', ic: '<span class="p-pop-ic">DOCX</span>' },
-          { v: 'pdf', t: 'PDF · 인쇄', s: '인쇄 창에서 "PDF로 저장" 선택', ic: '<span class="p-pop-ic">PDF</span>' },
-          { v: 'html', t: '웹 문서 (.html)', s: '메일 본문·게시판 붙여넣기용', ic: '<span class="p-pop-ic">HTML</span>' },
-          { v: 'txt', t: '텍스트 (.txt)', s: '서식 없이 글자만', ic: '<span class="p-pop-ic">TXT</span>' }
-        ]), (v) => (['hwpx', 'docx'].includes(v) ? P.ui.busy(anchor, () => doExport(v)) : doExport(v)));
-      } else if (name === 'more') {
+      if (name === 'more') {
         openMenu(anchor, menuItems([
           { v: 'print', t: '인쇄', s: MOD + '+P', ic: '<span class="p-pop-ic">' + I.print + '</span>' },
           { v: 'page', t: '쪽 설정', s: '용지·여백·머리말·쪽 번호', ic: '<span class="p-pop-ic">' + I.page + '</span>' },
@@ -1956,7 +1897,8 @@
       const b = e.target.closest('[data-cmd],[data-menu]');
       if (!b || !root.contains(b) || b.closest('.docs-pop')) return;
       if (b.dataset.menu) {
-        if (['export', 'more'].includes(b.dataset.menu)) openTopMenu(b.dataset.menu, b);
+        if (b.dataset.menu === 'export') return; // 공통 내보내기 단추가 처리
+        if (b.dataset.menu === 'more') openTopMenu(b.dataset.menu, b);
         else openRibbonMenu(b.dataset.menu, b);
       } else runCmd(b.dataset.cmd);
     });
@@ -2937,7 +2879,7 @@
       const f = file || (await pickFile('.docx,.hwpx,.html,.htm,.txt,.md', false))[0];
       if (!f) return;
       try {
-        const res = await P.ui.busy(root.querySelector('[data-menu="more"]'), () => importFile(f));
+        const res = await (file ? importFile(f) : P.ui.busy(root.querySelector('[data-menu="more"]'), () => importFile(f)));
         body.focus({ preventScroll: true });
         restoreSel(saved);
         insertHTMLAtCaret(res.html);
@@ -3014,6 +2956,20 @@
       placeCaret(body.firstElementChild, false);
     }
     if (ctx.params[1] === 'check') openSide('check');
+    if (ctx.params[1] === 'print') {
+      try { history.replaceState(null, '', '#/' + APP_ID + '/' + encodeURIComponent(id)); } catch (e) { /* 무시 */ }
+      setTimeout(() => { if (root.isConnected) doExport('pdf'); }, 400);
+    }
+
+    /* 가져오기·내보내기 (공통 단추) */
+    const io = P.files.ioButtons({
+      kind: APP_ID, size: 'sm', compact: true, keepFocus: true,
+      attrs: { export: { 'data-menu': 'export' } }, menuClass: 'docs-pop',
+      exportTitle: '이 문서',
+      importers: [{ id: 'doc', label: '파일 내용 끼워 넣기', ext: 'HWPX · DOCX · TXT · HTML', accept: '.hwpx,.docx,.txt,.html,.htm,.md', run: (f) => importInto(f) }],
+      exporters: DOC_FORMATS.map((x) => Object.assign({}, x, { run: () => doExport(x.id) }))
+    });
+    root.querySelector('.docs-io').replaceWith(io.el);
 
     return () => {
       offs.forEach((f) => f());
@@ -3799,14 +3755,7 @@
     return { html: sanitizeHTML(html), title, page };
   }
 
-  async function importFlow(ctx, btn) {
-    const files = await pickFile('.docx,.hwpx,.html,.htm,.txt,.md,.hwp,.doc', true);
-    if (!files.length) return;
-    // 파일을 고른 뒤부터만 처리 중 표시 (고르기 창을 닫아도 단추가 멈추지 않게)
-    if (btn) return P.ui.busy(btn, () => importFiles(ctx, files));
-    return importFiles(ctx, files);
-  }
-  async function importFiles(ctx, files) {
+  async function importFiles(ctx, files, folder) {
     let firstId = null;
     let ok = 0;
     for (const f of files) {
@@ -3815,7 +3764,7 @@
         const id = P.store.uid();
         const now = new Date().toISOString();
         const text = plainText(res.html);
-        await P.store.put(COL, id, { title: res.title || '가져온 문서', html: res.html, page: pageOf(res.page), kind: 'blank', preview: text.slice(0, 140), chars: text.length, createdAt: now });
+        await P.store.put(COL, id, { title: res.title || '가져온 문서', html: res.html, page: pageOf(res.page), kind: 'blank', preview: text.slice(0, 140), chars: text.length, createdAt: now, folder: folder || null });
         if (!firstId) firstId = id;
         ok++;
       } catch (e) { P.ui.toast('"' + f.name + '": ' + (e.message || '가져오지 못했습니다.'), 'error'); }
@@ -3836,7 +3785,7 @@
     desc: 'A4 쪽 편집, 공문서 서식·점검, 한글(HWPX)·워드·PDF로 내보내기',
     mount(root, ctx) {
       const id = ctx.params[0];
-      if (!id) { mountList(root, ctx); return null; }
+      if (!id || id === 'f') return mountList(root, ctx);
       return mountEditor(root, ctx, id);
     }
   });

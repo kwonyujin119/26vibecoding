@@ -1,4 +1,4 @@
-/* 홈: 오늘 업무 대시보드 (날짜 · 부서장 일정 · 기한 임박 업무 · 최근 작업 · 빠른 만들기) */
+/* 홈: 오늘 업무 대시보드 (날짜 · 부서장 일정 · 오늘 내 일정 · 기한 임박 업무 · 최근 작업 · 빠른 만들기) */
 (function () {
   'use strict';
   const ICON = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>';
@@ -112,6 +112,54 @@
     return () => clearInterval(t);
   }
 
+  /* ---------- 오늘 내 일정 (이 기기 전용: P.store.local) ---------- */
+  const MINE_EV = 'my-schedule-events';
+  const MINE_TODO = 'my-schedule-todos';
+  async function loadMine(box, has) {
+    const body = box.querySelector('.home-panel-body');
+    if (!has) { body.innerHTML = emptyLine('내 일정 앱이 없습니다.'); return () => {}; }
+    const LS = P.store.local || P.store;
+    const safe = (c) => LS.list(c).then((r) => (Array.isArray(r) ? r : []), () => []);
+    const [evRows, tdRows] = await Promise.all([safe(MINE_EV), safe(MINE_TODO)]);
+    const td = ymd(new Date());
+    const endOf = (e) => (e.endDate && e.endDate > e.date ? e.endDate : e.date);
+    const evs = evRows.map((r) => Object.assign({}, obj(r.data), { id: r.id }))
+      .filter((e) => parseYmd(e.date) && e.date <= td && td <= endOf(e))
+      .sort((a, b) => ((!a.allDay && isHM(a.start)) - (!b.allDay && isHM(b.start))) || String(a.start || '').localeCompare(String(b.start || '')));
+    const tds = tdRows.map((r) => Object.assign({}, obj(r.data), { id: r.id }))
+      .filter((x) => !x.done && parseYmd(x.due) && x.due <= td).sort((a, b) => String(a.due).localeCompare(String(b.due)));
+    const KC = { 업무: '#4C63B6', 회의: '#13897B', 개인: '#7C5CC4', 휴가: '#B7791F' };
+    function draw() {
+      if (!box.isConnected) return;
+      if (!evs.length && !tds.length) {
+        body.innerHTML = emptyLine('오늘 내 일정과 할 일이 없습니다.', '<button type="button" class="btn-link" data-intent="mine">일정 추가</button>');
+        return;
+      }
+      const now = hm(new Date());
+      let html = '<ul class="home-mine-list">';
+      evs.forEach((e) => {
+        const timed = !e.allDay && isHM(e.start) && e.date === td;
+        const end = isHM(e.end) ? e.end : '';
+        const state = !timed ? '' : (end ? end <= now : e.start < now && !end) ? 'past' : e.start <= now ? 'now' : '';
+        const span = endOf(e) !== e.date ? (dayDiff(e.date, td) + 1) + '/' + (dayDiff(e.date, endOf(e)) + 1) + '일' : '종일';
+        html += '<li><a class="home-mine-row ' + state + '" href="#/my-schedule/today/' + encodeURIComponent(e.id) + '" style="--c:' + (KC[e.kind] || 'var(--muted)') + '">' +
+          '<span class="home-mine-time">' + (timed ? esc(e.start) + (end ? '<small>' + esc(end) + '</small>' : '') : esc(span)) + '</span>' +
+          '<span class="home-mine-t"><span>' + esc(e.title || '제목 없음') + (e.place ? ' <small class="muted">· ' + esc(e.place) + '</small>' : '') + '</span></span></a></li>';
+      });
+      if (tds.length) {
+        html += '<li class="home-mine-sep">할 일 ' + tds.length + '</li>';
+        html += tds.slice(0, 5).map((x) => '<li><a class="home-mine-row todo' + (x.due < td ? ' over' : '') + '" href="#/my-schedule/todos">' +
+          '<span class="home-mine-time">' + (x.due < td ? dayDiff(x.due, td) + '일 지남' : '오늘') + '</span>' +
+          '<span class="home-mine-t"><span>' + esc(x.title || '제목 없음') + '</span></span></a></li>').join('');
+        if (tds.length > 5) html += '<li><a class="home-mine-row" href="#/my-schedule/todos"><span></span><span class="home-mine-t muted">외 ' + (tds.length - 5) + '건 더 보기</span></a></li>';
+      }
+      body.innerHTML = html + '</ul>';
+    }
+    draw();
+    const t = setInterval(draw, 60000);
+    return () => clearInterval(t);
+  }
+
   /* ---------- 기한 임박 업무 ---------- */
   async function loadTasks(box, has) {
     const body = box.querySelector('.home-panel-body');
@@ -185,6 +233,9 @@
       '<div class="home-panel-body" aria-busy="true"><div class="p-skel-row"><span class="p-skel"></span><span class="p-skel-lines"><span class="p-skel" style="width:50%"></span><span class="p-skel" style="width:30%"></span></span></div></div></section>' +
       (quick.length ? '<section class="home-panel home-quick" aria-labelledby="home-h-quick">' + panelHead('빠른 만들기').replace('<h2>', '<h2 id="home-h-quick">') +
         '<div class="home-quick-list">' + quick.map((q, i) => '<button type="button" data-q="' + i + '">' + q.icon + '<span>' + esc(q.label) + '</span></button>').join('') + '</div></section>' : '') +
+      (appIds.has('my-schedule') ? '<section class="home-panel home-mine" aria-labelledby="home-h-mine">' + panelHead('오늘 내 일정', '#/my-schedule/today', '내 일정').replace('<h2>', '<h2 id="home-h-mine">') +
+        '<div class="home-panel-body" aria-busy="true"><div class="p-skel-row"><span class="p-skel"></span><span class="p-skel-lines"><span class="p-skel" style="width:50%"></span></span></div></div>' +
+        '<p class="home-mine-note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>이 기기에만 저장</p></section>' : '') +
       '<section class="home-panel home-tasks" aria-labelledby="home-h-tasks">' + panelHead('기한 임박 업무', appIds.has('schedule') ? '#/schedule/tasks' : '', '주요업무').replace('<h2>', '<h2 id="home-h-tasks">') +
       '<div class="home-panel-body" aria-busy="true"><div class="p-skel-row"><span class="p-skel"></span><span class="p-skel-lines"><span class="p-skel" style="width:60%"></span></span></div></div></section>' +
       '<section class="home-panel home-recent" aria-labelledby="home-h-recent">' + panelHead('최근 작업').replace('<h2>', '<h2 id="home-h-recent">') +
@@ -201,6 +252,7 @@
       if (!t) return;
       if (t.dataset.act === 'storage') { e.stopPropagation(); P.storage.openMenu(); }
       else if (t.dataset.q != null) { const q = quick[Number(t.dataset.q)]; if (q) q.run(); }
+      else if (t.dataset.intent === 'mine') P.intent('my-schedule', 'new');
       else if (t.dataset.intent) { const q = qa.find((x) => x.key === intentKeys[t.dataset.intent]); if (q) q.run(); }
     });
 
@@ -211,10 +263,12 @@
       if (n) { n.removeAttribute('aria-busy'); n.innerHTML = emptyLine('불러오지 못했습니다.'); }
     };
     let stopHeads = null;
+    let stopMine = null;
+    if (appIds.has('my-schedule')) loadMine(el.querySelector('.home-mine'), true).then((stop) => { stopMine = stop; done('.home-mine')(); }, fail('.home-mine'));
     loadHeads(el.querySelector('.home-heads'), appIds.has('head-schedule')).then((stop) => { stopHeads = stop; done('.home-heads')(); }, fail('.home-heads'));
     loadTasks(el.querySelector('.home-tasks'), appIds.has('schedule')).then(done('.home-tasks'), fail('.home-tasks'));
     loadRecent(el.querySelector('.home-recent'), appIds).then(done('.home-recent'), fail('.home-recent'));
-    return () => { if (typeof stopHeads === 'function') stopHeads(); };
+    return () => { if (typeof stopHeads === 'function') stopHeads(); if (typeof stopMine === 'function') stopMine(); };
   }
 
   P.registerApp({ id: 'home', title: '홈', short: '홈', icon: ICON, order: 0, group: 'home', desc: '오늘 일정과 기한, 최근 작업', mount });

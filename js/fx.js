@@ -45,6 +45,10 @@
      [마우스를 받는 곳, 움직일 곳(없으면 같은 곳), 옵션] · 표·입력칸·편집 중인 화면은 넣지 않음 */
   const CARDS = [
     ['.home-bento > .home-panel:not(.home-hero)', null, {}],
+    // 공통 폴더 목록(js/files.js) 격자 칸: 문서는 종이, 나머지는 미리보기 칸
+    ['.docs-list .p-fb-items[data-mode="grid"] .p-fb-tile:not(.p-fb-folder) > .p-fb-open', '.docs-a4', { thumb: 1, paper: 1 }],
+    ['.p-fb-items[data-mode="grid"] .p-fb-tile > .p-fb-open', '.p-fb-thumb', { thumb: 1 }],
+    ['.charts-tpl', '.charts-tpl-thumb', { thumb: 1 }],
     ['.docs-tpl', '.docs-tpl-thumb', { thumb: 1, paper: 1 }],
     ['.docs-cards[data-mode="grid"] .docs-tile .docs-card-main', '.docs-a4', { thumb: 1, paper: 1 }],
     ['.slides-tpl', '.slides-mini', { thumb: 1 }],
@@ -60,6 +64,7 @@
   /* 차례 등장 묶음 (같은 부모 안에서 40ms 간격, 최대 12개) */
   const STAGGER = [
     ['.home-bento > .home-panel', 1],
+    ['.p-fb-items > .p-fb-row, .p-fb-items > .p-fb-tile', 0], ['.charts-tpls > .charts-tpl', 1],
     ['.docs-tpl-row > .docs-tpl', 1], ['.docs-cards > *', 0],
     ['.slides-tpls > .slides-tpl', 1], ['.slides-cards > *', 0],
     ['.sheets-tpls > .sheets-tpl', 1], ['.sheets-ftable tbody > tr', 0],

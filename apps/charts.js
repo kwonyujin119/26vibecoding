@@ -598,12 +598,22 @@
   }
 
   /* ================= 화면 ================= */
-  async function mount(root, ctx) {
+  async function mountStudio(root, ctx, fileId, newFolder) {
     root.innerHTML = '<div class="page charts-page"><div class="charts-loading">불러오는 중…</div></div>';
     try { await P.loadScript(LIB.chart); } catch (e) {
       root.innerHTML = '<div class="page"><div class="empty card"><h2>차트 라이브러리를 불러오지 못했습니다</h2><p>vendor/chartjs 파일을 확인하세요.</p></div></div>';
       return null;
     }
+    let file = null;
+    if (fileId) {
+      try { file = await P.store.get(COL, fileId); } catch (e) { file = null; }
+      if (!root.isConnected) return null;
+      if (!file || !file.data) {
+        root.innerHTML = '<div class="page"><div class="empty card"><h2>차트를 찾을 수 없습니다</h2><p>삭제되었거나 다른 저장 위치에 있을 수 있습니다.</p><a class="btn btn-primary" href="#/charts">차트 목록으로</a></div></div>';
+        return null;
+      }
+    }
+    const folder = file ? (file.folder || null) : (newFolder || null);
     const live = [];
     const state = {
       data: null, source: '', title: '',
@@ -614,7 +624,11 @@
     const smpMeta = (smp) => { const d = parseText(smp.text); return d.rows.length + '행 · ' + d.columns.length + '열'; };
     root.innerHTML =
       '<div class="page charts-page">' +
-        '<div class="page-head"><div><h1>차트</h1></div></div>' +
+        '<div class="page-head charts-head"><div class="charts-head-l">' +
+          '<a class="btn btn-ghost charts-back" href="' + P.files.backHref('charts', folder) + '" title="차트 목록" aria-label="차트 목록">' + BACK + '<span>목록</span></a>' +
+          '<input class="charts-name" type="text" maxlength="120" aria-label="차트 제목" placeholder="차트 제목">' +
+          '<span class="charts-save" role="status" aria-live="polite"></span></div>' +
+          '<div class="toolbar charts-head-r"><span class="charts-io"></span><button type="button" class="btn btn-primary" data-act="save">' + SAVE_IC + '<span>저장</span></button></div></div>' +
         '<div class="charts-studio">' +
           '<aside class="charts-side">' +
             '<section class="charts-panel charts-input">' +
@@ -653,7 +667,6 @@
             '</div>' +
           '</div>' +
         '</div>' +
-        '<section class="charts-saved-sec"><div class="section-title"><h2>차트 모음</h2><span class="charts-saved-n tnum"></span></div><div class="charts-saved"></div></section>' +
       '</div>';
     const $ = (s) => root.querySelector(s);
     const grid = $('.charts-grid');
@@ -668,13 +681,14 @@
 
     function clearLive() { while (live.length) { try { live.pop().destroy(); } catch (e) { /* 무시 */ } } }
 
-    function setData(data, source) {
+    function setData(data, source, opt) {
       if (!data || !data.columns || !data.rows || !data.rows.length) { P.ui.toast('표를 찾지 못했습니다. 첫 행에 제목, 아래에 값을 넣어 주세요.', 'warn'); return; }
       state.data = { columns: data.columns.map(String), rows: data.rows.slice(0, 2000), types: data.types || null };
       state.source = source || '';
       state.title = data.title || '';
-      try { sessionStorage.setItem('charts:last', JSON.stringify({ data: state.data, source: state.source, title: state.title })); } catch (e) { /* 무시 */ }
+      if (state.title && !nameIn.value.trim()) nameIn.value = state.title;
       drawAll();
+      if (!opt || !opt.quiet) markDirty();
     }
     function model() { return buildModel(state.data); }
     function cellText(v, type) {
@@ -710,12 +724,13 @@
         return;
       }
       $('.charts-count').textContent = kinds.length + '개';
-      grid.innerHTML = kinds.map((k, i) => '<article class="charts-card' + (i === 0 ? ' is-lead' : '') + (k === state.picked ? ' on' : '') + '" data-kind="' + k + '">' +
+      state.kinds = kinds;
+      grid.innerHTML = kinds.map((k, i) => '<article class="charts-card' + (i === 0 ? ' is-lead' : '') + (k === pickedKind(kinds) ? ' on' : '') + '" data-kind="' + k + '">' +
         '<header><h3>' + KINDS[k].name + '</h3>' + (i === 0 ? '<span class="badge badge-accent">추천</span>' : '') + '<span class="charts-why">' + KINDS[k].why + '</span></header>' +
         '<button type="button" class="charts-canvas" data-open="' + k + '" aria-label="' + KINDS[k].name + ' 편집"></button>' +
         '<footer><button type="button" class="btn btn-ghost btn-sm" data-open="' + k + '">' + EDIT + '편집</button>' +
         '<button type="button" class="btn btn-ghost btn-sm" data-png="' + k + '" title="PNG로 내려받기">' + P.icons.download + 'PNG</button>' +
-        '<button type="button" class="btn btn-ghost btn-sm p-icon-btn charts-star" data-save="' + k + '" aria-label="' + KINDS[k].name + ' 차트 모음에 저장" title="모음에 저장">' + STAR + '</button></footer>' +
+        '<button type="button" class="btn btn-ghost btn-sm charts-pick" data-pick="' + k + '" aria-pressed="' + (k === pickedKind(kinds) ? 'true' : 'false') + '" title="이 차트로 저장">' + PICK + '<span>' + (k === pickedKind(kinds) ? '고름' : '고르기') + '</span></button></footer>' +
         '</article>').join('');
       grid.querySelectorAll('.charts-card').forEach((card) => {
         const k = card.dataset.kind;
@@ -743,17 +758,70 @@
         P.ui.toast('이 브라우저에서는 그림 복사가 막혀 있습니다. PNG로 내려받아 넣어 주세요.', 'warn');
       }
     }
-    async function saveToCollection(kind, m, opts, data) {
-      const title = opts.title || defaultTitle(kind, m);
-      const o = Object.assign({}, opts, { title });
-      let thumb = '';
-      try { thumb = await thumbData(kind, m, o); } catch (e) { thumb = ''; }
-      const id = P.store.uid();
-      try {
-        await P.store.put(COL, id, { title, kind, opts: { palette: o.palette, unit: o.unit, labels: !!o.labels, legend: o.legend || 'top', title }, data: data || state.data, thumb, source: state.source });
-        P.ui.toast('"' + title + '"을(를) 차트 모음에 저장했습니다.', 'ok');
-        loadSaved();
-      } catch (e) { /* core가 알림 */ }
+    function pickedKind(kinds) {
+      const ks = kinds || state.kinds || [];
+      return state.picked && (ks.includes(state.picked) || KINDS[state.picked]) ? state.picked : ks[0] || 'bar';
+    }
+    function setPicked(k) {
+      state.picked = k;
+      grid.querySelectorAll('.charts-card').forEach((c) => {
+        const onn = c.dataset.kind === k;
+        c.classList.toggle('on', onn);
+        const b = c.querySelector('[data-pick]');
+        if (b) { b.setAttribute('aria-pressed', String(onn)); b.querySelector('span').textContent = onn ? '고름' : '고르기'; }
+      });
+    }
+    /* ---------- 파일 저장 ---------- */
+    const nameIn = $('.charts-name');
+    const saveEl = $('.charts-save');
+    let saveTimer = null;
+    let saving = Promise.resolve();
+    function setSave(st, txt) { saveEl.dataset.state = st; saveEl.textContent = txt; }
+    function markDirty() {
+      if (!state.data) return;
+      if (!fileId) { setSave('new', '저장 전'); return; }
+      setSave('dirty', '저장 안 됨');
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(() => saveFile(), 1200);
+    }
+    function fileTitle() {
+      const m = model();
+      return nameIn.value.trim() || state.opts.title || defaultTitle(pickedKind(), m);
+    }
+    function saveFile(over) {
+      saving = saving.then(async () => {
+        clearTimeout(saveTimer);
+        if (!state.data) { P.ui.toast('먼저 자료를 넣어 차트를 그려 주세요.', 'warn'); return false; }
+        const m = model();
+        const kind = (over && over.kind) || pickedKind();
+        const o = Object.assign({}, state.opts, over && over.opts);
+        const title = (over && over.opts && over.opts.title) || fileTitle();
+        o.title = title;
+        if (!nameIn.value.trim() || (over && over.opts && over.opts.title)) nameIn.value = title;
+        let thumb = '';
+        try { thumb = await thumbData(kind, m, o); } catch (e) { thumb = ''; }
+        const isNew = !fileId;
+        const id = fileId || P.store.uid();
+        const rec = {
+          title, kind, opts: { palette: o.palette, unit: o.unit, labels: !!o.labels, legend: o.legend || 'top', title },
+          data: state.data, thumb, source: state.source, folder,
+          createdAt: (file && file.createdAt) || new Date().toISOString()
+        };
+        setSave('saving', '저장 중…');
+        try {
+          await P.store.put(COL, id, rec);
+          file = rec;
+          fileId = id;
+          state.opts.title = title;
+          setSave('saved', '저장됨');
+          if (isNew) {
+            try { history.replaceState(null, '', '#/charts/' + encodeURIComponent(id)); } catch (e) { /* 무시 */ }
+            P.ui.toast('"' + title + '" 차트를 저장했습니다.', 'ok');
+          }
+          return true;
+        } catch (e) { setSave('error', '저장 실패'); return false; }
+      });
+      return saving;
     }
 
     // 크게 보기·꾸미기
@@ -802,36 +870,22 @@
         { label: 'PNG 저장', onClick: () => { savePNG(k, m, opts); return false; } },
         { label: '그림 복사', onClick: () => { copyPNG(k, m, opts); return false; } }
       ];
-      if (savedId) actions.push({ label: '변경 내용 저장', primary: true, onClick: async () => {
-        const o = Object.assign({}, opts);
-        let thumb = '';
-        try { thumb = await thumbData(k, m, o); } catch (e) { thumb = ''; }
-        await P.store.put(COL, savedId, { title: o.title, kind: k, opts: { palette: o.palette, unit: o.unit, labels: !!o.labels, legend: o.legend, title: o.title }, data, thumb, source: (preset && preset.source) || '' });
-        P.ui.toast('저장했습니다.', 'ok');
-        loadSaved();
-        return false;
+      actions.push({ label: '차트 저장', primary: true, onClick: async () => {
+        // 크게 본 종류·꾸밈을 이 파일의 차트로 저장
+        const o = { palette: opts.palette, unit: opts.unit, labels: !!opts.labels, legend: opts.legend, title: opts.title };
+        state.opts = Object.assign(state.opts, { palette: o.palette, unit: o.unit, labels: o.labels, legend: o.legend });
+        state.opts.title = o.title;
+        nameIn.value = o.title || nameIn.value;
+        setPicked(k);
+        const ok = await saveFile({ kind: k, opts: o });
+        if (ok && !fileId) return false;
+        optsBar.querySelector('[data-opt="palette"]').value = state.opts.palette;
+        optsBar.querySelector('[data-opt="unit"]').value = state.opts.unit;
+        optsBar.querySelector('[data-opt="labels"]').checked = !!state.opts.labels;
+        if (state.data) drawAll();
       } });
-      else actions.push({ label: '차트 모음에 저장', primary: true, onClick: () => { saveToCollection(k, m, opts, data); } });
       P.ui.modal({ title: '차트 편집', body, wide: true, actions, onClose: () => { if (cur) cur.destroy(); cur = null; } });
       requestAnimationFrame(redraw);
-    }
-
-    // 저장된 차트 모음
-    async function loadSaved() {
-      const box = $('.charts-saved');
-      let items = [];
-      try { items = await P.store.list(COL); } catch (e) { items = []; }
-      const cnt = $('.charts-saved-n');
-      if (cnt) cnt.textContent = items.length ? items.length + '개' : '';
-      if (!items.length) { box.innerHTML = '<p class="charts-saved-empty">별을 누른 차트가 여기에 모입니다.</p>'; return; }
-      box.innerHTML = items.map((x) => {
-        const d = x.data || {};
-        return '<article class="charts-saved-card"><a href="#/charts/' + encodeURIComponent(x.id) + '" class="charts-thumb">' +
-          (d.thumb ? '<img src="' + esc(d.thumb) + '" alt="' + esc(d.title || '') + ' 미리보기" loading="lazy">' : '<span>' + esc(KINDS[d.kind] ? KINDS[d.kind].name : '') + '</span>') +
-          '</a><div class="charts-saved-meta"><b>' + esc(d.title || '제목 없음') + '</b><small class="tnum">' + esc(KINDS[d.kind] ? KINDS[d.kind].name : '') + ' · ' + new Date(x.updatedAt).toLocaleDateString('ko-KR') + '</small></div>' +
-          '<div class="charts-saved-act"><button type="button" class="btn btn-ghost btn-sm" data-use="' + esc(x.id) + '">자료 다시 쓰기</button><button type="button" class="btn btn-ghost btn-sm p-icon-btn" data-del="' + esc(x.id) + '" aria-label="삭제" title="삭제">' + P.icons.trash + '</button></div></article>';
-      }).join('');
-      box._items = items;
     }
 
     /* ---------- 입력 ---------- */
@@ -868,27 +922,15 @@
       if (a) { setData(parseText(paste.value), '붙여넣은 자료'); return; }
       const op = e.target.closest('[data-open]');
       if (op) {
-        state.picked = op.dataset.open;
-        grid.querySelectorAll('.charts-card').forEach((c) => c.classList.toggle('on', c.dataset.kind === state.picked));
         openBig(op.dataset.open, state.data);
         return;
       }
-      const sv = e.target.closest('[data-save]');
-      if (sv) { const m = model(); saveToCollection(sv.dataset.save, m, Object.assign({}, state.opts, { title: defaultTitle(sv.dataset.save, m) })); return; }
+      const pk = e.target.closest('[data-pick]');
+      if (pk) { setPicked(pk.dataset.pick); markDirty(); return; }
+      const sb = e.target.closest('[data-act="save"]');
+      if (sb) { P.ui.busy(sb, () => saveFile()); return; }
       const pn = e.target.closest('[data-png]');
       if (pn) { const m = model(); P.ui.busy(pn, () => savePNG(pn.dataset.png, m, Object.assign({}, state.opts, { title: defaultTitle(pn.dataset.png, m) }))).catch((err) => console.error(err)); return; }
-      const use = e.target.closest('[data-use]');
-      if (use) {
-        const it = ($('.charts-saved')._items || []).find((x) => x.id === use.dataset.use);
-        if (it && it.data && it.data.data) { setData(it.data.data, '모음: ' + it.data.title); $('.charts-studio').scrollIntoView({ behavior: 'smooth' }); }
-        return;
-      }
-      const del = e.target.closest('[data-del]');
-      if (del) {
-        if (!(await P.ui.confirm('이 차트를 모음에서 삭제할까요?', { danger: true, okLabel: '삭제' }))) return;
-        await P.store.remove(COL, del.dataset.del);
-        loadSaved();
-      }
     });
     paste.addEventListener('paste', () => setTimeout(() => { if (paste.value.trim()) setData(parseText(paste.value), '붙여넣은 자료'); }, 0));
     paste.addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); setData(parseText(paste.value), '붙여넣은 자료'); } });
@@ -904,7 +946,7 @@
       state.opts[k] = k === 'labels' ? e.target.checked : e.target.value;
       P.settings.set('charts.' + k, state.opts[k]);
       if (k === 'palette') syncSwatch();
-      if (state.data) drawAll();
+      if (state.data) { drawAll(); markDirty(); }
     });
     root.querySelector('.charts-table').addEventListener('change', (e) => {
       const i = e.target.dataset.col;
@@ -913,7 +955,10 @@
       state.data.types = m.cols.map((c) => c.type);
       state.data.types[+i] = e.target.value;
       drawAll();
+      markDirty();
     });
+    nameIn.addEventListener('input', () => { state.opts.title = nameIn.value.trim(); markDirty(); });
+    nameIn.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); nameIn.blur(); } });
     // 테마가 바뀌면 다시 그리기
     const mq = window.matchMedia ? matchMedia('(prefers-color-scheme: dark)') : null;
     const onTheme = () => { themeDefaults(); syncSwatch(); if (state.data) drawAll(); };
@@ -921,25 +966,46 @@
     const mo = new MutationObserver(onTheme);
     mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 
+    /* ---------- 가져오기·내보내기 (공통 단추) ---------- */
+    const io = P.files.ioButtons({
+      kind: 'charts', compact: true, multiple: false, exportTitle: '이 차트',
+      importers: [{ id: 'table', label: '표 파일', ext: 'XLSX · CSV', accept: CHART_ACCEPT, run: (f) => readFile(f) }],
+      exporters: () => {
+        const ready = !!(state.data && model().series.length);
+        const k = ready ? pickedKind() : 'bar';
+        return [
+          { id: 'png', label: '고른 차트 그림', ext: 'PNG', desc: ready ? KINDS[k].name + ' · 2배 해상도, 흰 바탕' : '먼저 자료를 넣으세요', icon: P.files.icons.image, disabled: !ready, run: () => { const m = model(); return savePNG(k, m, Object.assign({}, state.opts, { title: fileTitle() })); } },
+          { id: 'zip', label: '후보 차트 모두', ext: 'ZIP', desc: '추천된 차트마다 PNG 한 장씩', icon: P.files.icons.zip, disabled: !ready, run: async () => {
+            const m = model();
+            await P.loadScript('vendor/jszip/jszip.min.js');
+            const zip = new window.JSZip();
+            for (const kk of state.kinds || []) zip.file(String((state.kinds.indexOf(kk) + 1)).padStart(2, '0') + '-' + KINDS[kk].name.replace(/[\\/:*?"<>|()%+]/g, '') + '.png', await exportPNG(kk, m, Object.assign({}, state.opts, { title: fileTitle() })));
+            P.ui.download(safeName(fileTitle()) + '-차트.zip', await zip.generateAsync({ type: 'blob' }));
+            P.ui.toast('후보 차트 ' + (state.kinds || []).length + '개를 ZIP으로 내보냈습니다.', 'ok');
+          } }
+        ];
+      }
+    });
+    $('.charts-io').replaceWith(io.el);
+
     /* ---------- 시작 자료 ---------- */
-    let incoming = null;
-    try { incoming = JSON.parse(sessionStorage.getItem('charts:incoming') || 'null'); sessionStorage.removeItem('charts:incoming'); } catch (e) { incoming = null; }
-    if (incoming && incoming.columns && incoming.rows) {
-      setData({ columns: incoming.columns, rows: incoming.rows }, '엑셀에서 가져옴' + (incoming.title ? ': ' + incoming.title : ''));
-      P.ui.toast('엑셀에서 고른 범위로 차트를 그렸습니다.', 'ok');
+    if (file) {
+      nameIn.value = file.title || '';
+      state.opts = Object.assign(state.opts, file.opts || {});
+      state.picked = file.kind || null;
+      optsBar.querySelector('[data-opt="palette"]').value = state.opts.palette;
+      optsBar.querySelector('[data-opt="unit"]').value = state.opts.unit;
+      optsBar.querySelector('[data-opt="labels"]').checked = !!state.opts.labels;
+      if (file.data && file.data.columns) setData(Object.assign({}, file.data, { title: file.title }), file.source || '', { quiet: true });
+      setSave('saved', '저장됨');
+      if (file.data && file.data.columns && ctx.params[1] !== 'studio') openBig(file.kind || pickedKind(), state.data, Object.assign({}, file.opts || {}, { title: file.title }));
     } else {
-      let last = null;
-      try { last = JSON.parse(sessionStorage.getItem('charts:last') || 'null'); } catch (e) { last = null; }
-      if (last && last.data) { state.title = last.title || ''; setData(Object.assign({}, last.data, { title: last.title }), last.source); }
-    }
-    loadSaved();
-    const openId = ctx.params[0];
-    if (openId) {
-      try {
-        const it = await P.store.get(COL, openId);
-        if (it && it.data) openBig(it.kind || 'bar', it.data, Object.assign({}, it.opts || {}, { source: it.source }), openId);
-        else P.ui.toast('저장된 차트를 찾을 수 없습니다.', 'warn');
-      } catch (e) { /* core가 알림 */ }
+      let incoming = null;
+      try { incoming = JSON.parse(sessionStorage.getItem('charts:incoming') || 'null'); sessionStorage.removeItem('charts:incoming'); } catch (e) { incoming = null; }
+      if (incoming && incoming.columns && incoming.rows) {
+        setData({ columns: incoming.columns, rows: incoming.rows, title: incoming.title || '' }, incoming.source || ('엑셀에서 가져옴' + (incoming.title ? ': ' + incoming.title : '')));
+        if (!incoming.source) P.ui.toast('엑셀에서 고른 범위로 차트를 그렸습니다.', 'ok');
+      } else setSave('new', '새 차트');
     }
     return () => {
       clearLive();
@@ -948,7 +1014,112 @@
     };
   }
   const EDIT = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg>';
-  const STAR = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.8-5.2 2.8 1-5.8-4.3-4.1 5.9-.9z"/></svg>';
+  const PICK = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg>';
+  const BACK = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>';
+  const SAVE_IC = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h11l3 3v13H5z"/><path d="M8 4v5h7V4M8 20v-6h8v6"/></svg>';
+  const CHART_ACCEPT = '.xlsx,.xls,.csv,.tsv,.txt';
+
+  /* ================= 목록 (차트 파일) ================= */
+  /* 예전 '차트 모음' 항목을 파일로: 폴더·만든 날짜를 채움. 이미 채운 항목은 건드리지 않음(여러 번 불러도 같음) */
+  async function migrate() {
+    let rows = [];
+    try { rows = await P.store.list(COL); } catch (e) { return; }
+    for (const r of rows) {
+      const d = r && r.data;
+      if (!d || typeof d !== 'object' || d.fileV) continue;
+      const next = Object.assign({}, d, { fileV: 1, folder: d.folder || null, createdAt: d.createdAt || r.updatedAt || new Date().toISOString(), title: d.title || (d.opts && d.opts.title) || '제목 없는 차트' });
+      try { await P.store.put(COL, r.id, next); } catch (e) { /* core가 알림 */ }
+    }
+  }
+  async function tableFromFile(file) {
+    const buf = await file.arrayBuffer();
+    if (/\.(csv|tsv|txt)$/i.test(file.name)) {
+      let text;
+      try { text = new TextDecoder('utf-8', { fatal: true }).decode(buf); } catch (e) { text = new TextDecoder('euc-kr').decode(buf); }
+      return { data: parseText(text.replace(/^﻿/, '')), source: file.name };
+    }
+    await P.loadScript(LIB.xlsx);
+    const wb = window.XLSX.read(buf, { type: 'array' });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const aoa = window.XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, blankrows: false, defval: '' });
+    const text = aoa.map((r) => r.map((v) => String(v).replace(/[\t\n]/g, ' ')).join('\t')).join('\n');
+    return { data: parseText(text), source: file.name + ' · ' + wb.SheetNames[0] };
+  }
+  function sampleThumb(smp) {
+    const d = parseText(smp.text);
+    const vals = d.rows.map((r) => parseNum(r[1])).map((x) => (x ? x.n : 0)).slice(0, 8);
+    const mx = Math.max(1, ...vals);
+    const bw = 88 / (vals.length * 1.6);
+    return '<svg class="charts-tpl-pv" viewBox="0 0 100 60" preserveAspectRatio="none" aria-hidden="true"><path class="charts-tpl-ax" d="M4 56H96"/>' +
+      vals.map((v, i) => '<rect class="' + (i === vals.indexOf(mx) ? 'hi' : '') + '" x="' + (6 + i * bw * 1.6).toFixed(1) + '" y="' + (56 - (v / mx) * 46).toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + ((v / mx) * 46).toFixed(1) + '" rx="1"/>').join('') + '</svg>';
+  }
+  async function mountList(root, ctx) {
+    const folder = ctx.params[0] === 'f' ? ctx.params[1] || null : null;
+    // 엑셀에서 넘어온 자료는 새 차트로 바로
+    let incoming = null;
+    try { incoming = sessionStorage.getItem('charts:incoming'); } catch (e) { incoming = null; }
+    if (incoming) { ctx.navigate('charts/new'); return null; }
+    root.innerHTML = '<div class="page">' + P.ui.skeleton(3) + '</div>';
+    await migrate();
+    if (!root.isConnected) return null;
+    const startNew = (f, payload) => {
+      if (payload) { try { sessionStorage.setItem('charts:incoming', JSON.stringify(payload)); } catch (e) { P.ui.toast('자료가 너무 커서 넘기지 못했습니다.', 'error'); return; } }
+      ctx.navigate('charts/new' + (f ? '/f/' + encodeURIComponent(f) : ''));
+    };
+    const tplHTML = '<div class="charts-tpls">' +
+      '<button type="button" class="charts-tpl" data-tpl="blank"><span class="charts-tpl-thumb charts-tpl-blank" aria-hidden="true">' + P.icons.plus + '</span><b>빈 차트</b><small>붙여넣기·파일로 시작</small></button>' +
+      SAMPLES.map((smp) => '<button type="button" class="charts-tpl" data-tpl="' + smp.id + '"><span class="charts-tpl-thumb">' + sampleThumb(smp) + '</span><b>' + esc(smp.title) + '</b><small>예시 자료</small></button>').join('') + '</div>';
+    let chartReady = null;
+    const needChart = () => (chartReady = chartReady || P.loadScript(LIB.chart).then(() => themeDefaults()));
+    const fb = P.files.browser(root, {
+      col: COL, kind: 'charts', folder, defaultView: 'grid',
+      title: '차트', itemName: '차트', newLabel: '새 차트', mineLabel: '내 차트', searchHint: '제목·자료 이름 검색',
+      pageClass: 'charts-list', itemClass: 'charts-file', newAttrs: { 'data-act': 'new' },
+      textOf: (it) => String(it.data.title || '') + ' ' + String(it.data.source || ''),
+      templates: { title: '새로 만들기', html: tplHTML, cls: 'charts-tpl-sec' },
+      onTemplate: (id, f) => {
+        if (id === 'blank') return startNew(f);
+        const smp = SAMPLES.find((x) => x.id === id);
+        const d = parseText(smp.text);
+        startNew(f, { columns: d.columns, rows: d.rows, title: smp.title, source: '예시: ' + smp.title });
+      },
+      newItem: (f) => startNew(f),
+      icon: () => P.files.icons.chart,
+      badge: (it) => '<span class="badge">' + esc(KINDS[it.data.kind] ? KINDS[it.data.kind].name : '차트') + '</span>',
+      meta: (it) => { const d = it.data.data; return [d && d.rows ? d.rows.length + '행' : '', it.data.source || ''].filter(Boolean).join(' · '); },
+      thumb: (it) => (it.data.thumb ? '<img src="' + esc(it.data.thumb) + '" alt="" loading="lazy">' : P.files.icons.chart),
+      empty: { slot: 'empty-charts', title: '아직 저장한 차트가 없습니다', desc: '새 차트에서 표를 붙여넣거나 XLSX·CSV를 넣고, 마음에 드는 차트를 골라 저장하세요.' },
+      io: {
+        importers: [
+          { id: 'table', label: '표 파일', ext: 'XLSX · CSV', accept: CHART_ACCEPT, run: async (file, c) => {
+            const r = await tableFromFile(file);
+            if (!r.data || !r.data.rows || !r.data.rows.length) throw new Error('표를 찾지 못했습니다.');
+            startNew(c.folder, { columns: r.data.columns, rows: r.data.rows, title: file.name.replace(/\.[^.]+$/, ''), source: r.source });
+          } },
+          { id: 'paste', label: '붙여넣기', ext: '표 복사', paste: true, run: async (text, c) => {
+            const d = parseText(text);
+            if (!d || !d.rows.length) throw new Error('붙여넣은 내용에서 표를 찾지 못했습니다. 첫 줄에 제목, 아래에 값을 넣어 주세요.');
+            startNew(c.folder, { columns: d.columns, rows: d.rows, title: '', source: '붙여넣은 자료' });
+          } }
+        ],
+        exporters: [
+          { id: 'png', label: '차트 그림', ext: 'PNG', desc: '저장한 종류·꾸밈 그대로, 2배 해상도', icon: P.files.icons.image, file: async (r) => {
+            await needChart();
+            const d = r.data;
+            const blob = await exportPNG(d.kind || 'bar', buildModel(d.data), Object.assign({ palette: 'base', unit: 'auto', legend: 'top' }, d.opts || {}, { title: d.title }));
+            return { name: String(d.title || '차트').replace(/[\\/:*?"<>|]/g, '_').slice(0, 60) + '.png', blob };
+          } }
+        ]
+      }
+    });
+    return () => fb.destroy();
+  }
+  async function mount(root, ctx) {
+    const p0 = ctx.params[0];
+    if (!p0 || p0 === 'f') return mountList(root, ctx);
+    if (p0 === 'new') return mountStudio(root, ctx, null, ctx.params[1] === 'f' ? ctx.params[2] || null : null);
+    return mountStudio(root, ctx, p0, null);
+  }
 
   P.registerApp({
     id: 'charts',

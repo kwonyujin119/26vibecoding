@@ -36,31 +36,22 @@
 .sheets-pv .pv-sel { fill: none; stroke: var(--accent); stroke-width: 1.4; }
 .sheets-pv .pv-fh { fill: var(--accent); stroke: var(--surface); stroke-width: .8; }
 
-.sheets-listhead { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-2) var(--sp-3); margin-bottom: var(--sp-2); }
-.sheets-listhead .section-title { margin: 0; justify-content: flex-start; }
-.sheets-listhead .p-search { flex: 0 1 260px; }
-.sheets-listhead .p-search input { min-height: 32px; padding-top: 5px; padding-bottom: 5px; font-size: var(--fs-sm); }
-.sheets-count { color: var(--muted); font-weight: 600; }
-.sheets-files-msg { padding: var(--sp-5) var(--sp-4); border: 1px dashed var(--line-strong); border-radius: var(--radius-lg); color: var(--muted); font-size: var(--fs-sm); text-align: center; }
-.sheets-ftable th, .sheets-ftable td { padding: 0 12px; height: 40px; }
-.sheets-ftable thead th { height: 32px; }
-.sheets-ftable td:first-child { padding: 0; }
-.sheets-file-main { display: flex; align-items: center; gap: 10px; min-width: 0; height: 40px; padding: 0 12px; color: var(--text); }
-.sheets-file-main:hover { text-decoration: none; }
-.sheets-file:hover .sheets-file-main b { color: var(--accent); }
-.sheets-file-main b { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.sheets-file-ic { flex: none; display: grid; place-items: center; width: 24px; height: 24px; border-radius: var(--radius-sm); background: var(--surface); border: 1px solid var(--line-strong); color: var(--muted); }
-.sheets-ftable .num { width: 72px; color: var(--muted); }
-.sheets-ftable .sheets-when { width: 120px; color: var(--muted); font-size: var(--fs-sm); white-space: nowrap; }
-.sheets-ftable .sheets-act { width: 48px; padding: 0 6px; text-align: right; }
-.sheets-ftable .sheets-act .btn { width: 30px; min-height: 30px; color: var(--muted); }
-.sheets-ftable td.sheets-act .btn svg { width: 16px; height: 16px; }
+/* 내 통합문서: 공통 폴더 목록(css/files.css) 위에 엑셀 모양만 */
+.sheets-list .p-fb-tpls .section-title h2 { font-size: var(--fs-xs); }
+.sheets-list .p-fb-ic:not(.p-fb-ic-folder) { border: 0; background: none; }
+.sheets-file-ic { flex: none; display: grid; place-items: center; width: 26px; height: 26px; border-radius: var(--radius-sm); background: color-mix(in srgb, var(--ok) 10%, var(--surface)); border: 1px solid color-mix(in srgb, var(--ok) 30%, var(--line)); color: var(--ok); }
+.sheets-mini { display: block; width: 100%; height: 100%; padding: 8px 0 0 8px; overflow: hidden; background: var(--surface); }
+.sheets-mini table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 8px; line-height: 1.2; color: var(--muted); }
+.sheets-mini td { height: 13px; padding: 0 3px; border: 1px solid var(--line); white-space: nowrap; overflow: hidden; text-overflow: clip; }
+.sheets-mini tr:first-child td { background: var(--surface-2); color: var(--text); font-weight: 650; }
 
 /* ---------- 편집기 틀 ---------- */
 .sheets-ed { display: flex; flex-direction: column; height: 100%; min-height: 0; background: var(--surface); position: relative; }
 .sheets-top { display: flex; align-items: center; gap: 6px; height: 48px; padding: 0 var(--sp-3) 0 var(--sp-2); border-bottom: 1px solid var(--line); flex: none; }
-.sheets-back svg { transform: rotate(180deg); }
-.sheets-back.p-icon-btn { width: 30px; min-height: 30px; }
+.sheets-top .sheets-back { flex: none; min-height: 30px; padding: 0 10px 0 4px; gap: 2px; color: var(--muted); }
+.sheets-top .sheets-back:hover { color: var(--text); }
+.sheets-back-lbl { font-size: var(--fs-sm); font-weight: 600; }
+.sheets-top-actions .p-io { gap: 2px; margin-right: 2px; }
 .sheets-doc-ic { flex: none; display: grid; place-items: center; width: 24px; height: 24px; border-radius: var(--radius-sm); background: color-mix(in srgb, var(--ok) 12%, transparent); color: var(--ok); }
 .sheets-doc-ic svg { width: 15px; height: 15px; }
 .sheets-title {
@@ -291,9 +282,8 @@
 }
 @media (max-width: 760px) {
   .sheets-tpls { grid-auto-columns: 140px; gap: var(--sp-2); }
-  .sheets-listhead .p-search { flex: 1 1 100%; max-width: none; }
-  .sheets-ftable .num { display: none; }
-  .sheets-ftable .sheets-when { width: 84px; padding: 0 6px; }
+  .sheets-back-lbl { display: none; }
+  .sheets-top .sheets-back { width: 30px; padding: 0; justify-content: center; }
   .sheets-top { padding: 0 var(--sp-2) 0 4px; gap: 4px; height: 44px; }
   .sheets-doc-ic { display: none; }
   .sheets-top-actions .btn span:not(.sr-only) { display: none; }

@@ -952,13 +952,12 @@
     root.innerHTML =
       '<div class="sheets-ed">' +
         '<div class="sheets-top">' +
-          '<a class="btn btn-ghost btn-sm p-icon-btn sheets-back" href="#/sheets" title="목록으로" aria-label="목록으로">' + P.icons.arrow + '<span class="sr-only">목록</span></a>' +
+          '<a class="btn btn-ghost btn-sm sheets-back" href="' + P.files.backHref('sheets', book.folder) + '" title="목록으로" aria-label="목록으로"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg><span class="sheets-back-lbl">목록</span></a>' +
           '<span class="sheets-doc-ic" aria-hidden="true">' + P.icons.sheet + '</span>' +
           '<input class="sheets-title" aria-label="통합문서 이름" maxlength="80">' +
           '<span class="sheets-save" data-state="saved" aria-live="polite">저장됨</span>' +
           '<div class="sheets-top-actions">' +
-            '<button type="button" class="btn btn-ghost btn-sm" data-act="import" title="XLSX·CSV를 새 시트로 가져오기">' + P.icons.upload + '<span>가져오기</span></button>' +
-            '<button type="button" class="btn btn-ghost btn-sm" data-act="export" title="내보내기">' + P.icons.download + '<span>내보내기</span></button>' +
+            '<span class="sheets-io"></span>' +
             '<button type="button" class="btn btn-ghost btn-sm" data-act="print" title="현재 시트 인쇄 (Ctrl+P)">' + IC_PRINT + '<span>인쇄</span></button>' +
             '<button type="button" class="btn btn-sm" data-act="chart" title="선택 영역으로 차트 만들기">' + P.icons.chart + '<span>차트 만들기</span></button>' +
             '<button type="button" class="btn btn-ghost btn-sm p-icon-btn" data-act="help" title="단축키" aria-label="단축키 도움말">' + IC_KEYS + '</button>' +
@@ -2986,8 +2985,8 @@
         f.click();
       });
     }
-    async function importInto(btn) {
-      const file = await pickFile('.xlsx,.xls,.xlsm,.ods,.csv,.tsv,.txt');
+    async function importInto(btn, given) {
+      const file = given || await pickFile('.xlsx,.xls,.xlsm,.ods,.csv,.tsv,.txt');
       if (!file) return;
       try {
         const res = await P.ui.busy(btn, () => readFileAsSheets(file));
@@ -3018,14 +3017,18 @@
       P.ui.download(fileName('csv').replace(/\.csv$/, ' - ' + cur().name.replace(/[\\/:*?"<>|]/g, '_') + '.csv'), csvOf(cur(), book.active, engine, dispText), 'text/csv');
       P.ui.toast('현재 시트를 CSV로 내려받았습니다.', 'ok');
     }
-    function exportMenu(btn) {
-      popMenu(btn, [
-        { label: 'XLSX(엑셀) 파일로 내려받기', onClick: () => P.ui.busy(btn, exportXLSX) },
-        { label: 'CSV(현재 시트)로 내려받기', onClick: exportCSV },
-        { sep: true },
-        { label: '인쇄 / PDF로 저장', onClick: printSheet }
-      ]);
-    }
+    const io = P.files.ioButtons({
+      kind: 'sheets', size: 'sm', compact: true,
+      attrs: { import: { 'data-act': 'import' }, export: { 'data-act': 'export' } }, menuClass: 'sheets-menu', exportTitle: '이 통합문서',
+      importers: [{ id: 'sheet', label: '새 시트로 가져오기', ext: 'XLSX · CSV', accept: '.xlsx,.xls,.xlsm,.ods,.csv,.tsv,.txt', run: (f) => importInto(io.importBtn, f) }],
+      exporters: [
+        { id: 'xlsx', label: '엑셀 파일 XLSX', ext: 'XLSX', desc: '모든 시트, 수식·서식 포함', icon: P.files.icons.sheet, run: () => { if (st.editing) commitEdit(); return exportXLSX(); } },
+        { id: 'csv', label: '현재 시트 CSV', ext: 'CSV', desc: '지금 보는 시트 하나, 값만', icon: P.files.icons.text, run: () => { if (st.editing) commitEdit(); exportCSV(); } },
+        '-',
+        { id: 'print', label: '인쇄 · PDF로 저장', ext: 'PDF', desc: '현재 시트를 인쇄 창으로', icon: P.files.icons.print, run: printSheet }
+      ]
+    });
+    $('.sheets-io').replaceWith(io.el);
     function printSheet() {
       if (st.editing) commitEdit();
       const sh = cur(), si = book.active;
@@ -3098,7 +3101,7 @@
       }
       try { sessionStorage.setItem('charts:incoming', JSON.stringify({ columns, rows, title: book.title + (book.sheets.length > 1 ? ' · ' + sh.name : '') })); } catch (e) { P.ui.toast('데이터가 너무 커서 넘기지 못했습니다.', 'error'); return; }
       saveNow();
-      ctx.navigate('charts');
+      ctx.navigate('charts/new');
     }
     function helpDialog() {
       const rows = [['Enter / Tab', '아래 / 오른쪽 셀로 이동(입력 확정)'], ['F2 또는 두 번 클릭', '셀 수정'], ['Alt+Enter', '셀 안에서 줄 바꿈'], ['Esc', '입력 취소'],
@@ -3117,7 +3120,8 @@
       const b = e.target.closest('[data-act]');
       if (!b) return;
       if (st.editing && !commitEdit()) return;
-      ({ import: () => importInto(b), export: () => exportMenu(b), print: printSheet, chart: toChart, help: helpDialog })[b.dataset.act]();
+      const fn = ({ print: printSheet, chart: toChart, help: helpDialog })[b.dataset.act];
+      if (fn) fn();
     });
     $('.sheets-fx').addEventListener('click', fxMenu);
 
@@ -3198,120 +3202,87 @@
     if (id === 'blank') o.push('<rect class="pv-sel" x="' + xs[0] + '" y="' + hh + '" width="' + spec.cols[0] + '" height="' + rh + '"/><rect class="pv-fh" x="' + (xs[1] - 1.6) + '" y="' + (hh + rh - 1.6) + '" width="3.2" height="3.2"/>');
     return '<svg class="sheets-pv" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMinYMin slice" aria-hidden="true">' + o.join('') + '</svg>';
   }
+  /* 목록에서 내보내기: 편집기 없이 계산해 파일로 */
+  function plainDisplay(book, engine) {
+    const gen = (v) => { if (Number.isInteger(v)) return String(v); return String(+v.toPrecision(11)); };
+    return (si, r, c) => {
+      const cell = book.sheets[si].cells[K(r, c)];
+      if (!cell) return '';
+      const v = cell.f != null ? engine.value(si, r, c) : cell.v;
+      if (v == null || v === '') return '';
+      if (engine.isErr(v)) return engine.errText(v);
+      if (typeof v === 'boolean') return v ? 'TRUE' : 'FALSE';
+      if (typeof v === 'number') { const fmt = cell.s && cell.s.fmt; return fmt && fmt !== 'General' && fmt !== '@' ? engine.format(fmt, v) : gen(v); }
+      return String(v);
+    };
+  }
+  const bookName = (b) => (b.title || '통합문서').replace(/[\\/:*?"<>|]/g, '_').slice(0, 80);
+  async function bookFiles(row, fmt) {
+    await P.loadScript(LIB.formula);
+    const b = fixBook(JSON.parse(JSON.stringify(row.data)));
+    const engine = makeEngine(b);
+    if (fmt === 'xlsx') {
+      await P.loadScript(LIB.xlsx);
+      return { name: bookName(b) + '.xlsx', blob: new Blob([bookToXLSX(b, engine)], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }) };
+    }
+    engine.reset();
+    const si = Math.min(b.active || 0, b.sheets.length - 1);
+    return { name: bookName(b) + ' - ' + b.sheets[si].name.replace(/[\\/:*?"<>|]/g, '_') + '.csv', data: csvOf(b.sheets[si], si, engine, plainDisplay(b, engine)), mime: 'text/csv' };
+  }
+  const SHEET_ACCEPT = '.xlsx,.xls,.xlsm,.ods,.csv,.tsv,.txt';
+  function miniGrid(d) {
+    const sh = Array.isArray(d.sheets) && d.sheets[0];
+    const cells = (sh && sh.cells) || {};
+    let h = '<span class="sheets-mini" aria-hidden="true"><table>';
+    for (let r = 0; r < 7; r++) {
+      h += '<tr>';
+      for (let c = 0; c < 4; c++) { const x = cells[r + ',' + c]; const v = x ? (x.f != null ? 'ƒ' : x.v) : ''; h += '<td>' + esc(String(v == null ? '' : v).slice(0, 10)) + '</td>'; }
+      h += '</tr>';
+    }
+    return h + '</table></span>';
+  }
   async function mountList(root, ctx) {
+    const folder = ctx.params[0] === 'f' ? ctx.params[1] || null : null;
     const tile = (id, title, desc) => '<button type="button" class="sheets-tpl" data-tpl="' + id + '"' + (desc ? ' title="' + esc(desc) + '"' : '') + '><span class="sheets-tpl-pv">' + tplPreview(id) + '</span><b>' + esc(title) + '</b></button>';
-    root.innerHTML =
-      '<div class="page sheets-list">' +
-        '<div class="page-head"><div><h1>엑셀</h1></div>' +
-          '<div class="toolbar"><button type="button" class="btn" data-act="import">' + P.icons.upload + '<span>파일 열기</span></button>' +
-          '<button type="button" class="btn btn-primary" data-act="new">' + P.icons.plus + '<span>새 통합문서</span></button></div></div>' +
-        '<section class="sheets-sec"><div class="section-title"><h2>새로 만들기</h2></div>' +
-        '<div class="sheets-tpls">' +
-          tile('blank', '빈 통합문서', '') +
-          TEMPLATES.map((t) => tile(t.id, t.title, t.desc)).join('') +
-        '</div></section>' +
-        '<section class="sheets-sec"><div class="sheets-listhead"><div class="section-title"><h2>내 통합문서</h2><span class="sheets-count tnum"></span></div><label class="p-search">' + P.icons.search + '<input type="search" placeholder="이름으로 찾기" aria-label="통합문서 검색"></label></div>' +
-        '<div class="sheets-files">' + P.ui.skeleton(3) + '</div></section>' +
-      '</div>';
-    const filesEl = root.querySelector('.sheets-files');
-    const search = root.querySelector('input[type=search]');
-    let items = [];
-    async function load() {
-      try { items = await P.store.list(COL); } catch (e) { items = []; }
-      draw();
-    }
-    function draw() {
-      const q = search.value.trim().toLowerCase();
-      const list = items.filter((x) => !q || String((x.data && x.data.title) || '').toLowerCase().includes(q));
-      root.querySelector('.sheets-count').textContent = items.length ? String(items.length) : '';
-      if (!items.length) { filesEl.innerHTML = '<div class="empty card empty-art sheets-files-empty"><div class="fx-img-slot" data-slot="empty-sheets"></div><div class="empty-txt"><h3>아직 통합문서가 없습니다</h3><p>위 템플릿을 고르거나, 가지고 있는 XLSX·CSV 파일을 열어 이어서 작업하세요.</p></div></div>'; return; }
-      if (!list.length) { filesEl.innerHTML = '<div class="sheets-files-msg">"' + esc(q) + '"에 맞는 통합문서가 없습니다.</div>'; return; }
-      list.sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
-      filesEl.innerHTML = '<div class="table-wrap"><table class="table sheets-ftable"><thead><tr><th>이름</th><th class="num">시트</th><th class="sheets-when">수정</th><th class="sheets-act"><span class="sr-only">동작</span></th></tr></thead><tbody>' +
-        list.map((x) => {
-          const d = x.data || {};
-          const n = Array.isArray(d.sheets) ? d.sheets.length : 0;
-          return '<tr class="sheets-file"><td><a class="sheets-file-main" href="#/sheets/' + encodeURIComponent(x.id) + '"><span class="sheets-file-ic">' + I0(TPL_IC.blank) + '</span><b>' + esc(d.title || '제목 없음') + '</b></a></td>' +
-            '<td class="num">' + n + '</td><td class="sheets-when tnum"><time datetime="' + esc(x.updatedAt || '') + '">' + fmtWhen(x.updatedAt) + '</time></td>' +
-            '<td class="sheets-act"><button type="button" class="btn btn-ghost btn-sm p-icon-btn" data-more="' + esc(x.id) + '" aria-label="더 보기" title="더 보기">' + P.icons.more + '</button></td></tr>';
-        }).join('') + '</tbody></table></div>';
-    }
-    async function create(book) {
+    async function create(book, f) {
       const id = P.store.uid();
+      book.folder = f || null;
+      if (!book.createdAt) book.createdAt = new Date().toISOString();
       try {
         await P.store.put(COL, id, book);
         ctx.navigate('sheets/' + id);
       } catch (e) { /* core가 알림 */ }
     }
-    search.addEventListener('input', draw);
-    root.addEventListener('click', async (e) => {
-      const t = e.target.closest('[data-tpl]');
-      if (t) {
-        if (t.dataset.tpl === 'blank') return create(newBook('새 통합문서'));
-        const tp = TEMPLATES.find((x) => x.id === t.dataset.tpl);
-        return create(bookFromTemplate(tp));
-      }
-      const a = e.target.closest('[data-act]');
-      if (a && a.dataset.act === 'new') return create(newBook('새 통합문서'));
-      if (a && a.dataset.act === 'import') {
-        const f = document.createElement('input');
-        f.type = 'file';
-        f.accept = '.xlsx,.xls,.xlsm,.ods,.csv,.tsv,.txt';
-        f.addEventListener('change', async () => {
-          const file = f.files && f.files[0];
-          if (!file) return;
-          try {
-            const res = await P.ui.busy(a, () => readFileAsSheets(file));
-            const b = newBook(res.title);
-            const used = new Set();
-            res.sheets.forEach((s) => { s.name = safeSheetName(s.name, used); });
-            b.sheets = res.sheets;
-            await create(b);
-          } catch (err) { console.error(err); P.ui.toast('파일을 읽지 못했습니다: ' + (err.message || err), 'error'); }
-        });
-        f.click();
-        return;
-      }
-      const m = e.target.closest('[data-more]');
-      if (m) {
-        const id = m.dataset.more;
-        const it = items.find((x) => x.id === id);
-        if (!it) return;
-        popMenu(m, [
-          { label: '열기', onClick: () => ctx.navigate('sheets/' + id) },
-          { label: '이름 바꾸기', onClick: async () => {
-            const v = await P.ui.prompt('통합문서 이름', it.data.title);
-            if (v == null || !v.trim()) return;
-            it.data.title = v.trim();
-            await P.store.put(COL, id, it.data);
-            load();
-          } },
-          { label: '복제', onClick: async () => {
-            const copy = JSON.parse(JSON.stringify(it.data));
-            copy.title = (copy.title || '제목 없음') + ' 사본';
-            await P.store.put(COL, P.store.uid(), copy);
-            P.ui.toast('복제했습니다.', 'ok');
-            load();
-          } },
-          { label: 'XLSX로 내려받기', onClick: async () => {
-            await P.loadScript(LIB.formula);
-            await P.loadScript(LIB.xlsx);
-            const b = fixBook(JSON.parse(JSON.stringify(it.data)));
-            const out = bookToXLSX(b, makeEngine(b));
-            P.ui.download((b.title || '통합문서').replace(/[\\/:*?"<>|]/g, '_') + '.xlsx', new Blob([out], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
-          } },
-          { sep: true },
-          { label: '삭제', onClick: async () => {
-            if (!(await P.ui.confirm('"' + (it.data.title || '제목 없음') + '"을(를) 삭제할까요? 되돌릴 수 없습니다.', { danger: true, okLabel: '삭제' }))) return;
-            await P.store.remove(COL, id);
-            P.ui.toast('삭제했습니다.');
-            load();
-          } }
-        ]);
+    async function importFile(file, f) {
+      const res = await readFileAsSheets(file);
+      const b = newBook(res.title);
+      const used = new Set();
+      res.sheets.forEach((sh) => { sh.name = safeSheetName(sh.name, used); });
+      b.sheets = res.sheets;
+      await create(b, f);
+    }
+    const fb = P.files.browser(root, {
+      col: COL, kind: 'sheets', folder,
+      title: '엑셀', itemName: '통합문서', newLabel: '새 통합문서', mineLabel: '내 통합문서', searchHint: '이름으로 찾기',
+      pageClass: 'sheets-list', openClass: 'sheets-file-main', itemClass: 'sheets-file', newAttrs: { 'data-act': 'new' },
+      templates: { title: '새로 만들기', cls: 'sheets-sec', html: '<div class="sheets-tpls">' + tile('blank', '빈 통합문서', '') + TEMPLATES.map((t) => tile(t.id, t.title, t.desc)).join('') + '</div>' },
+      onTemplate: (id, f) => (id === 'blank' ? create(newBook('새 통합문서'), f) : create(bookFromTemplate(TEMPLATES.find((x) => x.id === id)), f)),
+      newItem: (f) => create(newBook('새 통합문서'), f),
+      icon: () => '<span class="sheets-file-ic">' + I0(TPL_IC.blank) + '</span>',
+      badge: (it) => '<span class="badge">시트 ' + (Array.isArray(it.data.sheets) ? it.data.sheets.length : 0) + '개</span>',
+      meta: (it) => (Array.isArray(it.data.sheets) ? it.data.sheets.map((x) => x && x.name).filter(Boolean).slice(0, 4).join(' · ') : ''),
+      thumb: (it) => miniGrid(it.data),
+      empty: { slot: 'empty-sheets', title: '아직 통합문서가 없습니다', desc: '위 템플릿을 고르거나, 가지고 있는 XLSX·CSV 파일을 열어 이어서 작업하세요.' },
+      io: {
+        attrs: { import: { 'data-act': 'import' } },
+        importers: [{ id: 'sheet', label: '표 파일', ext: 'XLSX · CSV', accept: SHEET_ACCEPT, multiple: true, run: async (files, c) => { for (const f of files) await importFile(f, c.folder); } }],
+        exporters: [
+          { id: 'xlsx', label: '엑셀 파일', ext: 'XLSX', desc: '모든 시트, 수식·서식 포함', icon: P.files.icons.sheet, file: (r) => bookFiles(r, 'xlsx') },
+          { id: 'csv', label: '쉼표로 나눈 값', ext: 'CSV', desc: '마지막으로 본 시트 하나, 값만', icon: P.files.icons.text, file: (r) => bookFiles(r, 'csv') }
+        ]
       }
     });
-    await load();
-    return () => closeMenus();
+    return () => { closeMenus(); fb.destroy(); };
   }
   const IC_PRINT = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 9V3h10v6"/><rect x="3" y="9" width="18" height="8" rx="1.5"/><path d="M7 14h10v7H7z"/></svg>';
   const IC_KEYS = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="6" width="19" height="12" rx="2"/><path d="M6.5 10h1M10.5 10h1M14.5 10h1M8 14h8"/></svg>';
@@ -3345,7 +3316,7 @@
     icon: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>',
     mount(el, ctx) {
       const id = ctx.params[0];
-      return id ? mountEditor(el, ctx, id) : mountList(el, ctx);
+      return id && id !== 'f' ? mountEditor(el, ctx, id) : mountList(el, ctx);
     }
   });
 
