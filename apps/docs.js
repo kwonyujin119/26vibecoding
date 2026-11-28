@@ -2955,6 +2955,39 @@
       body.focus({ preventScroll: true });
       placeCaret(body.firstElementChild, false);
     }
+    /* 이어하기(js/resume.js): 사용자가 움직인 스크롤·글자 위치를 기억, 이어하기로 열면 그 자리로 */
+    if (P.resume) {
+      const t0 = Date.now();
+      const caretOff = () => {
+        const s = window.getSelection();
+        if (!s || !s.rangeCount || !body.contains(s.anchorNode)) return -1;
+        const r = document.createRange();
+        r.selectNodeContents(body);
+        try { r.setEnd(s.anchorNode, s.anchorOffset); } catch (e) { return -1; }
+        return r.toString().length;
+      };
+      let rsT = 0;
+      const rsSave = () => {
+        if (Date.now() - t0 < 700) return;
+        clearTimeout(rsT);
+        rsT = setTimeout(() => { if (!root.isConnected) return; const c = caretOff(); P.resume.save(APP_ID, id, Object.assign({ scroll: Math.round(desk.scrollTop) }, c >= 0 ? { caret: c } : {})); }, 250);
+      };
+      on(desk, 'scroll', rsSave, { passive: true });
+      on(document, 'selectionchange', rsSave);
+      const want = P.resume.take(APP_ID, id);
+      if (want) setTimeout(() => {
+        if (!root.isConnected) return;
+        if (want.caret >= 0) {
+          const tw = document.createTreeWalker(body, NodeFilter.SHOW_TEXT);
+          let left = want.caret, n;
+          while ((n = tw.nextNode())) {
+            if (left <= n.nodeValue.length) { const r = document.createRange(); r.setStart(n, left); r.collapse(true); body.focus({ preventScroll: true }); setRange(r); break; }
+            left -= n.nodeValue.length;
+          }
+        }
+        if (want.scroll != null) desk.scrollTop = want.scroll;
+      }, 160);
+    }
     if (ctx.params[1] === 'check') openSide('check');
     if (ctx.params[1] === 'print') {
       try { history.replaceState(null, '', '#/' + APP_ID + '/' + encodeURIComponent(id)); } catch (e) { /* 무시 */ }
@@ -3774,6 +3807,9 @@
       ctx.navigate(APP_ID + '/' + encodeURIComponent(firstId));
     }
   }
+
+  /* 다른 화면(홈 한 줄 명령·업무 마감 보고)이 같은 형식으로 문서를 만들 때 쓰는 도구 */
+  window.DocsKit = { templates, newDocData, fmtDate, html: { tbl, ctr, rgt, P_, ol, ul, BR } };
 
   /* ================= 등록 ================= */
   P.registerApp({

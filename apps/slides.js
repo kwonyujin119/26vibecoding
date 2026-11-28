@@ -1650,6 +1650,7 @@
     function goSlide(i, keepSel) {
       finishEdit();
       st.cur = clamp(i, 0, deck.slides.length - 1);
+      if (P.resume && st.rsOn) P.resume.save(APP_ID, id, { slide: st.cur, of: deck.slides.length });
       if (!keepSel) st.sel = null;
       renderCanvas();
       notesTa.value = slide().notes || '';
@@ -2645,6 +2646,10 @@
     renderAll();
     requestAnimationFrame(() => { fitStage(); scaleMinis(thumbs); });
     setTimeout(updateBadge, 400);
+    /* 이어하기(js/resume.js): 이어하기로 열면 마지막 슬라이드로 */
+    const want = P.resume && P.resume.take(APP_ID, id);
+    st.rsOn = true;
+    if (want && want.slide > 0) goSlide(want.slide);
 
     return () => {
       if (st.exitPresent) st.exitPresent();
@@ -2656,6 +2661,16 @@
       document.body.classList.remove('slides-printing');
     };
   }
+
+  /* 홈 한 줄 명령이 같은 형식으로 새 PT를 만들 때 쓰는 도구 */
+  window.SlidesKit = {
+    newData(title) {
+      const d = deckFromTemplate(TEMPLATES[0]);
+      if (title) d.title = String(title).slice(0, 120);
+      d.createdAt = new Date().toISOString();
+      return serialize(d);
+    }
+  };
 
   P.registerApp({
     id: APP_ID,

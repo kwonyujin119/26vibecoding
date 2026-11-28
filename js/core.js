@@ -2,7 +2,7 @@
 (function () {
   'use strict';
 
-  const VERSION = '1.6.0';
+  const VERSION = '2.0.0';
   const DEFAULT_TITLE = '공마일';
   const DEFAULT_SUBTITLE = '0MILE - 업무의 출발점 / 공무원이 마음껏 일할 수 있는 플랫폼';
 
@@ -1014,6 +1014,17 @@
           '</div><p class="field-hint p-set-fx-hint">풍부하게는 카드 기울기와 빛, 장면 깊이까지. 기본은 가벼운 올림과 등장만. 끄기는 움직임 없이 바로 바뀝니다.' +
           (mqReduce.matches ? ' 이 기기는 동작 줄이기가 켜져 있어 흐려짐만 보입니다.' : '') + '</p></section>';
       })() : '') +
+      (() => {
+        const sign = settings.get('home.sign', null);
+        const signTxt = Array.isArray(sign) && sign.length ? sign.join(', ') : '';
+        const tIn = settings.get('home.in', '09:00');
+        const tOut = settings.get('home.out', '18:00');
+        return '<section id="p-set-home"><h3 class="section-title">홈 결재판</h3>' +
+          '<div class="field"><label for="p-set-sign">결재란 칸 <small class="muted">쉼표로 나눠 2~5칸</small></label><input id="p-set-sign" maxlength="40" placeholder="담당, 팀장, 과장" value="' + esc(signTxt) + '"></div>' +
+          '<div class="p-set-row"><div class="field"><label for="p-set-in">출근</label><input id="p-set-in" type="time" step="600" value="' + esc(tIn) + '"></div>' +
+          '<div class="field"><label for="p-set-out">퇴근</label><input id="p-set-out" type="time" step="600" value="' + esc(tOut) + '"></div></div>' +
+          '<p class="field-hint">출근 뒤 1시간은 아침 브리핑, 퇴근 30분 전부터는 업무 마감 보고를 먼저 보여 줍니다.</p></section>';
+      })() +
       '<section id="p-set-storage"><h3 class="section-title">저장 위치</h3><div class="p-set-kinds">' +
       Object.keys(KINDS).map((k) => '<div class="p-set-kind' + (k === activeKind ? ' active' : '') + '"><span class="p-pop-ic">' + KINDS[k].icon + '</span><div><b>' + esc(KINDS[k].label) + (k === activeKind ? ' <span class="chip">사용 중</span>' : '') + '</b><small class="muted">' + esc(KINDS[k].desc) + '</small></div>' +
         '<div class="p-set-kind-btns">' + (k !== 'local' ? '<button type="button" class="btn btn-ghost btn-sm" data-cfg="' + k + '">설정</button>' : '') +
@@ -1031,6 +1042,15 @@
         settings.set('title', wrap.querySelector('#p-set-title').value.trim());
         settings.set('subtitle', wrap.querySelector('#p-set-sub').value.trim());
         settings.set('logo', wrap.querySelector('#p-set-logo').value.trim());
+        const signIn = wrap.querySelector('#p-set-sign');
+        if (signIn) {
+          const labels = signIn.value.split(/[,，·/]/).map((x) => x.trim().slice(0, 4)).filter(Boolean).slice(0, 5);
+          settings.set('home.sign', labels.length >= 2 ? labels : null);
+          const okT = (v) => /^\d{2}:\d{2}$/.test(v);
+          const a = wrap.querySelector('#p-set-in').value, b = wrap.querySelector('#p-set-out').value;
+          if (okT(a) && okT(b) && a < b) { settings.set('home.in', a); settings.set('home.out', b); }
+          else if (a || b) toast('출근은 퇴근보다 빨라야 합니다. 시간은 그대로 둡니다.', 'warn');
+        }
         applyBrand();
         if (current && current.app.id === 'home') { unmountCurrent(); mountRoute(); }
         toast('설정을 저장했습니다.', 'ok');
@@ -1468,6 +1488,7 @@
     add('schedule', '일정 추가', () => runIntent('schedule/events', 'new'), { key: 'event', icon: icons.calendar, kw: '부서 일정 스케줄 등록' });
     add('schedule', '주요업무 추가', () => runIntent('schedule/tasks', 'new'), { key: 'task', icon: icons.check, kw: '업무 할일 과제' });
     add('head-schedule', '부서장 일정 추가', () => runIntent('head-schedule', 'new'), { key: 'head', icon: icons.clock, kw: '국장 과장 일정 등록' });
+    add('home', '이어하기', () => { if (window.P && P.resume) P.resume.open(); }, { key: 'resume', icon: icons.arrow, kw: '마지막 작업 이어서 열기 resume 계속' });
     add('my-schedule', '내 일정 추가', () => runIntent('my-schedule', 'new'), { key: 'mine', icon: icons.calendar, kw: '개인 일정 할일 내일정 my' });
     return out;
   }
@@ -1559,7 +1580,8 @@
     let sel = 0;
 
     const appItems = () => appList().map((a) => ({ kind: 'app', label: a.title, meta: groupOf(a).label || '', icon: a.icon, kw: (a.short || '') + ' ' + a.id + ' ' + (a.desc || ''), run: () => navigate(a.id) }));
-    const actItems = () => quickActions().map((q) => ({ kind: 'act', label: q.label, meta: '만들기', icon: q.icon, kw: q.kw, run: q.run }))
+    const lineItem = () => (window.P && P.line ? [{ kind: 'act', label: '한 줄로 만들기', meta: '/ · ' + (isMac ? '⌘' : 'Ctrl') + '+J', icon: icons.pen, kw: '한줄 명령 자연어 일정 할일 바로 만들기 입력', run: (q) => P.line.open(q || '') }] : []);
+    const actItems = () => lineItem().concat(quickActions().map((q) => ({ kind: 'act', label: q.label, meta: '만들기', icon: q.icon, kw: q.kw, run: q.run })))
       .concat(systemActions().map((q) => ({ kind: 'sys', label: q.label, meta: '설정', icon: q.icon, kw: q.kw, run: q.run })));
     const recItems = () => recent.map((r) => ({ kind: 'rec', label: r.label, meta: r.type + ' · ' + relTime(r.updatedAt), icon: r.icon, kw: r.type, run: () => navigate(r.col + '/' + encodeURIComponent(r.id)) }));
 
@@ -1573,6 +1595,12 @@
         const all = appItems().concat(actItems(), recItems())
           .map((x) => Object.assign(x, { score: matchScore(q, x.label, x.kw) + (x.kind === 'app' ? 3 : x.kind === 'act' ? 2 : 0) }))
           .filter((x) => x.score > 3).sort((a, b) => b.score - a.score).slice(0, 30);
+        // 한 줄 명령으로 바로 만들기: 일정·할 일처럼 읽히는 글이면 맨 위, 아니면 맨 아래
+        if (window.P && P.nl && P.line && raw.length >= 2) {
+          const pr = P.nl.parse(raw, new Date(), { apps: appList().map((a) => a.id) });
+          const it = { kind: 'line', label: '한 줄로 만들기: ' + raw, meta: (P.nl.kinds[pr.kind] || {}).label || '', icon: icons.pen, run: () => P.line.open(raw) };
+          if (pr.confidence >= 0.45 || !all.length) all.unshift(it); else all.push(it);
+        }
         groups = [['', all]];
       }
       items = [];
@@ -1611,8 +1639,9 @@
     function run(i) {
       const x = items[i];
       if (!x) return;
+      const q = input.value.trim();
       close();
-      setTimeout(() => { try { x.run(); } catch (e) { console.error(e); } }, 0);
+      setTimeout(() => { try { x.run(q); } catch (e) { console.error(e); } }, 0);
     }
     let closed = false;
     function close() {

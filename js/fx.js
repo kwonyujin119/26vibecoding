@@ -44,7 +44,6 @@
   /* ---------- 대상 목록 ----------
      [마우스를 받는 곳, 움직일 곳(없으면 같은 곳), 옵션] · 표·입력칸·편집 중인 화면은 넣지 않음 */
   const CARDS = [
-    ['.home-bento > .home-panel:not(.home-hero):not(.home-flow)', null, {}],
     // 공통 폴더 목록(js/files.js) 격자 칸: 문서는 종이, 나머지는 미리보기 칸
     ['.docs-list .p-fb-items[data-mode="grid"] .p-fb-tile:not(.p-fb-folder) > .p-fb-open', '.docs-a4', { thumb: 1, paper: 1 }],
     ['.p-fb-items[data-mode="grid"] .p-fb-tile > .p-fb-open', '.p-fb-thumb', { thumb: 1 }],
@@ -63,7 +62,7 @@
   ];
   /* 차례 등장 묶음 (같은 부모 안에서 40ms 간격, 최대 12개) */
   const STAGGER = [
-    ['.home-bento > .home-panel', 1],
+    ['.hm-rail > .hm-card', 1], ['.hm-paper > .hm-sec', 0],
     ['.p-fb-items > .p-fb-row, .p-fb-items > .p-fb-tile', 0], ['.charts-tpls > .charts-tpl', 1],
     ['.docs-tpl-row > .docs-tpl', 1], ['.docs-cards > *', 0],
     ['.slides-tpls > .slides-tpl', 1], ['.slides-cards > *', 0],
@@ -73,7 +72,7 @@
     ['.sch-glance > *', 1], ['.page > .empty', 0]
   ];
   /* 스크롤 등장 (처음 보일 때 한 번) */
-  const REVEAL = ['.rf-sec', '.ap-group', '.cl-ver', '.home-bento > .home-panel', '.charts-saved-wrap', '.charts-saved'];
+  const REVEAL = ['.rf-sec', '.ap-group', '.cl-ver', '.charts-saved-wrap', '.charts-saved'];
   /* 편집기 열기 장면 */
   const RISE = ['.docs-scaler', '.slides-frame'];
 
@@ -511,8 +510,7 @@
   /* 화면에 따라 자동으로 붙이는 곳: [선택자, 색] */
   const BEAMS = [
     ['.hs-tg .hs-blk.now:not(.ov)', 'now'],
-    ['.home-tl-row.now > .home-tl-body', 'now'],
-    ['.home-mine-row.now', 'now'],
+    ['.hm-row.is-now:not(.is-stamped) > .hm-body', 'now'],
     ['.charts-grid > .charts-card.is-lead', 'rec']
   ];
   const BEAM_SEL = BEAMS.map((b) => b[0]).join(',');
@@ -692,7 +690,6 @@
   }
   /* 자동으로 붙이는 독 */
   const DOCKS = [
-    ['.home-quick-list', { items: ':scope > button', axis: 'x', part: ':scope > svg', layout: true, spread: false, max: 1.25 }],
     ['.slides-pv-bar', { items: ':scope > *', axis: 'x' }],
     ['#p-side', { items: '.p-tab', axis: 'y', part: '.p-tab-ic', spread: false, when: () => root.getAttribute('data-nav') === 'rail' }]
   ];

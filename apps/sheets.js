@@ -1436,6 +1436,7 @@
       st.point = null;
       ensureVisible(r, c);
       paintSel();
+      if (P.resume && st.resumeOn) P.resume.save('sheets', id, { sheet: book.active, r: st.act.r, c: st.act.c });
     }
     function visibleStep(r, d) {
       let n = r + d;
@@ -2921,6 +2922,7 @@
       scheduleSave();
       render();
       focusGrid();
+      if (P.resume) P.resume.save('sheets', id, { sheet: i, r: 0, c: 0 });
     }
     function uniqueName(base) {
       const used = new Set(book.sheets.map((s) => s.name.toLowerCase()));
@@ -3131,6 +3133,13 @@
     render();
     if (!matchMedia('(pointer: coarse)').matches) focusGrid();
     else st.touch = true;
+    /* 이어하기(js/resume.js): 이어하기로 열면 마지막 시트·셀로 */
+    const want = P.resume && P.resume.take('sheets', id);
+    if (want && want.sheet >= 0 && want.sheet < book.sheets.length) {
+      if (want.sheet !== book.active) { book.active = want.sheet; render(); }
+      if (want.r >= 0 && want.c >= 0) select(want.r, want.c);
+    }
+    st.resumeOn = true;
     return function destroy() {
       st.destroyed = true;
       closeMenus();
@@ -3306,6 +3315,9 @@
     root.classList.add('sheets-full');
     return createEditor(root, fixBook(data), id, ctx);
   }
+
+  /* 홈 한 줄 명령이 같은 형식으로 새 통합문서를 만들 때 쓰는 도구 */
+  window.SheetsKit = { newData(title) { const b = newBook(title ? String(title).slice(0, 120) : '새 통합문서'); b.createdAt = new Date().toISOString(); b.folder = null; return b; } };
 
   P.registerApp({
     id: 'sheets',
