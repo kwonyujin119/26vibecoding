@@ -206,7 +206,7 @@
         html += '<button type="button" class="btn btn-ghost btn-sm sc-past-btn" data-act="past" aria-expanded="' + st.showPast + '">' + P.icons.chevron + (st.showPast ? '지난 일정 접기' : '지난 일정 ' + pastCount + '건') + '</button>';
         if (st.showPast) html += '<div class="sc-agenda sc-past">' + past.map((d) => dayBlock(d, occ.get(d), t)).join('') + '</div>';
       }
-      if (!coming.length) html += '<div class="empty card"><p>예정된 일정이 없습니다.</p><div class="toolbar sc-empty-acts"><button type="button" class="btn btn-primary btn-sm" data-act="new">' + P.icons.plus + '일정 추가</button>' + (events().length ? '' : '<button type="button" class="btn btn-sm" data-act="sample">예시 데이터</button>') + '</div></div>';
+      if (!coming.length) html += '<div class="empty card empty-art"><div class="fx-img-slot" data-slot="empty-schedule"></div><div class="empty-txt"><h3>예정된 일정이 없습니다</h3><p>부서 일정을 넣으면 날짜순으로 이곳에 모이고, 홈 화면에도 보입니다.</p><div class="toolbar sc-empty-acts"><button type="button" class="btn btn-primary btn-sm" data-act="new">' + P.icons.plus + '일정 추가</button>' + (events().length ? '' : '<button type="button" class="btn btn-sm" data-act="sample">예시 데이터</button>') + '</div></div></div>';
       return html + (coming.length ? '<div class="sc-agenda">' + coming.map((d) => dayBlock(d, occ.get(d), t)).join('') + '</div>' : '');
     }
     function eventsCal() {
@@ -512,8 +512,8 @@
           '<div class="field"><label>구분 목록 <small class="muted">순서 = 화면 우선순위. \'' + MAJOR + '\'는 주요업무 탭과 연동됩니다</small></label></div>' +
           list.map((c, i) => '<div class="hs-person sc-catrow" data-i="' + i + '"><input type="color" value="' + K.safeColor(c.color) + '" aria-label="색" data-k="color">' +
             '<input type="text" value="' + P.esc(c.name) + '" maxlength="12" aria-label="구분 이름" data-k="name">' +
-            '<span class="hs-person-btns"><button type="button" class="btn btn-ghost btn-sm" data-mv="-1" aria-label="위로"' + (i ? '' : ' disabled') + '>▲</button>' +
-            '<button type="button" class="btn btn-ghost btn-sm" data-mv="1" aria-label="아래로"' + (i < list.length - 1 ? '' : ' disabled') + '>▼</button>' +
+            '<span class="hs-person-btns"><button type="button" class="btn btn-ghost btn-sm p-icon-btn" data-mv="-1" aria-label="위로"' + (i ? '' : ' disabled') + '><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg></button>' +
+            '<button type="button" class="btn btn-ghost btn-sm p-icon-btn" data-mv="1" aria-label="아래로"' + (i < list.length - 1 ? '' : ' disabled') + '><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>' +
             '<button type="button" class="btn btn-ghost btn-sm" data-del aria-label="삭제">' + P.icons.trash + '</button></span></div>').join('') +
           '<div class="toolbar"><button type="button" class="btn" data-add>' + P.icons.plus + '구분 추가</button><button type="button" class="btn btn-ghost" data-reset>기본값으로</button></div>' +
           '<p class="muted p-form-help">구분 이름을 바꿔도 이미 저장된 일정의 구분은 그대로입니다. 보드 이름·구분은 같은 저장 위치를 쓰는 모든 사람에게 적용됩니다.</p>';

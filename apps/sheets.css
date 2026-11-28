@@ -49,7 +49,7 @@
 .sheets-file-main:hover { text-decoration: none; }
 .sheets-file:hover .sheets-file-main b { color: var(--accent); }
 .sheets-file-main b { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.sheets-file-ic { flex: none; display: grid; place-items: center; width: 24px; height: 24px; border-radius: var(--radius-sm); background: color-mix(in srgb, var(--ok) 12%, transparent); color: var(--ok); }
+.sheets-file-ic { flex: none; display: grid; place-items: center; width: 24px; height: 24px; border-radius: var(--radius-sm); background: var(--surface); border: 1px solid var(--line-strong); color: var(--muted); }
 .sheets-ftable .num { width: 72px; color: var(--muted); }
 .sheets-ftable .sheets-when { width: 120px; color: var(--muted); font-size: var(--fs-sm); white-space: nowrap; }
 .sheets-ftable .sheets-act { width: 48px; padding: 0 6px; text-align: right; }

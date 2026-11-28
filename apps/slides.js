@@ -199,7 +199,7 @@
     { id: 'quote', name: '인용', els: () => [
       T({ role: 'mark', x: 72, y: 60, w: 200, h: 220, size: 160, bold: true, color: '@accent', lh: 1, text: '“' }),
       T({ role: 'body', x: 150, y: 190, w: 980, h: 290, size: 34, color: '@title', valign: 'middle', lh: 1.45, ph: '인용문을 입력하세요' }),
-      T({ role: 'meta', x: 150, y: 500, w: 980, h: 50, size: 20, color: '@muted', ph: '— 말한 사람, 출처' })
+      T({ role: 'meta', x: 150, y: 500, w: 980, h: 50, size: 20, color: '@muted', ph: '말한 사람 · 출처' })
     ] },
     { id: 'photo', name: '사진 전체', deco: false, els: () => [
       { type: 'image', role: 'photo', x: 0, y: 0, w: W, h: H, asset: null, fit: 'cover', radius: 0 },
@@ -459,6 +459,9 @@
     });
   }
 
+  /* 발표 전환 (발표 모드에서만 씀. PPTX 내보내기에는 넣지 않음) */
+  const TRANSITIONS = [['fade', '흐리게'], ['none', '없음'], ['push', '밀기'], ['cube', '큐브'], ['flip', '뒤집기'], ['zoom', '확대']];
+
   /* ---------- 문서 모델 ---------- */
   function blankDeck(title, theme) {
     return { v: 1, title: title || '새 PT', theme: theme || 'clean', slides: [makeSlide('cover', {})], assets: {} };
@@ -466,6 +469,7 @@
   function normalizeDeck(d) {
     const deck = Object.assign({ v: 1, title: '새 PT', theme: 'clean', slides: [], assets: {} }, d || {});
     if (!THEMES[deck.theme]) deck.theme = 'clean';
+    if (!TRANSITIONS.some((t) => t[0] === deck.transition)) deck.transition = 'fade';
     if (!Array.isArray(deck.slides)) deck.slides = [];
     deck.slides = deck.slides.filter(Boolean).map((s) => Object.assign({ id: uid(), layout: 'blank', variant: 'base', deco: true, bg: null, bgAsset: null, notes: '', els: [] }, s));
     deck.slides.forEach((s) => { s.els = (s.els || []).filter((e) => e && e.type).map((e) => Object.assign({ id: uid() }, e)); });
@@ -486,7 +490,7 @@
     Object.keys(deck.assets).forEach((k) => { if (!used.has(k)) delete deck.assets[k]; });
   }
   function serialize(deck) {
-    return { v: 1, title: deck.title, theme: deck.theme, slides: deck.slides, assets: deck.assets, slideCount: deck.slides.length, createdAt: deck.createdAt || new Date().toISOString() };
+    return { v: 1, title: deck.title, theme: deck.theme, transition: deck.transition || 'fade', slides: deck.slides, assets: deck.assets, slideCount: deck.slides.length, createdAt: deck.createdAt || new Date().toISOString() };
   }
 
   /* ---------- 서식(템플릿) ---------- */
@@ -506,7 +510,7 @@
       ['titleBody', { title: '학습 목표', body: '현장 위험 요소를 세 가지 이상 찾을 수 있다\n상황별 기본 대응 절차를 설명할 수 있다\n보호 장비를 올바르게 착용할 수 있다', notes: '목표는 "~할 수 있다"로 끝나게 말합니다.' }],
       ['toc', { title: '오늘 배울 내용', body: '위험 요소 찾기\n기본 대응 절차\n보호 장비 착용\n사례로 정리' }],
       ['twoCol', { title: '바른 예와 잘못된 예', head1: '바른 예', body: '출동 전 장비 점검표 확인\n2인 1조로 진입\n무전으로 위치 보고', head2: '잘못된 예', body2: '점검 없이 출동\n혼자 먼저 진입\n보고 없이 이동' }],
-      ['quote', { body: '안전은 절차를 지키는 습관에서 시작됩니다.', meta: '— 현장 안전 기본 원칙' }],
+      ['quote', { body: '안전은 절차를 지키는 습관에서 시작됩니다.', meta: '현장 안전 기본 원칙' }],
       ['photo', { body: '현장 사진을 넣고 한 줄 설명을 적으세요' }],
       ['titleBody', { title: '정리', body: '위험 요소는 출동 전에 먼저 확인한다\n절차는 순서대로, 2인 1조로\n장비는 매번 같은 순서로 착용한다' }],
       ['closing', { title: '질문 있으신가요?', body: '다음 차시: 상황별 대응 실습' }]
@@ -527,7 +531,7 @@
     ] },
     { id: 'seminar', name: '세미나 발표', desc: '어두운 화면, 큰 글자', theme: 'dark', slides: [
       ['cover', { title: '일하는 방식을 바꾸는 작은 습관', body: '부서 공유 세미나', meta: '발표자 · 2026. 11.' }],
-      ['quote', { body: '좋은 보고는 한 장에 한 가지 메시지를 담습니다.', meta: '— 발표 디자인 원칙' }],
+      ['quote', { body: '좋은 보고는 한 장에 한 가지 메시지를 담습니다.', meta: '발표 디자인 원칙' }],
       ['titleBody', { title: '오늘의 세 가지', body: '한 장에 한 메시지\n글은 줄이고 말로 설명\n숫자는 크게, 근거는 노트에' }],
       ['chart', { title: '업무 시간 사용 비율', chart: { kind: 'pie', labels: ['문서 작성', '회의', '현장 업무', '기타'], values: [38, 22, 30, 10] } }],
       ['closing', { title: '감사합니다', body: '자료는 부서 공유 폴더에 있습니다' }]
@@ -611,7 +615,7 @@
         return;
       }
       if (g.quote.length) {
-        const meta = g.items[0] ? (/^[—-]/.test(g.items[0]) ? g.items[0] : '— ' + g.items[0]) : '';
+        const meta = g.items[0] ? g.items[0].replace(/^[—―-]\s*/, '') : '';
         out.push(makeSlide('quote', { body: g.quote.join('\n'), meta, notes: [g.title, notes].filter(Boolean).join('\n') }));
         return;
       }
@@ -1182,7 +1186,7 @@
       const list = items.filter((it) => !q || String(it.data.title || '').toLowerCase().includes(q));
       root.querySelector('.slides-count').textContent = items.length ? String(items.length) : '';
       if (!items.length) {
-        cards.innerHTML = '<div class="empty slides-empty"><p>아직 PT가 없습니다.</p><button type="button" class="btn btn-primary" data-a="new-empty">' + I.plus + '새 PT</button></div>';
+        cards.innerHTML = '<div class="empty slides-empty empty-art"><div class="fx-img-slot" data-slot="empty-slides"></div><div class="empty-txt"><h3>아직 PT가 없습니다</h3><p>서식을 고르거나, 개요 글을 붙여 넣으면 슬라이드가 한 번에 만들어집니다.</p><button type="button" class="btn btn-primary" data-a="new-empty">' + I.plus + '새 PT</button></div></div>';
         cards.querySelector('[data-a="new-empty"]').addEventListener('click', () => createDeck(blankDeck()));
         return;
       }
@@ -1311,17 +1315,46 @@
     function fit() {
       const r = main.getBoundingClientRect();
       const k = Math.min(r.width / W, r.height / H);
-      const inner = stage.firstElementChild;
-      if (inner) {
-        inner.style.transform = 'scale(' + k + ')';
+      const ins = stage.querySelectorAll('.slides-pv-in');
+      ins.forEach((inner) => { inner.style.transform = 'scale(' + k + ')'; });
+      if (ins.length) {
         stage.style.width = W * k + 'px';
         stage.style.height = H * k + 'px';
+        stage.style.setProperty('--pvw', (W * k).toFixed(1) + 'px');
       }
       scaleMinis(nextEl);
     }
+    /* 전환: 흐리게(기본) · 밀기 · 큐브 · 뒤집기 · 확대. 움직임 줄이기·효과 끄기면 흐리게만 */
+    function transitionKind() {
+      const t = deck.transition || 'fade';
+      const fxOff = P.fx && P.fx.level() === 'off';
+      const rm = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (t === 'none' || fxOff) return 'none';
+      return rm ? 'fade' : t;
+    }
+    let dir = 1;
     function render(anim) {
       const s = deck.slides[i];
-      stage.innerHTML = '<div class="slides-pv-in' + (anim ? ' slides-pv-fade' : '') + '">' + slideMarkup(deck, s, {}) + '</div>';
+      const kind = anim ? transitionKind() : 'none';
+      const html = '<div class="slides-pv-in">' + slideMarkup(deck, s, {}) + '</div>';
+      const old = stage.querySelector('.slides-pv-tr:not(.out)');
+      stage.querySelectorAll('.slides-pv-tr.out').forEach((n) => n.remove());
+      if (kind === 'none' || kind === 'fade' || !old) {
+        stage.innerHTML = '<div class="slides-pv-tr' + (kind === 'fade' || (anim && !old && kind !== 'none') ? ' slides-pv-fade' : '') + '">' + html + '</div>';
+        stage.className = 'slides-pv-stage';
+      } else {
+        stage.className = 'slides-pv-stage';
+        void stage.offsetWidth; // 같은 전환을 연달아 써도 처음부터 다시
+        stage.className = 'slides-pv-stage tr-' + kind + (dir < 0 ? ' tr-back' : '');
+        old.classList.add('out');
+        const nw = document.createElement('div');
+        nw.className = 'slides-pv-tr in';
+        nw.innerHTML = html;
+        stage.appendChild(nw);
+        const done = () => { old.remove(); nw.classList.remove('in'); };
+        nw.addEventListener('animationend', done, { once: true });
+        setTimeout(() => { if (old.isConnected) done(); }, 900);
+      }
       countEl.textContent = (i + 1) + ' / ' + deck.slides.length;
       ov.querySelector('.slides-pv-progress i').style.width = ((i + 1) / deck.slides.length * 100) + '%';
       const nx = deck.slides[i + 1];
@@ -1335,6 +1368,7 @@
       const j = clamp(n, 0, deck.slides.length - 1);
       if (j === i && n >= deck.slides.length) { P.ui.toast('마지막 슬라이드입니다. Esc로 끝냅니다.', 'info'); return; }
       if (j === i) return;
+      dir = j > i ? 1 : -1;
       i = j;
       render(true);
     }
@@ -1530,7 +1564,7 @@
     }
 
     /* ----- 실행 취소 ----- */
-    const snap = () => JSON.stringify({ title: deck.title, theme: deck.theme, slides: deck.slides, cur: st.cur });
+    const snap = () => JSON.stringify({ title: deck.title, theme: deck.theme, transition: deck.transition, slides: deck.slides, cur: st.cur });
     function checkpoint(key) {
       const now = Date.now();
       if (key && key === st.lastKey && now - st.lastAt < 1500) { st.lastAt = now; return; }
@@ -1544,6 +1578,7 @@
       const o = JSON.parse(s);
       deck.title = o.title;
       deck.theme = o.theme;
+      if (o.transition) deck.transition = o.transition;
       deck.slides = o.slides;
       st.cur = clamp(o.cur || 0, 0, deck.slides.length - 1);
       if (!selEl()) st.sel = null;
@@ -2145,7 +2180,9 @@
           '<div class="slides-row"><button type="button" class="btn btn-sm" data-act="bgimg">' + I.image + (s.bgAsset ? '배경 사진 바꾸기' : '배경 사진 넣기') + '</button>' + (s.bgAsset ? '<button type="button" class="btn btn-sm btn-ghost" data-act="bgimg-x">배경 사진 빼기</button>' : '') + '</div>' +
           '<label class="slides-check"><input type="checkbox" data-sp="deco"' + (s.deco !== false ? ' checked' : '') + '> 테마 장식 보이기</label></div>' +
           '<div class="slides-pg"><h4>슬라이드</h4><div class="slides-row"><button type="button" class="btn btn-sm" data-act="dupSlide">' + I.copy + '복제</button><button type="button" class="btn btn-sm" data-act="delSlide">' + I.trash + '삭제</button></div>' +
-          '</div>';
+          '</div>' +
+          '<div class="slides-pg"><h4>발표 전환</h4>' + seg('transition', deck.transition || 'fade', TRANSITIONS.map(([v, l]) => [v, '', l])) +
+          '<small class="slides-tr-note">발표 모드의 모든 장에 적용됩니다. PPTX에는 넣지 않습니다.</small></div>';
       } else {
         const name = { text: '글상자', shape: '도형', image: '사진', table: '표', chart: '차트' }[e.type];
         h += '<div class="slides-pg slides-pg-head"><h4>' + name + '</h4><div class="slides-row">' +
@@ -2241,6 +2278,7 @@
         const name = sg.parentElement.dataset.seg;
         const v = sg.dataset.v;
         if (name === 'variant') change(() => { s.variant = v; }, null, { props: true });
+        else if (name === 'transition') change(() => { deck.transition = v; }, null, { props: true });
         else if (name === 'style' && e) change(() => { e[v] = !e[v]; }, null, { props: true });
         else if (e) change(() => { e[name] = v; }, null, { props: true });
         return;

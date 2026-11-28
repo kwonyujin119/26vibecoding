@@ -633,8 +633,8 @@
             '<input type="color" value="' + K.safeColor(p.color) + '" aria-label="색" data-k="color">' +
             '<input type="text" value="' + P.esc(p.name) + '" placeholder="이름" maxlength="20" aria-label="이름" data-k="name">' +
             '<input type="text" value="' + P.esc(p.title || '') + '" placeholder="직위 (예: 과장)" maxlength="20" aria-label="직위" data-k="title">' +
-            '<span class="hs-person-btns"><button type="button" class="btn btn-ghost btn-sm" data-mv="-1" aria-label="위로"' + (i ? '' : ' disabled') + '>▲</button>' +
-            '<button type="button" class="btn btn-ghost btn-sm" data-mv="1" aria-label="아래로"' + (i < list.length - 1 ? '' : ' disabled') + '>▼</button>' +
+            '<span class="hs-person-btns"><button type="button" class="btn btn-ghost btn-sm p-icon-btn" data-mv="-1" aria-label="위로"' + (i ? '' : ' disabled') + '><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg></button>' +
+            '<button type="button" class="btn btn-ghost btn-sm p-icon-btn" data-mv="1" aria-label="아래로"' + (i < list.length - 1 ? '' : ' disabled') + '><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>' +
             '<button type="button" class="btn btn-ghost btn-sm" data-del aria-label="삭제">' + P.icons.trash + '</button></span></div>').join('') : '<p class="empty">아직 등록된 부서장이 없습니다.</p>') +
           '<button type="button" class="btn" data-add>' + P.icons.plus + '부서장 추가</button>';
       }

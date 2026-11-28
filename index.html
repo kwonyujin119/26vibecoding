@@ -15,6 +15,8 @@
   <script>
     /* 화면 깜빡임 방지: 저장된 테마·메뉴 접힘을 먼저 적용 */
     try { var t = JSON.parse(localStorage.getItem('P:theme')); if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); var mw = window.matchMedia && matchMedia('(min-width: 760px)').matches; if (mw && (JSON.parse(localStorage.getItem('P:nav.collapsed')) || matchMedia('(max-width: 1023px)').matches)) document.documentElement.setAttribute('data-nav', 'rail'); } catch (e) {}
+    /* 효과 단계: 저장값, 없으면 코어 4개 이하 기기는 '기본' */
+    try { var fx = JSON.parse(localStorage.getItem('P:fx.level')); if (fx !== 'rich' && fx !== 'basic' && fx !== 'off') fx = ((navigator.hardwareConcurrency || 8) <= 4 || (navigator.deviceMemory || 8) <= 2) ? 'basic' : 'rich'; document.documentElement.setAttribute('data-fx-level', fx); } catch (e) { document.documentElement.setAttribute('data-fx-level', 'rich'); }
   </script>
   <link rel="stylesheet" href="vendor/pretendard/pretendardvariable-dynamic-subset.css">
   <link rel="stylesheet" href="css/app.css">
@@ -24,6 +26,7 @@
   <link rel="stylesheet" href="apps/sheets.css" onerror="this.remove()">
   <link rel="stylesheet" href="apps/charts.css" onerror="this.remove()">
   <link rel="stylesheet" href="apps/refs.css" onerror="this.remove()">
+  <link rel="stylesheet" href="css/fx.css">
 </head>
 <body>
   <a class="p-skip" href="#view">본문 바로가기</a>
@@ -68,6 +71,7 @@
 
   <script defer src="js/core.js"></script>
   <script defer src="js/install.js"></script>
+  <script defer src="js/fx.js"></script>
   <!-- 앱 스크립트: 파일이 없으면 조용히 건너뜀 -->
   <script defer src="apps/home.js" onerror="this.remove()"></script>
   <script defer src="apps/head-schedule.js" onerror="this.remove()"></script>

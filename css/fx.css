@@ -1,0 +1,284 @@
+/* 공마일 효과(3D · 카드 · 장면) — js/fx.js 와 짝.
+   단계: <html data-fx-level="rich|basic|off">  · rich = 기울기·빛·깊이 장면 / basic = 올림·차례 등장 / off = 효과 없음
+   규칙: transform · opacity 만 움직임. 마우스(정밀 포인터)에서만 기울기·시차, 터치는 누름 반응만.
+   움직임 줄이기 설정이면 위치 이동 없이 100ms 이하 흐려짐만. */
+
+:root {
+  --fx-persp: 900px;
+  --fx-paper: #FFFFFF;
+  --fx-paper-2: #F7F4EC;
+  --fx-desk: #ECE7DC;
+  --fx-ink-a: rgba(26, 29, 38, .16);
+  --fx-ink-b: rgba(26, 29, 38, .42);
+  --fx-shade: rgba(20, 22, 28, .08);
+  --fx-elev-1: 0 1px 2px rgba(20, 22, 28, .05), 0 4px 10px -4px rgba(20, 22, 28, .10);
+  --fx-elev-2: calc(var(--fx-sx, 0) * 1px) calc(14px + var(--fx-sy, 0) * 1px) 28px -14px rgba(20, 22, 28, .30), 0 2px 6px -2px rgba(20, 22, 28, .10);
+  --fx-elev-press: 0 1px 2px rgba(20, 22, 28, .10);
+  --fx-hl: inset 0 1px 0 rgba(255, 255, 255, .9);
+  --fx-glare: rgba(255, 255, 255, .55);
+  --fx-glare-shade: rgba(20, 22, 28, .05);
+  --fx-noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .1 0 0 0 0 .09 0 0 0 0 .08 0 0 0 .9 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  --fx-noise-o: .07;
+  --fx-wear: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='w'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.55' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -2.4 2.15'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23w)'/%3E%3C/svg%3E");
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --fx-paper: #22242A; --fx-paper-2: #1D1F23; --fx-desk: #16171A;
+    --fx-ink-a: rgba(236, 233, 226, .14); --fx-ink-b: rgba(236, 233, 226, .38); --fx-shade: rgba(0, 0, 0, .35);
+    --fx-elev-1: 0 1px 2px rgba(0, 0, 0, .3), 0 6px 14px -6px rgba(0, 0, 0, .5);
+    --fx-elev-2: calc(var(--fx-sx, 0) * 1px) calc(16px + var(--fx-sy, 0) * 1px) 32px -12px rgba(0, 0, 0, .7), 0 0 0 1px rgba(255, 255, 255, .04);
+    --fx-elev-press: 0 1px 2px rgba(0, 0, 0, .5);
+    --fx-hl: inset 0 1px 0 rgba(255, 255, 255, .06);
+    --fx-glare: rgba(255, 255, 255, .10); --fx-glare-shade: rgba(0, 0, 0, .16);
+    --fx-noise-o: .10;
+  }
+}
+:root[data-theme="dark"] {
+  --fx-paper: #22242A; --fx-paper-2: #1D1F23; --fx-desk: #16171A;
+  --fx-ink-a: rgba(236, 233, 226, .14); --fx-ink-b: rgba(236, 233, 226, .38); --fx-shade: rgba(0, 0, 0, .35);
+  --fx-elev-1: 0 1px 2px rgba(0, 0, 0, .3), 0 6px 14px -6px rgba(0, 0, 0, .5);
+  --fx-elev-2: calc(var(--fx-sx, 0) * 1px) calc(16px + var(--fx-sy, 0) * 1px) 32px -12px rgba(0, 0, 0, .7), 0 0 0 1px rgba(255, 255, 255, .04);
+  --fx-elev-press: 0 1px 2px rgba(0, 0, 0, .5);
+  --fx-hl: inset 0 1px 0 rgba(255, 255, 255, .06);
+  --fx-glare: rgba(255, 255, 255, .10); --fx-glare-shade: rgba(0, 0, 0, .16);
+  --fx-noise-o: .10;
+}
+
+/* ================= 카드: 올림 · 기울기 · 빛 · 누름 =================
+   .fx-card 는 마우스가 올라가 있을 때(.fx-on)와 돌아오는 동안(.fx-settle)에만 transform 을 가짐.
+   (평소에 transform 을 두면 안쪽의 고정 위치 메뉴가 카드 기준으로 바뀌므로) */
+.fx-card { --fx-rx: 0deg; --fx-ry: 0deg; --fx-lift: 0px; --fx-scale: 1; }
+.fx-card.fx-on, .fx-card.fx-settle, .fx-card.fx-press {
+  transform: perspective(var(--fx-persp)) translate3d(0, var(--fx-lift), 0) rotateX(var(--fx-rx)) rotateY(var(--fx-ry)) scale(var(--fx-scale));
+  transition: transform 520ms var(--ease-expressive), box-shadow 320ms var(--ease-standard), border-color var(--dur) var(--ease-standard);
+}
+.fx-card.fx-on { --fx-lift: -3px; transition: transform 160ms var(--ease-entrance), box-shadow 240ms var(--ease-entrance), border-color var(--dur) var(--ease-standard); will-change: transform; }
+.fx-card.fx-press { --fx-lift: 0px; --fx-scale: .985; transition-duration: var(--dur-fast); }
+:root[data-fx-level="basic"] .fx-card.fx-on { --fx-lift: -2px; }
+
+/* 빛(유리 반사) 층: 카드 안에 넣는 빈 span. 종이결은 ::before, 움직이는 빛은 ::after */
+.fx-sheen { position: absolute; inset: 0; z-index: 3; border-radius: inherit; pointer-events: none; overflow: hidden; }
+.fx-paper > .fx-sheen::before {
+  content: ""; position: absolute; inset: 0; background-image: var(--fx-noise); background-size: 180px 180px;
+  opacity: var(--fx-noise-o); mix-blend-mode: multiply;
+}
+:root[data-theme="dark"] .fx-paper > .fx-sheen::before { mix-blend-mode: screen; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .fx-paper > .fx-sheen::before { mix-blend-mode: screen; } }
+.fx-sheen::after {
+  content: ""; position: absolute; inset: -1px; opacity: 0; transition: opacity 420ms var(--ease-standard);
+  background:
+    radial-gradient(120% 90% at var(--fx-gx, 50%) var(--fx-gy, 0%), var(--fx-glare), transparent 46%),
+    radial-gradient(140% 110% at calc(100% - var(--fx-gx, 50%)) calc(100% - var(--fx-gy, 0%)), var(--fx-glare-shade), transparent 60%);
+}
+:root[data-fx-level="rich"][data-fx-pointer="fine"] .fx-card.fx-on > .fx-sheen::after { opacity: 1; transition-duration: 160ms; }
+
+/* 카드 종류별 올림 그림자: 원래 테두리용 그림자를 지키면서 깊이만 더함 */
+.fx-card.fx-on:not(.fx-thumb) { box-shadow: var(--fx-hl), var(--fx-elev-2); border-color: var(--line-strong); }
+.fx-card.fx-press:not(.fx-thumb) { box-shadow: var(--fx-hl), var(--fx-elev-press); }
+.charts-card.on.fx-card.fx-on { box-shadow: inset 0 0 0 1px var(--accent), var(--fx-elev-2); border-color: var(--accent); }
+.p-set-kind.active.fx-card.fx-on { border-color: var(--accent); }
+.fx-thumb.fx-on.slides-mini { box-shadow: 0 0 0 1px var(--accent), var(--fx-elev-2) !important; }
+.fx-thumb.fx-on.docs-tpl-thumb, .fx-thumb.fx-on.docs-a4 { box-shadow: 2px 2px 0 -1px var(--surface), 2px 2px 0 0 var(--line), var(--fx-elev-2); }
+.fx-thumb.fx-press.slides-mini { box-shadow: 0 0 0 1px var(--accent), var(--fx-elev-press) !important; }
+.fx-thumb.fx-press.docs-tpl-thumb, .fx-thumb.fx-press.docs-a4 { box-shadow: 2px 2px 0 -1px var(--surface), 2px 2px 0 0 var(--line), var(--fx-elev-press); }
+/* 레퍼런스 격자 칸 · 설정 칸은 평소에도 아주 옅은 깊이 */
+.rf-items.is-grid > .rf-row.fx-card, .sheets-tpl.fx-card { box-shadow: var(--fx-elev-1); }
+.sheets-tpl { border-radius: var(--radius-lg); }
+
+/* 터치 · 기본 단계: 기울기 없이 누름만 */
+:root[data-fx-pointer="coarse"] .fx-card.fx-on { --fx-lift: 0px; }
+:root[data-fx-level="off"] .fx-card { transform: none !important; transition: none !important; }
+:root[data-fx-level="off"] .fx-sheen::after { display: none; }
+
+/* ================= 차례 등장 (목록 · 카드 묶음) ================= */
+.fx-in { animation: fx-rise 420ms var(--ease-entrance) both; animation-delay: var(--fx-d, 0ms); }
+:root[data-fx-level="rich"] .fx-in.fx-in-3d { animation-name: fx-rise-3d; animation-duration: 520ms; animation-timing-function: var(--ease-expressive); transform-origin: 50% 100%; }
+@keyframes fx-rise { from { opacity: 0; transform: translate3d(0, 10px, 0); } }
+@keyframes fx-rise-3d { from { opacity: 0; transform: perspective(900px) translate3d(0, 14px, 0) rotateX(10deg); } }
+
+/* ================= 스크롤 등장 ================= */
+.fx-reveal { opacity: 0; transform: translate3d(0, 18px, 0); }
+.fx-reveal.fx-shown { opacity: 1; transform: none; transition: opacity 520ms var(--ease-entrance), transform 640ms var(--ease-expressive); transition-delay: var(--fx-d, 0ms); }
+
+/* ================= 편집기 열기: 종이 · 슬라이드가 책상에서 일어섬 ================= */
+.fx-rise3d { animation: fx-stand 620ms var(--ease-expressive) both; transform-origin: 50% 0; }
+:root[data-fx-level="basic"] .fx-rise3d { animation: fx-rise 300ms var(--ease-entrance) both; }
+.slides-frame.fx-rise3d { transform-origin: 50% 100%; animation-name: fx-stand-up; }
+@keyframes fx-stand { from { opacity: 0; transform: perspective(1400px) translate3d(0, 26px, 0) rotateX(14deg) scale(.97); } 60% { opacity: 1; } }
+@keyframes fx-stand-up { from { opacity: 0; transform: perspective(1400px) translate3d(0, 18px, 0) rotateX(-12deg) scale(.96); } 60% { opacity: 1; } }
+
+/* ================= 화면 전환: 다른 앱 = 깊이 장면 ================= */
+:root[data-fx-level="rich"][data-vt="through"]::view-transition-old(p-view) { animation: fx-scene-out 150ms var(--ease-exit) both; }
+:root[data-fx-level="rich"][data-vt="through"]::view-transition-new(p-view) { animation: fx-scene-in 340ms var(--ease-expressive) 70ms both; }
+:root[data-fx-level="rich"] #view.p-enter-through > .p-app { animation: fx-scene-in 340ms var(--ease-expressive) both; }
+@keyframes fx-scene-out { to { opacity: 0; transform: scale(.98); } }
+@keyframes fx-scene-in { from { opacity: 0; transform: scale(1.02); } }
+:root[data-fx-level="off"]::view-transition-old(p-view), :root[data-fx-level="off"]::view-transition-new(p-view) { animation: none !important; }
+:root[data-fx-level="off"] #view[class*="p-enter-"] > .p-app { animation: none !important; }
+
+/* ================= 대화상자 · 명령 팔레트 · 알림: 살짝 일어서며 등장 ================= */
+@media (min-width: 521px) {
+  :root[data-fx-level="rich"] .p-modal, :root[data-fx-level="rich"] .p-cmd { animation-name: fx-modal-in; animation-duration: 340ms; animation-timing-function: var(--ease-expressive); transform-origin: 50% 100%; }
+}
+:root[data-fx-level="rich"] .p-toast:not(.out) { animation-name: fx-toast-in; animation-duration: 360ms; animation-timing-function: var(--ease-expressive); transform-origin: 50% 100%; }
+@keyframes fx-modal-in { from { opacity: 0; transform: perspective(900px) translate3d(0, 14px, 0) rotateX(6deg) scale(.985); } }
+@keyframes fx-toast-in { from { opacity: 0; transform: perspective(600px) translate3d(0, 14px, 0) rotateX(-24deg); } }
+:root[data-fx-level="off"] .p-modal, :root[data-fx-level="off"] .p-cmd, :root[data-fx-level="off"] .p-toast, :root[data-fx-level="off"] .p-modal-back, :root[data-fx-level="off"] .p-cmd-back { animation-duration: 1ms !important; }
+
+/* ================= 뼈대 줄 다듬기 ================= */
+.skeleton, .p-skel {
+  background: linear-gradient(100deg, var(--surface-2) 30%, color-mix(in srgb, var(--surface) 65%, var(--surface-3)) 50%, var(--surface-2) 70%);
+  background-size: 240% 100%; animation: p-shimmer 1.6s var(--ease-standard) infinite;
+}
+
+/* ================= 장면 (홈 머리 · 머리 띠) =================
+   층마다 --d(깊이 0~1). fx.js 가 마우스 위치(--fx-px/py, -1~1)와 스크롤(--fx-scroll)을 넣어 줌 */
+.fx-scene { position: relative; overflow: hidden; isolation: isolate; perspective: 1000px; --fx-px: 0; --fx-py: 0; --fx-scroll: 0; }
+.fx-stage {
+  position: absolute; inset: 0; transform-style: preserve-3d;
+  transform: rotateX(calc(var(--fx-py) * -3deg)) rotateY(calc(var(--fx-px) * 4deg));
+  transition: transform 900ms var(--ease-expressive);
+}
+.fx-layer {
+  position: absolute; --d: .5; --r: 0deg;
+  transform: translate3d(calc(var(--fx-px) * var(--d) * 16px), calc(var(--fx-py) * var(--d) * 10px + var(--fx-scroll) * var(--d) * -0.12px), calc(var(--d) * 30px)) rotate(var(--r));
+  transition: transform 900ms var(--ease-expressive);
+}
+:root:not([data-fx-level="rich"]) .fx-stage, :root:not([data-fx-level="rich"]) .fx-layer { --fx-px: 0 !important; --fx-py: 0 !important; --fx-scroll: 0 !important; }
+
+.fx-scene > .fx-img-slot { position: absolute; inset: 0; transform-style: preserve-3d; }
+/* 그림 자리: 이미지가 있으면 그림, 없으면 아래 CSS/SVG 대체 그림 */
+.fx-img-slot { position: relative; display: block; }
+.fx-img-slot > img.fx-img { position: absolute; inset: -4%; width: 108%; height: 108%; max-width: none; object-fit: cover; border-radius: 0; }
+.fx-img-slot.has-img > .fx-ph { display: none; }
+.fx-ph { position: absolute; inset: 0; }
+
+/* 장면 상자 바탕 = 책상. 넓은 화면에서는 구성(.fx-stage)을 오른쪽에 일정 너비로 두고 나머지는 같은 책상으로 이어 보이게 */
+.home-hero-scene, .fx-banner {
+  background:
+    repeating-linear-gradient(0deg, transparent 0 23px, color-mix(in srgb, var(--accent) 7%, transparent) 23px 24px),
+    var(--fx-desk);
+}
+.home-hero-scene .fx-stage { left: auto; width: min(100%, 640px); }
+.fx-banner .fx-stage { left: auto; width: min(100%, 760px); }
+.fx-desk { -webkit-mask-image: linear-gradient(90deg, transparent, #000 30%); mask-image: linear-gradient(90deg, transparent, #000 30%); }
+/* 책상(바탕) */
+.fx-desk {
+  inset: -12% -8%; border-radius: 0;
+  background:
+    repeating-linear-gradient(0deg, transparent 0 23px, color-mix(in srgb, var(--accent) 7%, transparent) 23px 24px),
+    radial-gradient(120% 90% at 70% 20%, color-mix(in srgb, var(--fx-paper-2) 70%, transparent), transparent 70%),
+    var(--fx-desk);
+}
+.fx-desk::after { content: ""; position: absolute; inset: 0; background-image: var(--fx-noise); background-size: 180px; opacity: calc(var(--fx-noise-o) * 1.3); mix-blend-mode: multiply; }
+:root[data-theme="dark"] .fx-desk::after { mix-blend-mode: screen; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .fx-desk::after { mix-blend-mode: screen; } }
+
+/* 종이 한 장 */
+.fx-sheet {
+  background: var(--fx-paper); border: 1px solid color-mix(in srgb, var(--line-strong) 80%, transparent); border-radius: 2px;
+  box-shadow: 0 1px 1px var(--fx-shade), 0 18px 30px -18px rgba(20, 22, 28, .45);
+  padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; overflow: hidden;
+}
+.fx-art .fx-sheet { padding: 7px 7px; gap: 3px; }
+.fx-art .fx-sheet i { height: 2px; }
+.fx-art .fx-sheet i.t { height: 3px; margin-bottom: 2px; }
+.fx-sheet::after { content: ""; position: absolute; inset: 0; background-image: var(--fx-noise); background-size: 180px; opacity: var(--fx-noise-o); mix-blend-mode: multiply; pointer-events: none; }
+:root[data-theme="dark"] .fx-sheet::after { mix-blend-mode: screen; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .fx-sheet::after { mix-blend-mode: screen; } }
+.fx-sheet i { display: block; flex: none; height: 3px; border-radius: 1px; background: var(--fx-ink-a); }
+.fx-sheet i.t { height: 5px; width: 62%; margin: 0 auto 4px; background: var(--fx-ink-b); }
+.fx-sheet i.s { width: 64%; }
+.fx-sheet i.m { width: 82%; }
+.fx-sheet i.in { margin-left: 10%; }
+.fx-sheet i.tb { height: 22px; background: repeating-linear-gradient(90deg, transparent 0 calc(25% - 1px), var(--fx-ink-a) calc(25% - 1px) 25%), linear-gradient(var(--fx-ink-a), var(--fx-ink-a)) 0 50% / 100% 1px no-repeat; box-shadow: inset 0 0 0 1px var(--fx-ink-a); background-color: transparent; }
+.fx-sheet i.hd { height: 7px; background: color-mix(in srgb, var(--accent) 22%, transparent); }
+.fx-sheet.slide { padding: 12px 14px; background: #1E2B5C; border-color: #1E2B5C; justify-content: center; gap: 5px; }
+.fx-sheet.slide i { background: rgba(255, 255, 255, .32); }
+.fx-sheet.slide i.t { margin: 0; width: 70%; background: rgba(255, 255, 255, .9); height: 6px; }
+.fx-sheet.slide i.bar { width: 18%; height: 2px; background: #E9774B; margin-bottom: 4px; }
+.fx-sheet.grid { padding: 0; background:
+  linear-gradient(var(--fx-ink-a), var(--fx-ink-a)) 0 0 / 100% 14px no-repeat,
+  repeating-linear-gradient(0deg, transparent 0 13px, var(--fx-ink-a) 13px 14px),
+  repeating-linear-gradient(90deg, transparent 0 31px, var(--fx-ink-a) 31px 32px), var(--fx-paper); }
+
+/* 인주 도장 */
+.fx-seal {
+  display: grid; place-items: center; border-radius: 50%; aspect-ratio: 1;
+  background: radial-gradient(circle at 35% 30%, color-mix(in srgb, #E0592A 85%, #fff), #B8360F 70%);
+  box-shadow: inset 0 0 0 3px rgba(255, 255, 255, .0), inset 0 0 0 4px rgba(255, 240, 230, .55), 0 10px 18px -10px rgba(120, 30, 5, .7);
+  color: #FBEFE6; font-weight: 800; letter-spacing: -0.04em; font-variant-numeric: tabular-nums;
+}
+.fx-seal::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background-image: var(--fx-noise); background-size: 120px; opacity: .25; mix-blend-mode: multiply; }
+/* 도장 자국 (찍힌 모양): 두 줄 테두리 + 닳은 인주 결(마스크) */
+.fx-stamp {
+  display: grid; place-items: center; border-radius: 18%; aspect-ratio: 1;
+  border: 2px solid var(--signal); box-shadow: inset 0 0 0 2px var(--fx-paper), inset 0 0 0 3px var(--signal);
+  color: var(--signal); font-weight: 800; letter-spacing: .02em; line-height: 1; white-space: nowrap;
+  -webkit-mask-image: var(--fx-wear); mask-image: var(--fx-wear); -webkit-mask-size: 140px; mask-size: 140px; opacity: .88;
+}
+.fx-stamp b { font: inherit; writing-mode: vertical-rl; letter-spacing: .08em; }
+/* 장면 처음 등장: 층이 차례로 내려앉음 (한 번만) */
+.fx-scene.fx-enter .fx-layer { animation: fx-settle 900ms var(--ease-expressive) both; animation-delay: calc(var(--i, 0) * 70ms + 60ms); }
+@keyframes fx-settle { from { opacity: 0; translate: 0 22px; rotate: calc(var(--r) * -.6 + 4deg); } }
+:root[data-fx-level="basic"] .fx-scene.fx-enter .fx-layer { animation: fx-fade-in 400ms var(--ease-entrance) both; }
+@keyframes fx-fade-in { from { opacity: 0; } }
+
+/* 빈 화면 그림 (작은 정물) */
+.fx-art { position: relative; width: 132px; height: 96px; flex: none; }
+.fx-art .fx-layer { transition: none; transform: translate3d(0, 0, 0) rotate(var(--r)); }
+.fx-art.fx-enter .fx-layer { animation: fx-settle 760ms var(--ease-expressive) both; animation-delay: calc(var(--i, 0) * 60ms); }
+
+/* ================= 빈 상태: 왼쪽 정렬 + 작은 그림 ================= */
+.empty.empty-art, .card.empty.empty-art {
+  display: flex; align-items: center; gap: 24px; text-align: left; padding: 22px 26px; min-height: 140px;
+}
+.empty-art .fx-img-slot { width: 132px; height: 96px; flex: none; }
+.charts-ph-main.empty-art { display: flex; align-items: center; gap: 24px; }
+.empty-art .empty-txt { min-width: 0; flex: 1 1 auto; }
+.empty-art h3 { font-size: var(--fs-lg); margin: 0 0 4px; color: var(--text); font-weight: 700; letter-spacing: -0.02em; }
+.empty-art p { margin: 0 0 12px; max-width: 52ch; color: var(--muted); }
+.empty-art .toolbar { gap: 6px; }
+.empty-art .btn { margin-top: 0; }
+@media (max-width: 520px) {
+  .empty.empty-art, .card.empty.empty-art { gap: 16px; padding: 18px 16px; align-items: flex-start; }
+  .empty-art .fx-img-slot { width: 88px; height: 66px; }
+  .empty-art .fx-art { transform: scale(.667); transform-origin: 0 0; }
+}
+
+/* 머리 띠 (업데이트 기록 · 레퍼런스) */
+.fx-banner { position: relative; height: 132px; margin: -4px 0 24px; border-radius: var(--radius-lg); border: 1px solid var(--line); }
+.fx-banner .fx-img-slot { position: absolute; inset: 0; border-radius: inherit; overflow: hidden; }
+.fx-banner::after { content: ""; position: absolute; inset: 0; z-index: 1; border-radius: inherit; pointer-events: none; background: linear-gradient(90deg, var(--fx-desk) 0%, color-mix(in srgb, var(--fx-desk) 85%, transparent) 30%, transparent 58%); }
+.fx-banner-cap { position: absolute; left: 20px; bottom: 16px; z-index: 2; display: flex; flex-direction: column; gap: 2px; max-width: 46%; }
+.fx-banner-cap b { font-size: var(--fs-lg); font-weight: 700; letter-spacing: -0.02em; color: var(--text); }
+.fx-banner-cap span { font-size: var(--fs-sm); color: var(--muted); }
+@media (max-width: 640px) {
+  .fx-banner { height: 104px; margin-bottom: 16px; }
+  .fx-banner-cap { max-width: 62%; left: 14px; bottom: 12px; }
+  .fx-banner-cap span { display: none; }
+  .fx-banner::after { background: linear-gradient(90deg, var(--fx-desk) 0%, color-mix(in srgb, var(--fx-desk) 80%, transparent) 45%, transparent 75%); }
+  .fx-banner-cap b { font-size: var(--fs-md); }
+}
+
+/* ================= 움직임 줄이기 · 끄기 ================= */
+@media (prefers-reduced-motion: reduce) {
+  .fx-card.fx-on, .fx-card.fx-settle, .fx-card.fx-press { transform: none !important; }
+  .fx-in, .fx-in.fx-in-3d, .fx-rise3d, .fx-scene.fx-enter .fx-layer, .fx-art.fx-enter .fx-layer { animation: fx-fade-in 100ms linear both !important; animation-delay: 0ms !important; }
+  .fx-reveal { transform: none; }
+  .fx-reveal.fx-shown { transition: opacity 100ms linear; transition-delay: 0ms; }
+  .fx-stage, .fx-layer { --fx-px: 0 !important; --fx-py: 0 !important; --fx-scroll: 0 !important; transition: none !important; }
+  .fx-sheen::after { display: none; }
+  :root .p-toast:not(.out) { animation-name: p-fade !important; animation-duration: 100ms !important; }
+}
+:root[data-fx-level="off"] .fx-in, :root[data-fx-level="off"] .fx-rise3d, :root[data-fx-level="off"] .fx-scene.fx-enter .fx-layer, :root[data-fx-level="off"] .fx-art.fx-enter .fx-layer { animation: none !important; }
+:root[data-fx-level="off"] .fx-reveal { opacity: 1; transform: none; }
+:root[data-fx-level="off"] .fx-stage, :root[data-fx-level="off"] .fx-layer { transition: none; }
+
+@media print {
+  .fx-reveal { opacity: 1 !important; transform: none !important; }
+  .fx-sheen, .fx-banner { display: none !important; }
+}
+
+.p-set-fx-hint { margin-top: 8px; max-width: 60ch; }
+.sheets-files-empty { border-style: dashed; }

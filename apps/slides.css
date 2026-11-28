@@ -260,6 +260,46 @@
 .slides-pv-stage { position: relative; overflow: hidden; }
 .slides-pv-in { position: absolute; left: 0; top: 0; width: 1280px; height: 720px; transform-origin: 0 0; }
 .slides-pv-fade { animation: slides-fade .24s ease-out; }
+/* 발표 전환 (deck.transition): 앞 장(.out)과 새 장(.in)이 함께 움직임. 너비는 --pvw(fit 에서 넣음) */
+.slides-pv-tr { position: absolute; inset: 0; backface-visibility: hidden; }
+.slides-pv-stage.tr-cube, .slides-pv-stage.tr-flip { overflow: visible; perspective: 2200px; }
+.slides-pv-stage.tr-cube .slides-pv-tr, .slides-pv-stage.tr-flip .slides-pv-tr { transform-style: preserve-3d; }
+.tr-push .slides-pv-tr.out { animation: pv-push-out .6s var(--ease-expressive) both; }
+.tr-push .slides-pv-tr.in { animation: pv-push-in .6s var(--ease-expressive) both; }
+.tr-push.tr-back .slides-pv-tr.out { animation-name: pv-push-out-b; }
+.tr-push.tr-back .slides-pv-tr.in { animation-name: pv-push-in-b; }
+@keyframes pv-push-out { to { transform: translateX(-100%); } }
+@keyframes pv-push-in { from { transform: translateX(100%); } }
+@keyframes pv-push-out-b { to { transform: translateX(100%); } }
+@keyframes pv-push-in-b { from { transform: translateX(-100%); } }
+.slides-pv-stage.tr-cube { animation: pv-cube-stage .75s var(--ease-expressive); }
+@keyframes pv-cube-stage { 50% { transform: scale(.78); } }
+.tr-cube .slides-pv-tr.out { animation: pv-cube-out .75s var(--ease-expressive) both; }
+.tr-cube .slides-pv-tr.in { animation: pv-cube-in .75s var(--ease-expressive) both; }
+.tr-cube.tr-back .slides-pv-tr.out { animation-name: pv-cube-out-b; }
+.tr-cube.tr-back .slides-pv-tr.in { animation-name: pv-cube-in-b; }
+@keyframes pv-cube-out { from { transform: translateZ(calc(var(--pvw, 1280px) / -2)) rotateY(0deg) translateZ(calc(var(--pvw, 1280px) / 2)); } to { transform: translateZ(calc(var(--pvw, 1280px) / -2)) rotateY(-90deg) translateZ(calc(var(--pvw, 1280px) / 2)); filter: brightness(.6); } }
+@keyframes pv-cube-in { from { transform: translateZ(calc(var(--pvw, 1280px) / -2)) rotateY(90deg) translateZ(calc(var(--pvw, 1280px) / 2)); filter: brightness(.6); } to { transform: translateZ(calc(var(--pvw, 1280px) / -2)) rotateY(0deg) translateZ(calc(var(--pvw, 1280px) / 2)); } }
+@keyframes pv-cube-out-b { from { transform: translateZ(calc(var(--pvw, 1280px) / -2)) rotateY(0deg) translateZ(calc(var(--pvw, 1280px) / 2)); } to { transform: translateZ(calc(var(--pvw, 1280px) / -2)) rotateY(90deg) translateZ(calc(var(--pvw, 1280px) / 2)); filter: brightness(.6); } }
+@keyframes pv-cube-in-b { from { transform: translateZ(calc(var(--pvw, 1280px) / -2)) rotateY(-90deg) translateZ(calc(var(--pvw, 1280px) / 2)); filter: brightness(.6); } to { transform: translateZ(calc(var(--pvw, 1280px) / -2)) rotateY(0deg) translateZ(calc(var(--pvw, 1280px) / 2)); } }
+.tr-flip .slides-pv-tr.out { animation: pv-flip-out .32s var(--ease-exit) both; }
+.tr-flip .slides-pv-tr.in { animation: pv-flip-in .38s var(--ease-entrance) .3s both; }
+.tr-flip.tr-back .slides-pv-tr.out { animation-name: pv-flip-out-b; }
+.tr-flip.tr-back .slides-pv-tr.in { animation-name: pv-flip-in-b; }
+@keyframes pv-flip-out { to { transform: rotateY(-90deg); } }
+@keyframes pv-flip-in { from { transform: rotateY(90deg); } }
+@keyframes pv-flip-out-b { to { transform: rotateY(90deg); } }
+@keyframes pv-flip-in-b { from { transform: rotateY(-90deg); } }
+.tr-zoom .slides-pv-tr.out { animation: pv-zoom-out .55s var(--ease-expressive) both; }
+.tr-zoom .slides-pv-tr.in { animation: pv-zoom-in .55s var(--ease-expressive) both; }
+.tr-zoom.tr-back .slides-pv-tr.out { animation-name: pv-zoom-out-b; }
+.tr-zoom.tr-back .slides-pv-tr.in { animation-name: pv-zoom-in-b; }
+@keyframes pv-zoom-out { to { opacity: 0; transform: scale(1.12); } }
+@keyframes pv-zoom-in { from { opacity: 0; transform: scale(.88); } }
+@keyframes pv-zoom-out-b { to { opacity: 0; transform: scale(.88); } }
+@keyframes pv-zoom-in-b { from { opacity: 0; transform: scale(1.12); } }
+.slides-seg[data-seg="transition"] { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.slides-tr-note { display: block; margin-top: 6px; color: var(--muted); font-size: 11.5px; }
 @keyframes slides-fade { from { opacity: 0; } to { opacity: 1; } }
 .slides-pv-cover { position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity .2s; }
 .slides-pv-cover.on { opacity: 1; pointer-events: auto; }

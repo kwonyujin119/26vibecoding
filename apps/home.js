@@ -41,13 +41,16 @@
 
   /* ---------- 날짜 ---------- */
   function dateHTML(now, b) {
-    return '<section class="home-panel home-date" aria-label="오늘 날짜">' +
+    return '<section class="home-panel home-date home-hero" aria-label="오늘 날짜">' +
+      '<div class="home-hero-txt">' +
       '<div class="home-date-top"><span>' + now.getFullYear() + '. ' + pad(now.getMonth() + 1) + '.</span><span>' + isoWeek(now) + '주차</span></div>' +
       '<div class="home-date-main"><time class="home-day" datetime="' + ymd(now) + '">' + now.getDate() + '</time>' +
       '<div class="home-dow"><b>' + WEEK[now.getDay()] + '요일</b><span>오늘</span></div></div>' +
       (b.subtitle ? '<p class="home-sub">' + esc(b.subtitle) + '</p>' : '') +
       '<div class="home-store" data-p-storage-state data-state="' + esc(P.storage.state ? P.storage.state() : 'ok') + '"><i aria-hidden="true"></i><span>저장 위치 <b class="home-store-kind"></b></span>' +
       '<button type="button" class="btn-link" data-act="storage">바꾸기</button></div>' +
+      '</div>' +
+      '<div class="home-hero-scene fx-scene" aria-hidden="true"><div class="fx-img-slot" data-slot="home-hero"></div></div>' +
       '</section>';
   }
 

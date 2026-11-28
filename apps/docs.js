@@ -796,7 +796,7 @@
       else if (sort === 'created') list = list.slice().sort((a, b) => String(b.data.createdAt || '').localeCompare(String(a.data.createdAt || '')));
       root.querySelector('.docs-count').textContent = rows.length ? String(rows.length) : '';
       if (!rows.length) {
-        cards.innerHTML = '<div class="empty"><p>아직 문서가 없습니다.</p><button type="button" class="btn btn-primary" data-act="new">' + P.icons.plus + '새 문서</button></div>';
+        cards.innerHTML = '<div class="empty empty-art"><div class="fx-img-slot" data-slot="empty-docs"></div><div class="empty-txt"><h3>아직 문서가 없습니다</h3><p>위 서식에서 고르거나 빈 문서로 시작하세요. HWPX·DOCX 파일은 가져오기로 엽니다.</p><button type="button" class="btn btn-primary" data-act="new">' + P.icons.plus + '새 문서</button></div></div>';
         return;
       }
       if (!list.length) { cards.innerHTML = '<div class="empty"><p>"' + esc(q) + '" 검색 결과 없음</p></div>'; return; }

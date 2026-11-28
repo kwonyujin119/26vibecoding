@@ -641,7 +641,7 @@
             '</section>' +
           '</aside>' +
           '<div class="charts-main">' +
-            '<div class="charts-ph"><div class="charts-ph-grid"><p>표를 넣으면 어울리는 차트가 여기에 나옵니다.</p><i aria-hidden="true"></i><i aria-hidden="true"></i><i aria-hidden="true"></i><i aria-hidden="true"></i></div></div>' +
+            '<div class="charts-ph"><div class="charts-ph-grid"><div class="charts-ph-main empty-art"><div class="fx-img-slot" data-slot="empty-charts"></div><div class="empty-txt"><h3>표를 넣으면 차트가 여기 그려집니다</h3><p>막대·꺾은선·원형 가운데 자료에 맞는 것을 골라 한꺼번에 보여 줍니다.</p></div></div><i aria-hidden="true"></i><i aria-hidden="true"></i><i aria-hidden="true"></i><i aria-hidden="true"></i></div></div>' +
             '<div class="charts-result" hidden>' +
               '<div class="charts-opts" role="group" aria-label="차트 옵션">' +
                 '<label class="charts-opt"><span>색</span><select data-opt="palette">' + Object.keys(PALETTES).map((k) => '<option value="' + k + '">' + PALETTES[k].label + '</option>').join('') + '</select><span class="charts-sw" aria-hidden="true"></span></label>' +

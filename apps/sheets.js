@@ -3224,7 +3224,7 @@
       const q = search.value.trim().toLowerCase();
       const list = items.filter((x) => !q || String((x.data && x.data.title) || '').toLowerCase().includes(q));
       root.querySelector('.sheets-count').textContent = items.length ? String(items.length) : '';
-      if (!items.length) { filesEl.innerHTML = '<div class="sheets-files-msg">아직 통합문서가 없습니다.</div>'; return; }
+      if (!items.length) { filesEl.innerHTML = '<div class="empty card empty-art sheets-files-empty"><div class="fx-img-slot" data-slot="empty-sheets"></div><div class="empty-txt"><h3>아직 통합문서가 없습니다</h3><p>위 템플릿을 고르거나, 가지고 있는 XLSX·CSV 파일을 열어 이어서 작업하세요.</p></div></div>'; return; }
       if (!list.length) { filesEl.innerHTML = '<div class="sheets-files-msg">"' + esc(q) + '"에 맞는 통합문서가 없습니다.</div>'; return; }
       list.sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
       filesEl.innerHTML = '<div class="table-wrap"><table class="table sheets-ftable"><thead><tr><th>이름</th><th class="num">시트</th><th class="sheets-when">수정</th><th class="sheets-act"><span class="sr-only">동작</span></th></tr></thead><tbody>' +

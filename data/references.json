@@ -3,8 +3,8 @@
   "sectors": [
     {
       "id": "prev-sessions",
-      "title": "이전 세션에서 모은 레퍼런스",
-      "desc": "사용자의 이전 작업(공개 저장소 test0·test·test2·test3·testall 문서와 세션 기록)에서 다시 모은 자료. 출처 칸에 원래 파일·세션을 적었습니다.",
+      "title": "지난 작업에서 모은 자료",
+      "desc": "예전 PT·문서 작업 때 참고한 자료. 제목에 마우스를 올리면 원래 파일이 보입니다.",
       "items": [
         {
           "title": "Michael Alley — Assertion-Evidence 연구 목록",

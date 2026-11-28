@@ -34,6 +34,7 @@
     let alive = true;
     el.innerHTML = '<div class="page cl-page">' +
       '<div class="page-head"><div><h1>업데이트 기록</h1></div><span class="cl-cur num">지금 v' + esc(P.version) + '</span></div>' +
+      '<div class="fx-banner fx-scene" aria-hidden="true"><div class="fx-img-slot" data-slot="changelog-header"></div><div class="fx-banner-cap"><b>버전마다 바뀐 점</b><span>최신 버전은 세부 변경까지 펼쳐 둡니다.</span></div></div>' +
       '<div class="cl-list">' + P.ui.skeleton(4) + '</div></div>';
     const body = el.querySelector('.cl-list');
     fetch('data/changelog.json', { cache: 'no-cache' })

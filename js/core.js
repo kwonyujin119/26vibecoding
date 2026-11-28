@@ -2,7 +2,7 @@
 (function () {
   'use strict';
 
-  const VERSION = '1.3.0';
+  const VERSION = '1.4.0';
   const DEFAULT_TITLE = '공마일';
   const DEFAULT_SUBTITLE = '0MILE - 업무의 출발점 / 공무원이 마음껏 일할 수 있는 플랫폼';
 
@@ -956,6 +956,13 @@
       [['light', '밝게', icons.sun], ['dark', '어둡게', icons.moon], ['auto', '자동', icons.auto]].map(([v, l, ic]) =>
         '<button type="button" role="radio" aria-checked="' + (th === v) + '" data-theme-val="' + v + '">' + ic + l + '</button>').join('') +
       '</div></section>' +
+      (window.P && P.fx ? (() => {
+        const fl = P.fx.level();
+        return '<section id="p-set-fx"><h3 class="section-title">효과</h3><div class="p-seg" role="radiogroup" aria-label="효과">' +
+          [['rich', '풍부하게'], ['basic', '기본'], ['off', '끄기']].map(([v, l]) => '<button type="button" role="radio" aria-checked="' + (fl === v) + '" data-fx-val="' + v + '">' + l + '</button>').join('') +
+          '</div><p class="field-hint p-set-fx-hint">풍부하게는 카드 기울기와 빛, 장면 깊이까지. 기본은 가벼운 올림과 등장만. 끄기는 움직임 없이 바로 바뀝니다.' +
+          (mqReduce.matches ? ' 이 기기는 동작 줄이기가 켜져 있어 흐려짐만 보입니다.' : '') + '</p></section>';
+      })() : '') +
       '<section id="p-set-storage"><h3 class="section-title">저장 위치</h3><div class="p-set-kinds">' +
       Object.keys(KINDS).map((k) => '<div class="p-set-kind' + (k === activeKind ? ' active' : '') + '"><span class="p-pop-ic">' + KINDS[k].icon + '</span><div><b>' + esc(KINDS[k].label) + (k === activeKind ? ' <span class="chip">사용 중</span>' : '') + '</b><small class="muted">' + esc(KINDS[k].desc) + '</small></div>' +
         '<div class="p-set-kind-btns">' + (k !== 'local' ? '<button type="button" class="btn btn-ghost btn-sm" data-cfg="' + k + '">설정</button>' : '') +
@@ -985,6 +992,9 @@
         settings.set('theme', t.dataset.themeVal);
         applyTheme();
         wrap.querySelectorAll('[data-theme-val]').forEach((x) => x.setAttribute('aria-checked', String(x === t)));
+      } else if (t.dataset.fxVal) {
+        P.fx.setLevel(t.dataset.fxVal);
+        wrap.querySelectorAll('[data-fx-val]').forEach((x) => x.setAttribute('aria-checked', String(x === t)));
       } else if (t.dataset.cfg) {
         openStorageConfig(t.dataset.cfg);
       } else if (t.dataset.use) {
