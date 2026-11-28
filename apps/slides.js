@@ -1435,7 +1435,7 @@
 
   /* ========== 편집 화면 ========== */
   async function mountEditor(root, ctx, id) {
-    root.innerHTML = '<div class="page"><div class="empty">불러오는 중…</div></div>';
+    root.innerHTML = '<div class="page"><div class="empty"><span class="p-wait">불러오는 중…</span></div></div>';
     let data = null;
     try { data = await P.store.get(COL, id); } catch (e) { data = null; }
     if (!data) {

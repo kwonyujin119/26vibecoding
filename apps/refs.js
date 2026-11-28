@@ -72,7 +72,7 @@
       '<div class="page rf-page">' +
       '<div class="page-head"><div><h1>레퍼런스</h1></div>' +
       '<button type="button" class="btn btn-primary" data-act="add">' + P.icons.plus + '추가</button></div>' +
-      '<div class="fx-banner fx-scene" aria-hidden="true"><div class="fx-img-slot" data-slot="refs-header"></div><div class="fx-banner-cap"><b>업무·디자인 참고 자료</b><span>왼쪽 모음과 분류로 거르고, 내 링크는 추가로 모읍니다.</span></div></div>' +
+      '<div class="fx-banner fx-scene"><div class="fx-img-slot" data-slot="refs-header" aria-hidden="true"></div><div class="rf-sources" hidden></div><div class="fx-banner-cap" aria-hidden="true"><b>업무·디자인 참고 자료</b><span>왼쪽 모음과 분류로 거르고, 내 링크는 추가로 모읍니다.</span></div></div>' +
       '<div class="rf-layout">' +
       '<nav class="rf-side" aria-label="레퍼런스 모음"><div class="rf-side-group rf-secs"></div><div class="rf-side-group rf-cats"></div></nav>' +
       '<div class="rf-main">' +
@@ -227,7 +227,28 @@
       if (!alive) return;
       state.sectors = sectors;
       refresh();
+      drawSources();
     });
+
+    /* 머리 띠: 자료가 많이 나온 출처 사이트 순 (흐르는 띠, 누르면 그 사이트로 검색) */
+    function drawSources() {
+      const box = el.querySelector('.rf-sources');
+      if (!box || !P.fx || !P.fx.marquee) return;
+      const n = new Map();
+      state.sectors.forEach((sec) => (sec.items || []).forEach((it) => {
+        const u = safeUrl(it.url);
+        const d = u ? domainOf(u) : '';
+        if (d) n.set(d, (n.get(d) || 0) + 1);
+      }));
+      const items = Array.from(n.entries()).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+        .map(([d, c]) => ({ label: d, meta: String(c), title: d + ' 자료 ' + c + '건 · 눌러서 검색' }));
+      P.fx.marquee(box, items, { label: '출처 사이트 ' + items.length + '곳', cap: '출처', speed: 24, onPick: (it) => {
+        search.value = it.label;
+        state.q = it.label;
+        refresh();
+        search.focus();
+      } });
+    }
 
     return () => { alive = false; clearTimeout(timer); };
   }

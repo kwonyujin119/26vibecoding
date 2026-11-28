@@ -54,6 +54,55 @@
       '</section>';
   }
 
+  /* ---------- 오늘 흐름 (흐르는 띠): 부서장 일정 · 기한 지남/오늘 업무 · 내 일정, 시간 순 ---------- */
+  async function loadFlow(box, appIds) {
+    const td = ymd(new Date());
+    const now = hm(new Date());
+    const inDay = (e) => typeof e.date === 'string' && e.date <= td && td <= (e.endDate && e.endDate > e.date ? e.endDate : e.date);
+    const timeOf = (e) => (!e.allDay && isHM(e.start) && e.date === td ? e.start : '');
+    const toneOf = (e) => {
+      const t = timeOf(e);
+      if (!t) return '';
+      const end = isHM(e.end) ? e.end : '';
+      return (end ? end <= now : t < now && !end) ? 'past' : t <= now ? 'now' : '';
+    };
+    const evItem = (e, tag, href) => {
+      const t = timeOf(e);
+      const tone = toneOf(e);
+      return { sort: t || '00:00', tag: tone === 'now' ? tag + ' 진행 중' : tag, tone, label: (t ? t + ' · ' : '종일 · ') + (e.title || '제목 없음'), href };
+    };
+    const out = [];
+    const jobs = [];
+    if (appIds.has('head-schedule')) {
+      jobs.push(list('head-schedule').then((rows) => rows.forEach((r) => {
+        const e = Object.assign({}, obj(r.data), { id: r.id });
+        if (!e.cancelled && inDay(e)) out.push(evItem(e, '부서장', '#/head-schedule/' + encodeURIComponent(e.id)));
+      })));
+    }
+    if (appIds.has('my-schedule')) {
+      const LS = P.store.local || P.store;
+      jobs.push(LS.list(MINE_EV).then((rows) => (Array.isArray(rows) ? rows : []).forEach((r) => {
+        const e = Object.assign({}, obj(r.data), { id: r.id });
+        if (inDay(e)) out.push(evItem(e, '내 일정', '#/my-schedule/today/' + encodeURIComponent(e.id)));
+      }), () => {}));
+    }
+    if (appIds.has('schedule')) {
+      jobs.push(list('schedule-tasks').then((rows) => rows.forEach((r) => {
+        const x = Object.assign({}, obj(r.data), { id: r.id });
+        if (CLOSED.includes(x.status) || !parseYmd(x.due) || x.due > td) return;
+        const over = x.due < td;
+        out.push({ sort: '99:' + (over ? '0' : '1') + x.due, tag: over ? dayDiff(x.due, td) + '일 지남' : '오늘 마감', tone: over ? 'over' : 'today', label: x.title || '제목 없음', href: '#/schedule/tasks/' + encodeURIComponent(x.id) });
+      })));
+    }
+    await Promise.all(jobs);
+    if (!box.isConnected) return;
+    out.sort((a, b) => a.sort.localeCompare(b.sort));
+    const mq = box.querySelector('.home-flow-mq');
+    if (P.fx && P.fx.marquee) P.fx.marquee(mq, out, { label: '오늘 흐름 ' + out.length + '건', cap: '오늘 흐름', speed: 40 });
+    else mq.innerHTML = '<ul>' + out.map((x) => '<li><a href="' + x.href + '">' + esc(x.tag + ' ' + x.label) + '</a></li>').join('') + '</ul>';
+    box.hidden = !out.length;
+  }
+
   /* ---------- 오늘 부서장 일정 ---------- */
   async function loadHeads(box, has) {
     const body = box.querySelector('.home-panel-body');
@@ -229,6 +278,7 @@
     el.innerHTML =
       '<div class="page home"><h1 class="sr-only">' + esc(b.title) + ' 홈</h1><div class="home-bento">' +
       dateHTML(now, b) +
+      '<section class="home-panel home-flow" aria-label="오늘 흐름" hidden><div class="home-flow-mq"></div></section>' +
       '<section class="home-panel home-heads" aria-labelledby="home-h-heads">' + panelHead('오늘 부서장 일정', appIds.has('head-schedule') ? '#/head-schedule' : '', '전체 일정').replace('<h2>', '<h2 id="home-h-heads">') +
       '<div class="home-panel-body" aria-busy="true"><div class="p-skel-row"><span class="p-skel"></span><span class="p-skel-lines"><span class="p-skel" style="width:50%"></span><span class="p-skel" style="width:30%"></span></span></div></div></section>' +
       (quick.length ? '<section class="home-panel home-quick" aria-labelledby="home-h-quick">' + panelHead('빠른 만들기').replace('<h2>', '<h2 id="home-h-quick">') +
@@ -264,11 +314,43 @@
     };
     let stopHeads = null;
     let stopMine = null;
-    if (appIds.has('my-schedule')) loadMine(el.querySelector('.home-mine'), true).then((stop) => { stopMine = stop; done('.home-mine')(); }, fail('.home-mine'));
-    loadHeads(el.querySelector('.home-heads'), appIds.has('head-schedule')).then((stop) => { stopHeads = stop; done('.home-heads')(); }, fail('.home-heads'));
-    loadTasks(el.querySelector('.home-tasks'), appIds.has('schedule')).then(done('.home-tasks'), fail('.home-tasks'));
+    function loadDay() {
+      if (typeof stopHeads === 'function') stopHeads();
+      if (typeof stopMine === 'function') stopMine();
+      const flow = el.querySelector('.home-flow');
+      loadFlow(flow, appIds).catch((err) => { console.error(err); flow.hidden = true; });
+      if (appIds.has('my-schedule')) loadMine(el.querySelector('.home-mine'), true).then((stop) => { stopMine = stop; done('.home-mine')(); }, fail('.home-mine'));
+      loadHeads(el.querySelector('.home-heads'), appIds.has('head-schedule')).then((stop) => { stopHeads = stop; done('.home-heads')(); }, fail('.home-heads'));
+      loadTasks(el.querySelector('.home-tasks'), appIds.has('schedule')).then(done('.home-tasks'), fail('.home-tasks'));
+    }
+    loadDay();
     loadRecent(el.querySelector('.home-recent'), appIds).then(done('.home-recent'), fail('.home-recent'));
-    return () => { if (typeof stopHeads === 'function') stopHeads(); if (typeof stopMine === 'function') stopMine(); };
+
+    // 큰 날짜: 그날 처음 볼 때 한 번 글자 섞기(기억), 자정이 지나면 날짜·오늘 목록을 새로 그리고 다시 한 번
+    const dayEl = el.querySelector('.home-day');
+    if (P.fx && P.fx.scrambleDaily) P.fx.scrambleDaily(dayEl, 'home-day', ymd(now));
+    let midT = 0;
+    function armMidnight() {
+      const n = new Date();
+      const next = new Date(n.getFullYear(), n.getMonth(), n.getDate() + 1, 0, 0, 2);
+      midT = setTimeout(() => {
+        if (!el.isConnected) return;
+        const d = new Date();
+        const top = el.querySelector('.home-date-top');
+        if (top) top.innerHTML = '<span>' + d.getFullYear() + '. ' + pad(d.getMonth() + 1) + '.</span><span>' + isoWeek(d) + '주차</span>';
+        const dow = el.querySelector('.home-dow b');
+        if (dow) dow.textContent = WEEK[d.getDay()] + '요일';
+        if (dayEl) {
+          dayEl.setAttribute('datetime', ymd(d));
+          dayEl.textContent = String(d.getDate());
+          if (P.fx && P.fx.scrambleDaily) P.fx.scrambleDaily(dayEl, 'home-day', ymd(d));
+        }
+        loadDay();
+        armMidnight();
+      }, Math.min(next - n, 2147483000));
+    }
+    armMidnight();
+    return () => { clearTimeout(midT); if (typeof stopHeads === 'function') stopHeads(); if (typeof stopMine === 'function') stopMine(); };
   }
 
   P.registerApp({ id: 'home', title: '홈', short: '홈', icon: ICON, order: 0, group: 'home', desc: '오늘 일정과 기한, 최근 작업', mount });

@@ -599,7 +599,7 @@
 
   /* ================= 화면 ================= */
   async function mountStudio(root, ctx, fileId, newFolder) {
-    root.innerHTML = '<div class="page charts-page"><div class="charts-loading">불러오는 중…</div></div>';
+    root.innerHTML = '<div class="page charts-page"><div class="charts-loading"><span class="p-wait">불러오는 중…</span></div></div>';
     try { await P.loadScript(LIB.chart); } catch (e) {
       root.innerHTML = '<div class="page"><div class="empty card"><h2>차트 라이브러리를 불러오지 못했습니다</h2><p>vendor/chartjs 파일을 확인하세요.</p></div></div>';
       return null;

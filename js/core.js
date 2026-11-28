@@ -2,7 +2,7 @@
 (function () {
   'use strict';
 
-  const VERSION = '1.5.0';
+  const VERSION = '1.6.0';
   const DEFAULT_TITLE = '공마일';
   const DEFAULT_SUBTITLE = '0MILE - 업무의 출발점 / 공무원이 마음껏 일할 수 있는 플랫폼';
 
@@ -641,13 +641,16 @@
     if (kind === activeKind && kind === 'local') return true;
     const next = createBackend(kind);
     const t = toast(KINDS[kind].label + '에 연결하는 중…', 'info');
+    storageBusy(true, '연결 중…');
     try {
       await next.ping();
     } catch (e) {
+      storageBusy(false);
       t();
       toast('전환하지 못했습니다. ' + e.message + ' (이전 저장 위치를 그대로 사용합니다)', 'error');
       return false;
     }
+    storageBusy(false);
     t();
     const choice = await new Promise((resolve) => {
       let r = 'cancel';
@@ -665,15 +668,18 @@
     if (choice === 'cancel') return false;
     if (choice === 'copy') {
       const prog = toast('데이터 복사 준비 중…', 'info');
+      storageBusy(true, '복사 중…');
       try {
         const n = await copyAll(active, next, (d, tot) => {
           const node = document.querySelector('#p-toasts .p-toast:last-child span:last-child');
           if (node) node.textContent = '데이터 복사 중… ' + d + ' / ' + tot;
         });
         prog();
+        storageBusy(false);
         toast(n + '개 항목을 복사했습니다.', 'ok');
       } catch (e) {
         prog();
+        storageBusy(false);
         toast('복사 중 오류가 나서 전환을 취소했습니다. ' + e.message, 'error');
         return false;
       }
@@ -686,6 +692,19 @@
     toast('저장 위치: ' + KINDS[kind].label, 'ok');
     emitStoreChange();
     return true;
+  }
+
+  /* 저장 위치 연결·복사 중: 단추에 테두리 빛 + 반짝 글자(js/fx.js), 끝나면 원래 단추로 */
+  function storageBusy(on, text) {
+    const btn = document.getElementById('p-storage-btn');
+    if (!btn) return;
+    btn.classList.toggle('is-switching', !!on);
+    if (on) btn.setAttribute('aria-busy', 'true'); else btn.removeAttribute('aria-busy');
+    const lab = btn.querySelector('.p-storage-label');
+    if (on && lab && text) lab.textContent = text;
+    const fx = window.P && window.P.fx;
+    if (fx && fx.beam) { fx.beam(btn, !!on, { tone: 'busy', manual: true }); if (lab) fx.shimmer(lab, !!on); }
+    if (!on) renderStorageButton();
   }
 
   function emitStoreChange() {
@@ -1527,7 +1546,8 @@
     box.innerHTML =
       '<div class="p-cmd-input">' + icons.search +
       '<input type="text" id="p-cmd-q" role="combobox" aria-expanded="true" aria-controls="p-cmd-list" aria-autocomplete="list" autocomplete="off" spellcheck="false" placeholder="화면, 동작, 최근 문서 검색" aria-label="검색어">' +
-      '<kbd class="kbd">esc</kbd></div>' +
+      '<span class="p-cmd-count num" aria-hidden="true"></span><kbd class="kbd">esc</kbd></div>' +
+      '<span class="sr-only" aria-live="polite" id="p-cmd-live"></span>' +
       '<ul class="p-cmd-list" id="p-cmd-list" role="listbox" aria-label="결과"></ul>' +
       '<div class="p-cmd-foot" aria-hidden="true"><span><kbd class="kbd">↑</kbd><kbd class="kbd">↓</kbd> 고르기</span><span><kbd class="kbd">Enter</kbd> 실행</span><span><kbd class="kbd">esc</kbd> 닫기</span><span>초성으로도 찾습니다 (예: ㅁㅅ)</span></div>';
     back.appendChild(box);
@@ -1572,6 +1592,16 @@
       listEl.innerHTML = html;
       sel = 0;
       mark();
+      // 결과 수: 바뀔 때만 짧게 글자 섞기(js/fx.js), 화면 읽기 프로그램에는 최종 값만
+      const ctext = q ? items.length + '개' : '';
+      const cnt = box.querySelector('.p-cmd-count');
+      if (cnt && cnt.dataset.v !== ctext) {
+        cnt.dataset.v = ctext;
+        const fx = window.P && window.P.fx;
+        if (fx && fx.scramble && ctext) fx.scramble(cnt, ctext, { duration: 260 }); else cnt.textContent = ctext;
+        const live = box.querySelector('#p-cmd-live');
+        if (live) live.textContent = q ? '결과 ' + items.length + '개' : '';
+      }
     }
     function mark() {
       listEl.querySelectorAll('.p-cmd-opt').forEach((o) => o.setAttribute('aria-selected', String(Number(o.dataset.i) === sel)));

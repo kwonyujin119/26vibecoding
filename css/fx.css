@@ -275,6 +275,132 @@
 :root[data-fx-level="off"] .fx-reveal { opacity: 1; transform: none; }
 :root[data-fx-level="off"] .fx-stage, :root[data-fx-level="off"] .fx-layer { transition: none; }
 
+/* ================= 정보 효과 (1.6.0): 흐르는 띠 · 테두리 빛 · 반짝 글자 · 독 · 글자 섞기 =================
+   js/fx.js 의 P.fx.marquee / beam / shimmer / dock / scramble 와 짝. 장식이 아니라 오늘 흐름·지금·추천·기다림·누를 곳을 알림.
+   탭이 숨겨지면(.fx-tab-hidden) · 화면 밖이면(.fx-offscreen) 멈춤. */
+
+/* ---------- 흐르는 띠 ---------- */
+.fx-mq { --fx-mq-gap: 22px; display: flex; align-items: center; gap: 12px; min-width: 0; overflow: hidden; }
+.fx-mq[hidden] { display: none !important; }
+.fx-mq-cap { flex: none; font-size: var(--fs-xs); font-weight: 700; color: var(--muted); letter-spacing: .03em; white-space: nowrap; }
+.fx-mq-view {
+  position: relative; flex: 1 1 auto; min-width: 0; overflow: hidden;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 18px, #000 calc(100% - 28px), transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 18px, #000 calc(100% - 28px), transparent);
+}
+.fx-mq-track { display: flex; width: max-content; }
+.fx-mq-list { display: flex; align-items: center; gap: var(--fx-mq-gap); margin: 0; padding: 0 var(--fx-mq-gap) 0 0; list-style: none; flex: none; }
+.fx-mq-list > li { flex: none; }
+.fx-mq-it {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 28px; padding: 0 2px; border: 0; background: none;
+  color: var(--text); font: inherit; font-size: var(--fs-sm); white-space: nowrap; cursor: pointer; border-radius: var(--radius-sm);
+}
+a.fx-mq-it:hover, button.fx-mq-it:hover { text-decoration: underline; text-underline-offset: 3px; color: var(--text); }
+.fx-mq-it:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+span.fx-mq-it { cursor: default; }
+.fx-mq-tag { font-size: 11px; font-weight: 700; color: var(--muted); padding: 1px 6px; border-radius: var(--radius-sm); background: var(--surface-2); border: 1px solid var(--line); }
+.fx-mq-tag.is-now, .fx-mq-tag.is-over { color: var(--signal); border-color: color-mix(in srgb, var(--signal) 35%, var(--line)); background: var(--signal-soft); }
+.fx-mq-tag.is-today { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 30%, var(--line)); }
+.fx-mq-it.is-past .fx-mq-t { color: var(--muted); }
+.fx-mq-m { color: var(--muted); font-size: var(--fs-xs); font-variant-numeric: tabular-nums; }
+.fx-mq.is-run .fx-mq-track { animation: fx-mq var(--fx-mq-dur, 30s) linear infinite; will-change: transform; }
+@keyframes fx-mq { to { transform: translate3d(-50%, 0, 0); } }
+.fx-mq.is-run:hover .fx-mq-track, .fx-mq.fx-offscreen .fx-mq-track, :root.fx-tab-hidden .fx-mq-track { animation-play-state: paused; }
+/* 고정 줄: 넘치면 손으로 가로 스크롤 */
+.fx-mq.is-static .fx-mq-dup { display: none; }
+.fx-mq.is-static .fx-mq-view { overflow-x: auto; scrollbar-width: thin; -webkit-mask-image: none; mask-image: none; }
+
+/* 홈 '오늘 흐름' 띠 */
+.home-flow { grid-column: 1 / -1; flex-direction: row; align-items: center; padding: 4px 8px 4px 16px; min-height: 40px; }
+.home-flow[hidden] { display: none; }
+.home-flow .fx-mq { flex: 1; }
+/* 레퍼런스 머리 띠: 출처 사이트 */
+.fx-banner .rf-sources { position: absolute; left: 0; right: 0; top: 0; z-index: 2; padding: 4px 14px 4px 20px; --fx-mq-gap: 18px; border-radius: var(--radius-lg) var(--radius-lg) 0 0; background: color-mix(in srgb, var(--fx-desk) 78%, transparent); border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent); }
+.rf-sources .fx-mq-it { font-size: var(--fs-xs); color: var(--muted); min-height: 24px; }
+.rf-sources .fx-mq-it:hover { color: var(--text); }
+.rf-sources .fx-mq-cap { font-weight: 650; }
+@media (max-width: 640px) { .fx-banner .rf-sources { padding-left: 14px; } .rf-sources .fx-mq-cap { display: none; } }
+
+/* ---------- 테두리 빛 ---------- */
+@property --fx-beam-a { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+.fx-beam-ring {
+  --fx-beam-c: var(--signal);
+  position: absolute; inset: 0; z-index: 4; border-radius: inherit; pointer-events: none; padding: 1.5px;
+  background:
+    conic-gradient(from var(--fx-beam-a), transparent 0 64%, color-mix(in srgb, var(--fx-beam-c) 35%, transparent) 78%, var(--fx-beam-c) 90%, transparent 94%),
+    linear-gradient(color-mix(in srgb, var(--fx-beam-c) 22%, transparent) 0 0);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  animation: fx-beam 6s linear infinite;
+}
+[data-fx-beam="rec"] > .fx-beam-ring, [data-fx-beam="busy"] > .fx-beam-ring { --fx-beam-c: var(--accent); }
+:root[data-theme="dark"] [data-fx-beam="rec"] > .fx-beam-ring, :root[data-theme="dark"] [data-fx-beam="busy"] > .fx-beam-ring { --fx-beam-c: color-mix(in srgb, var(--accent) 55%, #fff); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) [data-fx-beam="rec"] > .fx-beam-ring, :root:not([data-theme="light"]) [data-fx-beam="busy"] > .fx-beam-ring { --fx-beam-c: color-mix(in srgb, var(--accent) 55%, #fff); } }
+@keyframes fx-beam { to { --fx-beam-a: 360deg; } }
+:root[data-fx-level="basic"] .fx-beam-ring { animation-duration: 10s; }
+.fx-offscreen > .fx-beam-ring, :root.fx-tab-hidden .fx-beam-ring { animation-play-state: paused; }
+.home-tl-body.fx-beam, .home-mine-row.fx-beam { background: color-mix(in srgb, var(--signal) 4%, transparent); }
+/* 저장 위치 바꾸는 중 */
+.p-storage-btn.is-switching { cursor: progress; }
+
+/* ---------- 반짝 글자 (기다리는 중) ---------- */
+.fx-shimmer {
+  background-image: linear-gradient(100deg, currentColor 0 40%, color-mix(in srgb, currentColor 28%, transparent) 50%, currentColor 60% 100%);
+  background-size: 260% 100%; background-position: 100% 0; background-repeat: no-repeat;
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  animation: fx-shim 1.8s linear infinite;
+}
+@keyframes fx-shim { from { background-position: 100% 0; } to { background-position: -60% 0; } }
+.fx-offscreen.fx-shimmer, :root.fx-tab-hidden .fx-shimmer { animation-play-state: paused; }
+/* 처리 중 단추: 회전 표시 대신 글자를 보이고 반짝 */
+.btn.fx-busy-txt[aria-busy="true"] { opacity: .82; }
+.btn.fx-busy-txt[aria-busy="true"]:not(.btn-primary):not(.btn-danger) { color: var(--text) !important; }
+.btn-primary.fx-busy-txt[aria-busy="true"] { color: var(--on-accent) !important; }
+.btn-danger.fx-busy-txt[aria-busy="true"] { color: #fff !important; }
+.btn.fx-busy-txt[aria-busy="true"] > * { visibility: visible; }
+.btn.fx-busy-txt[aria-busy="true"] > svg { opacity: .45; }
+.btn.fx-busy-txt[aria-busy="true"]::after { display: none; }
+
+/* ---------- 독 ---------- */
+.fx-dock-mag { transition: transform 90ms linear; will-change: transform; }
+.fx-dock :is(button, a, .p-tab-ic) { transition: transform 260ms var(--ease-expressive); }
+.fx-dock-on .fx-dock-mag { transform-origin: 50% 100%; }
+.fx-dock-on[data-fx-axis="y"] .fx-dock-mag { transform-origin: 50% 50%; }
+/* 홈 빠른 만들기: 마우스(풍부하게)에서는 아이콘 독, 이름은 말풍선 */
+.home-quick-list.fx-dock-on { flex: 1; flex-direction: row; justify-content: space-evenly; align-items: center; gap: 0; padding: 8px 22px 14px; min-height: 120px; overflow: visible; }
+.home-quick-list.fx-dock-on > button {
+  position: relative; flex: 0 1 54px; min-width: 0; height: auto; min-height: 0; padding: 0; flex-direction: column; justify-content: flex-start; align-items: center; gap: 8px;
+  background: none; box-shadow: none; border-radius: var(--radius);
+}
+.home-quick-list.fx-dock-on > button .fx-dock-mag, .home-quick-list.fx-dock-on > button > svg {
+  box-sizing: content-box; width: 20px; height: 20px; padding: 11px; border-radius: 12px; color: var(--text);
+  background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--line);
+}
+.home-quick-list.fx-dock-on > button:hover > svg { color: var(--accent); box-shadow: inset 0 0 0 1px var(--line-strong); }
+.home-quick-list.fx-dock-on > button > span { position: static; width: auto; height: auto; overflow: visible; clip: auto; font-size: 12px; font-weight: 600; color: var(--muted); white-space: nowrap; letter-spacing: -0.01em; }
+.home-quick-list.fx-dock-on > button:hover > span { color: var(--text); }
+.home-quick-list.fx-dock-on > button::after { content: none; }
+.home-quick-list.fx-dock-on > button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* 터치: 확대 없이 누름 반응만 */
+:root[data-fx-pointer="coarse"]:not([data-fx-level="off"]) .fx-dock :is(button, a):active { transform: scale(.95); transition-duration: 80ms; }
+
+/* ---------- 글자 섞기 ---------- */
+.fx-scrambling { display: inline-block; font-variant-numeric: tabular-nums; }
+.p-brand-en.fx-scrambling { letter-spacing: .14em; }
+
+/* ---------- 끄기 · 동작 줄이기: 움직임 없음 ---------- */
+:root[data-fx-level="off"] .fx-mq-track, :root[data-fx-level="off"] .fx-beam-ring, :root[data-fx-level="off"] .fx-shimmer { animation: none !important; }
+:root[data-fx-level="off"] .fx-shimmer { -webkit-text-fill-color: currentColor; background: none; }
+:root[data-fx-level="off"] .fx-beam-ring { padding: 1px; background: var(--fx-beam-c); }
+:root[data-fx-level="off"] .fx-dock :is(button, a, .p-tab-ic, *) { transform: none !important; }
+@media (prefers-reduced-motion: reduce) {
+  .fx-mq-track, .fx-beam-ring, .fx-shimmer { animation: none !important; }
+  .fx-shimmer { -webkit-text-fill-color: currentColor; background: none; }
+  .fx-beam-ring { padding: 1px; background: var(--fx-beam-c); }
+  .fx-dock :is(button, a, .p-tab-ic, *) { transform: none !important; transition: none !important; }
+}
+@media print { .fx-beam-ring, .fx-mq { display: none !important; } }
+
 @media print {
   .fx-reveal { opacity: 1 !important; transform: none !important; }
   .fx-sheen, .fx-banner { display: none !important; }
