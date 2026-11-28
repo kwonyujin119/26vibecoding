@@ -1,4 +1,23 @@
 {
   "note": "assets/img/<이름>.webp 를 넣은 뒤 이름을 slots 에 적으면 그 그림을 씁니다. README 의 그림 자리 표 참고.",
-  "slots": []
+  "slots": [
+    "home-hero",
+    "empty-docs",
+    "empty-slides",
+    "empty-sheets",
+    "empty-charts",
+    "empty-schedule",
+    "changelog-header",
+    "refs-header",
+    "tab-head-schedule",
+    "tab-schedule",
+    "tab-my-schedule",
+    "tab-docs",
+    "tab-slides",
+    "tab-sheets",
+    "tab-charts",
+    "tab-refs",
+    "tab-apis",
+    "tab-changelog"
+  ]
 }

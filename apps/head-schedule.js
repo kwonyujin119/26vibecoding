@@ -244,7 +244,11 @@
     clock: svgIcon('<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>'),
     calendar: svgIcon('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>'),
     list: svgIcon('<path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/>'),
-    sun: svgIcon('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>')
+    sun: svgIcon('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>'),
+    tv: svgIcon('<rect x="2.5" y="4" width="19" height="13" rx="2"/><path d="M8 21h8M12 17v4"/>'),
+    board: svgIcon('<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M15 4v16"/>'),
+    table: svgIcon('<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9.5h18M3 15h18M9 9.5V20"/>'),
+    move: svgIcon('<path d="M5 12h14M15 8l4 4-4 4M9 8l-4 4 4 4"/>')
   };
 
   /* 작은 팝오버 메뉴 (⋯ 단추용) */
@@ -279,9 +283,48 @@
     return close;
   }
 
+  /* ---------- 머리 띠 (세 일정 앱 공용): 왼쪽 45%는 제목, 오른쪽은 그림 자리 ----------
+     그림 자리 이름: tab-head-schedule · tab-schedule · tab-my-schedule. data/images.json 에 이름이 오르면 그림이 덮고,
+     그 전에는 아래 CSS 대체 그림(.fx-ph)을 보여 줌. fx.js 는 .fx-ph 가 이미 있으면 자기 대체 그림을 넣지 않음 */
+  const ly = (cls, d, r, i, style, inner) => '<div class="fx-layer ' + cls + '" style="--d:' + d + ';--r:' + r + 'deg;--i:' + i + ';' + style + '">' + (inner || '') + '</div>';
+  const bars = (spec) => spec.split(' ').map((w) => (w === '/' ? '<br>' : '<i style="width:' + w + '%"></i>')).join('');
+  const HERO_ART = {
+    // 로비 게시판: 펠트 글자판 + 압정 꽂힌 공지 두 장 + 벽시계
+    'tab-head-schedule': () =>
+      ly('sch-ph-board', 0.35, 0, 0, 'right:5%;top:13%;width:33%;height:74%', '<span class="sch-ph-letters">' + bars('46 / 70 / 58 / 34 / 64') + '</span>') +
+      ly('sch-ph-note', 0.6, -4, 1, 'right:41%;top:16%;height:60%;aspect-ratio:210/297', bars('70 / 90 / 80 / 60 / 85') + '<b class="sch-ph-pin"></b>') +
+      ly('sch-ph-note', 0.75, 3, 2, 'right:49%;top:34%;height:44%;aspect-ratio:210/297', bars('60 / 85 / 70') + '<b class="sch-ph-pin is-k"></b>') +
+      ly('sch-ph-clock', 0.9, 0, 3, 'right:57%;top:22%;width:4.6%;aspect-ratio:1', '<i></i><i></i>'),
+    // 상황판: 화이트보드 + 네 칸 머리 띠 + 자석 카드 + 보드 마커
+    'tab-schedule': () =>
+      ly('sch-ph-wb', 0.35, 0, 0, 'right:4%;top:11%;width:50%;height:80%',
+        '<span class="sch-ph-cols"><i></i><i></i><i></i><i></i></span>' +
+        [[6, 34, 'a'], [6, 58, 'b'], [30, 34, 'c'], [30, 58, 'a'], [55, 34, 'd'], [78, 34, 'b']].map(([x, y, c]) => '<span class="sch-ph-card" style="left:' + x + '%;top:' + y + '%"><b class="sch-ph-mag is-' + c + '"></b></span>').join('')) +
+      ly('sch-ph-marker', 0.85, -8, 1, 'right:8%;top:84%;width:13%;height:6%'),
+    // 플래너 펼침면: 줄 친 두 쪽 + 리본 책갈피 + 펜
+    'tab-my-schedule': () =>
+      ly('sch-ph-planner', 0.4, -2, 0, 'right:6%;top:12%;width:44%;height:96%', '<span class="sch-ph-pg"></span><span class="sch-ph-pg is-r"></span><span class="sch-ph-ribbon"></span>') +
+      ly('sch-ph-pen', 0.9, -24, 1, 'right:3%;top:40%;width:20%;height:5%')
+  };
+  /* o: { slot, kicker, title, h1Class, sub, acts, cls } */
+  function hero(o) {
+    const art = HERO_ART[o.slot];
+    return '<header class="sch-hero ' + (o.cls || '') + '">' +
+      '<div class="sch-hero-art fx-scene"><div class="fx-img-slot" data-slot="' + P.esc(o.slot) + '"><div class="fx-ph sch-ph" aria-hidden="true">' + (art ? art() : '') + '</div></div></div>' +
+      '<div class="sch-hero-cap"><p class="sch-hero-kicker">' + (o.kicker || '') + '</p><h1' + (o.h1Class ? ' class="' + o.h1Class + '"' : '') + '>' + P.esc(o.title) + '</h1>' +
+      (o.sub ? '<p class="sch-hero-sub">' + o.sub + '</p>' : '') + '</div>' +
+      '<div class="toolbar sch-actions sch-hero-acts">' + (o.acts || '') + '</div></header>';
+  }
+  /* 효과 단계: 움직임을 써도 되는지 (끄기 · 동작 줄이기면 false) */
+  const motionOK = () => {
+    const lvl = (P.fx && P.fx.level && P.fx.level()) || document.documentElement.getAttribute('data-fx-level') || 'rich';
+    return lvl !== 'off' && !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+  };
+
   window.SchedKit = {
     DOW, pad, parse, isDate, today, addDays, addMonths, diffDays, dow, md, longDate, weekStart, monthCells, nowHM, stamp,
-    PALETTE, NEUTRAL, colorFor, safeColor, terms, matchAll, mark, isTyping, shareText, printHTML, makeRepo, statusBar, autoRefresh, readJSONFile, popMenu, IC
+    PALETTE, NEUTRAL, colorFor, safeColor, terms, matchAll, mark, isTyping, shareText, printHTML, makeRepo, statusBar, autoRefresh, readJSONFile, popMenu, IC,
+    hero, motionOK
   };
 
   /* ================= 부서장 일정 앱 ================= */
@@ -339,81 +382,36 @@
     const initial = (name) => P.esc(Array.from(String(name || '').trim())[0] || '?');
     const av = (p, sm) => '<span class="avatar sch-av' + (sm ? ' avatar-sm' : '') + '" style="--c:' + K.safeColor(p.color, COMMON) + '" aria-hidden="true">' + initial(p.name) + '</span>';
 
-    /* ---------- 시간 격자 도구 ---------- */
-    const HH = 48; // 한 시간 높이(px)
-    const toMin = (v) => { const a = String(v || '').split(':'); return Number(a[0]) * 60 + (Number(a[1]) || 0); };
-    const hm = (m) => K.pad(Math.floor(m / 60) % 24) + ':' + K.pad(m % 60);
     const isTimed = (e) => !e.allDay && !!e.start && endOf(e) === e.date;
-    const span = (e) => { const s = toMin(e.start); const x = e.end ? toMin(e.end) : NaN; return { s, en: x > s ? x : Math.min(s + 60, 1440) }; };
-    /* 겹치는 일정은 옆으로 나란히 */
-    function lanes(d) {
-      const list = dayEvents(d).filter(isTimed).map((e) => Object.assign({ e }, span(e))).sort((a, b) => a.s - b.s || b.en - a.en);
-      let cols = [];
-      let group = [];
-      let gEnd = -1;
-      const flush = () => { group.forEach((x) => { x.n = cols.length; }); group = []; cols = []; };
-      list.forEach((x) => {
-        if (group.length && x.s >= gEnd) { flush(); gEnd = -1; }
-        let c = cols.findIndex((end) => end <= x.s);
-        if (c < 0) { c = cols.length; cols.push(x.en); } else cols[c] = x.en;
-        x.c = c;
-        group.push(x);
-        gEnd = Math.max(gEnd, x.en);
-      });
-      flush();
-      return list;
-    }
-    function timeGrid(days) {
-      const t = K.today();
-      const per = days.map(lanes);
-      const n = toMin(K.nowHM());
-      const hasToday = days.includes(t);
-      let h0 = 8;
-      let h1 = 19;
-      per.forEach((l) => l.forEach((x) => { h0 = Math.min(h0, Math.floor(x.s / 60)); h1 = Math.max(h1, Math.ceil(x.en / 60)); }));
-      if (hasToday) { h0 = Math.min(h0, Math.floor(n / 60)); h1 = Math.max(h1, Math.min(24, Math.floor(n / 60) + 1)); }
-      const y = (m) => (m - h0 * 60) / 60 * HH;
-      const showNow = hasToday && n >= h0 * 60 && n <= h1 * 60;
-      let gut = '';
-      for (let h = h0; h < h1; h++) {
-        if (showNow && Math.abs(y(h * 60) - y(n)) < 12) continue;
-        gut += '<span style="top:' + y(h * 60) + 'px">' + K.pad(h) + ':00</span>';
-      }
-      if (showNow) gut += '<span class="hs-now-t" style="top:' + y(n) + 'px">' + K.nowHM() + '</span>';
-      const wide = days.length === 1;
-      const block = (x, d) => {
-        const e = x.e;
-        const ph = phase(e, d);
-        const h = Math.max(22, (x.en - x.s) / 60 * HH - 2);
-        const time = e.start + (e.end ? '–' + e.end : '');
-        const size = h < 34 ? ' xs' : h < 58 ? ' sm' : '';
-        return '<div class="hs-card hs-blk ' + ph + size + '" role="button" tabindex="0" data-id="' + P.esc(e.id) + '" aria-label="' + P.esc(time + ' ' + e.title) + '"' +
-          ' title="' + P.esc(time + ' ' + e.title + (e.place ? ' · ' + e.place : '') + ' · ' + headNames(e)) + '"' +
-          ' style="--c:' + colorOf(e) + ';top:' + (y(x.s) + 1) + 'px;height:' + h + 'px;left:calc(' + x.c + ' * 100% / ' + x.n + ');width:calc(100% / ' + x.n + ' - 3px)">' +
-          '<b>' + P.esc(e.title) + '</b>' +
-          '<span class="hs-blk-m">' + (ph === 'now' ? '<i class="hs-live" aria-hidden="true"></i>' : '') + '<span class="num">' + time + '</span>' + (e.place && wide ? '<span class="hs-blk-p">' + P.esc(e.place) + '</span>' : '') + '</span>' +
-          (wide && !size ? '<span class="hs-blk-who">' + headChips(e) + '</span>' : '') + '</div>';
-      };
-      const cols = days.map((d, i) => '<div class="hs-col' + (d === t ? ' today' : '') + (K.dow(d) % 6 === 0 ? ' weekend' : '') + '" data-col-day="' + d + '" data-h0="' + h0 + '" title="빈 시간을 누르면 새 일정">' +
-        per[i].map((x) => block(x, d)).join('') +
-        (d === t && showNow ? '<div class="hs-now" style="top:' + y(n) + 'px" aria-hidden="true"></div><i class="hs-now-dot" style="top:' + y(n) + 'px" aria-hidden="true"></i>' : '') + '</div>').join('');
-      return '<div class="hs-tg" style="--cols:' + days.length + ';height:' + ((h1 - h0) * HH) + 'px"><div class="hs-tg-gut" aria-hidden="true">' + gut + '</div>' + cols + '</div>';
-    }
 
     /* ---------- 그리기 ---------- */
+    /* 머리 띠는 한 번만 그림(그림 자리가 다시 불러와지며 깜빡이지 않게), 나머지는 .sch-main 에 */
+    function frame() {
+      let main = page.querySelector(':scope > .sch-main');
+      if (!main) {
+        page.innerHTML = K.hero({
+          slot: 'tab-head-schedule', cls: 'hs-hero', title: '부서장 일정',
+          kicker: '<span class="sch-hero-no">게시</span><span class="hs-hero-date num"></span>',
+          sub: '전 직원이 함께 보는 로비 게시판',
+          acts:
+            '<button type="button" class="btn" data-act="copy" aria-label="텍스트 복사" title="메신저용 글로 복사">' + K.IC.copy + '<span>텍스트 복사</span></button>' +
+            '<button type="button" class="btn sch-hide-sm" data-act="print" title="주간표 인쇄 (A4 가로)">' + K.IC.print + '<span>인쇄</span></button>' +
+            '<button type="button" class="btn" data-act="kiosk" aria-label="전광판 모드" title="사무실 TV용 전체 화면 (K) · 나가기 Esc">' + K.IC.tv + '<span>전광판</span></button>' +
+            '<button type="button" class="btn btn-ghost p-icon-btn" data-act="more" aria-label="더보기" title="더보기">' + K.IC.more + '</button>' +
+            '<button type="button" class="btn btn-primary" data-act="new" aria-label="일정 추가" title="새 일정 (N)">' + P.icons.plus + '<span>일정 추가</span></button>'
+        }) + '<div class="sch-main"></div>';
+        main = page.querySelector(':scope > .sch-main');
+      }
+      const t = K.today();
+      page.querySelector('.hs-hero-date').textContent = K.md(t) + ' · ' + dayEvents(t, true).length + '건';
+      return main;
+    }
     function render() {
       clearInterval(clock);
       st.narrow = window.matchMedia('(max-width: 760px)').matches;
       const ps = people();
-      page.innerHTML =
-        '<div class="page-head sch-head"><div><h1>부서장 일정</h1></div>' +
-        '<div class="toolbar sch-actions">' +
-        '<button type="button" class="btn" data-act="copy" aria-label="텍스트 복사" title="메신저용 글로 복사">' + K.IC.copy + '<span>텍스트 복사</span></button>' +
-        '<button type="button" class="btn sch-hide-sm" data-act="print" title="주간표 인쇄 (A4 가로)">' + K.IC.print + '<span>인쇄</span></button>' +
-        '<button type="button" class="btn btn-ghost p-icon-btn" data-act="more" aria-label="더보기" title="더보기">' + K.IC.more + '</button>' +
-        '<button type="button" class="btn btn-primary" data-act="new" aria-label="일정 추가" title="새 일정 (N)">' + P.icons.plus + '<span>일정 추가</span></button>' +
-        '</div></div>' +
-        (ps.length ? '' : '<div class="sch-onboard"><p>등록된 부서장이 없습니다.</p><div class="toolbar"><button type="button" class="btn btn-sm btn-primary" data-act="people">' + K.IC.users + '부서장 등록</button><button type="button" class="btn btn-sm" data-act="sample">예시 데이터</button></div></div>') +
+      frame().innerHTML =
+        (ps.length ? '' :'<div class="sch-onboard"><p>등록된 부서장이 없습니다.</p><div class="toolbar"><button type="button" class="btn btn-sm btn-primary" data-act="people">' + K.IC.users + '부서장 등록</button><button type="button" class="btn btn-sm" data-act="sample">예시 데이터</button></div></div>') +
         '<div class="sch-bar">' +
         '<div class="sch-nav"><button type="button" class="btn btn-ghost p-icon-btn" data-nav="-1" aria-label="이전" title="이전 (←)">' + K.IC.left + '</button>' +
         '<button type="button" class="btn btn-sm" data-nav="0">오늘</button>' +
@@ -487,24 +485,56 @@
       if (!body) return;
       range.innerHTML = rangeText();
       page.querySelector('.hs-layout').classList.toggle('is-today', st.view === 'today');
-      if (st.view === 'today') body.innerHTML = dayView(st.date);
+      if (st.view === 'today') {
+        body.innerHTML = dayView(st.date);
+        if (P.fx && P.fx.beam) body.querySelectorAll('.hs-brow.now').forEach((el) => P.fx.beam(el, true, { tone: 'now', manual: true }));
+      }
       else if (st.view === 'week') {
         const s = K.weekStart(st.date);
         body.innerHTML = st.narrow ? weekList(s) : weekGrid(s);
       } else body.innerHTML = monthView(st.date);
     }
 
-    const pill = (e, d) => '<button type="button" class="hs-card hs-pill ' + phase(e, d) + '" data-id="' + P.esc(e.id) + '" style="--c:' + colorOf(e) + '">' +
-      '<b>' + P.esc(e.title) + '</b><span>' + P.esc(timeText(e, d)) + ' · ' + P.esc(headNames(e)) + (e.place ? ' · ' + P.esc(e.place) : '') + '</span></button>';
-
+    /* 하루 보기 = 로비 게시판: 큰 시각 숫자, 부서장 색 띠, 지금 선 */
+    const stripes = (e) => {
+      const cs = (e.heads || []).map((id) => personById(id)).filter(Boolean).map((p) => K.safeColor(p.color));
+      if (!cs.length) return COMMON;
+      if (cs.length === 1) return cs[0];
+      const step = 100 / cs.length;
+      return 'linear-gradient(' + cs.map((c, i) => c + ' ' + (i * step).toFixed(1) + '% ' + ((i + 1) * step).toFixed(1) + '%').join(',') + ')';
+    };
+    const STATE = { now: '진행 중', past: '종료', 'now-day': '오늘 종일' };
+    function boardRow(e, d) {
+      const ph = phase(e, d);
+      const timed = isTimed(e);
+      const who = (e.heads || []).map((id) => personById(id)).filter(Boolean);
+      return '<div class="hs-card hs-brow ' + ph + (timed ? '' : ' allday') + '" role="button" tabindex="0" data-id="' + P.esc(e.id) + '" style="--c:' + colorOf(e) + ';--stripe:' + stripes(e) + '"' +
+        ' aria-label="' + P.esc(timeText(e, d) + ' ' + e.title + ' ' + headNames(e) + (e.place ? ' ' + e.place : '')) + '">' +
+        '<span class="hs-brow-time num">' + (timed ? '<b>' + e.start + '</b>' + (e.end ? '<small>~ ' + e.end + '</small>' : '') : '<b class="is-day">종일</b>' + (endOf(e) !== e.date ? '<small>' + P.esc(timeText(e, d).replace('종일 ', '')) + '</small>' : '')) + '</span>' +
+        '<span class="hs-brow-main"><span class="hs-brow-t">' + (e.kind ? '<em class="hs-brow-kind">' + P.esc(e.kind) + '</em>' : '') + '<strong>' + P.esc(e.title) + '</strong></span>' +
+        '<span class="hs-brow-sub">' + (e.place ? '<span class="hs-brow-place">' + K.IC.pin + P.esc(e.place) + '</span>' : '') + (e.memo ? '<span class="hs-brow-memo">' + P.esc(e.memo) + '</span>' : '') + '</span></span>' +
+        '<span class="hs-brow-who">' + (who.length ? who.map((p) => '<span class="hs-plate" style="--c:' + K.safeColor(p.color) + '"><i></i>' + P.esc(p.name) + (p.title ? '<small>' + P.esc(p.title) + '</small>' : '') + '</span>').join('') : '<span class="hs-plate" style="--c:' + COMMON + '"><i></i>공통</span>') + '</span>' +
+        '<span class="hs-brow-state">' + (STATE[ph] && (ph !== 'now-day' || d === K.today()) ? (ph === 'now' ? '<i class="hs-live" aria-hidden="true"></i>' : '') + STATE[ph] : '') + '</span></div>';
+    }
     function dayView(d) {
       const list = dayEvents(d);
+      const t = K.today();
       const allDay = list.filter((e) => !isTimed(e));
-      return '<div class="hs-panel hs-dayview">' +
-        (list.length ? '' : '<div class="hs-empty"><span>' + (d === K.today() ? '오늘' : K.md(d)) + ' 일정이 없습니다.</span><button type="button" class="btn btn-sm" data-new="' + d + '">' + P.icons.plus + '일정 추가</button></div>') +
-        (allDay.length ? '<div class="hs-allday"><span class="hs-allday-l">종일</span><div class="hs-allday-items">' + allDay.map((e) => pill(e, d)).join('') + '</div></div>' : '') +
-        '<div class="hs-tg-wrap">' + timeGrid([d]) + '</div></div>';
+      const timed = list.filter(isTimed);
+      let rows = allDay.map((e) => boardRow(e, d)).join('');
+      if (allDay.length && timed.length) rows += '<div class="hs-brule" aria-hidden="true"></div>';
+      const nowAt = d === t ? timed.findIndex((e) => phase(e, d) !== 'past') : -2;
+      timed.forEach((e, i) => {
+        if (i === nowAt) rows += nowLine();
+        rows += boardRow(e, d);
+      });
+      if (d === t && timed.length && nowAt === -1) rows += nowLine();
+      return '<div class="hs-panel hs-board" data-day="' + d + '">' +
+        '<div class="hs-board-head" aria-hidden="true"><span>시각</span><span>일정</span><span class="hs-board-who">대상</span><span></span></div>' +
+        (list.length ? rows : '<div class="hs-board-empty"><b>' + (d === t ? '오늘' : K.md(d)) + ' 게시된 일정이 없습니다</b><span>새 일정을 올리면 이 판과 전광판에 바로 보입니다.</span></div>') +
+        '<button type="button" class="hs-badd" data-new="' + d + '">' + P.icons.plus + '<span>이 날 일정 올리기</span></button></div>';
     }
+    const nowLine = () => '<div class="hs-bnow" role="separator" aria-label="지금 ' + K.nowHM() + '"><span class="num">지금 ' + K.nowHM() + '</span></div>';
 
     function weekRows() {
       const ps = people().filter((p) => st.who === ALL || st.who === p.id);
@@ -516,19 +546,26 @@
     }
     const lanePill = (e, d, first) => '<button type="button" class="hs-item allday' + (e.date < d ? ' cont-l' + (first ? '' : ' silent') : '') + (endOf(e) > d ? ' cont-r' : '') + '" data-id="' + P.esc(e.id) + '" title="' + P.esc(timeText(e, d) + ' ' + e.title + (e.place ? ' · ' + e.place : '')) + '">' + P.esc(e.title) + '</button>';
 
+    /* 주간 = 게시판에 꽂은 공지: 부서장 줄 × 요일 칸, 칸마다 시간 순 쪽지 */
+    const note = (e, d) => '<button type="button" class="hs-note ' + phase(e, d) + '" data-id="' + P.esc(e.id) + '" style="--c:' + colorOf(e) + '" title="' + P.esc(timeText(e, d) + ' ' + e.title + (e.place ? ' · ' + e.place : '') + ' · ' + headNames(e)) + '">' +
+      '<span class="hs-note-time num">' + P.esc(e.start + (e.end ? '–' + e.end : '')) + '</span><span class="hs-note-t">' + P.esc(e.title) + '</span>' + (e.place ? '<span class="hs-note-p">' + P.esc(e.place) + '</span>' : '') + '</button>';
     function weekGrid(s) {
       const days = Array.from({ length: 7 }, (_, i) => K.addDays(s, i));
       const t = K.today();
       const rows = weekRows();
-      const dcls = (d) => (d === t ? 'today' : '') + (K.dow(d) % 6 === 0 ? ' weekend' : '');
-      return '<div class="hs-panel hs-weekgrid"><table class="hs-week"><colgroup><col class="hs-gcol">' + days.map(() => '<col>').join('') + '</colgroup>' +
-        '<thead><tr><th class="hs-who-col" scope="col"><span class="hs-corner">종일</span></th>' +
-        days.map((d) => '<th scope="col" class="' + dcls(d) + '"><span class="hs-dow">' + K.DOW[K.dow(d)] + '</span><span class="hs-dnum num">' + K.parse(d).getDate() + '</span></th>').join('') + '</tr></thead><tbody>' +
-        (rows.length ? rows.map(({ p, has }) => '<tr style="--c:' + K.safeColor(p.color, COMMON) + '"><th scope="row" class="hs-who-col" title="' + P.esc(personLabel(p)) + '">' + av(p, true) + '<span class="hs-who-name">' + P.esc(p.name) + '</span></th>' +
-          days.map((d) => '<td class="' + dcls(d) + '" data-day="' + d + '" data-head="' + P.esc(p.id) + '">' +
-            events().filter((e) => onDay(e, d) && has(e) && !isTimed(e)).sort(byTime).map((e) => lanePill(e, d, d === days[0])).join('') + '</td>').join('') + '</tr>').join('')
+      const dcls = (d) => (d === t ? 'today' : '') + (K.dow(d) % 6 === 0 ? ' weekend' : '') + (d < t ? ' past' : '');
+      return '<div class="hs-panel hs-weekgrid hs-pinboard"><table class="hs-week"><colgroup><col class="hs-gcol">' + days.map(() => '<col>').join('') + '</colgroup>' +
+        '<thead><tr><th class="hs-who-col" scope="col"><span class="hs-corner">부서장</span></th>' +
+        days.map((d) => '<th scope="col" class="' + dcls(d) + '"><span class="hs-dow">' + K.DOW[K.dow(d)] + '</span><span class="hs-dnum num">' + K.parse(d).getDate() + '</span>' + (d === t ? '<span class="hs-today-tag">오늘</span>' : '') + '</th>').join('') + '</tr></thead><tbody>' +
+        (rows.length ? rows.map(({ p, has }) => '<tr style="--c:' + K.safeColor(p.color, COMMON) + '"><th scope="row" class="hs-who-col" title="' + P.esc(personLabel(p)) + '">' + av(p, true) + '<span class="hs-who-name">' + P.esc(p.name) + (p.title ? '<small>' + P.esc(p.title) + '</small>' : '') + '</span></th>' +
+          days.map((d) => {
+            const list = events().filter((e) => onDay(e, d) && has(e)).sort(byTime);
+            return '<td class="' + dcls(d) + '" data-day="' + d + '" data-head="' + P.esc(p.id) + '" title="빈 곳을 누르면 새 일정">' +
+              list.filter((e) => !isTimed(e)).map((e) => lanePill(e, d, d === days[0])).join('') +
+              list.filter(isTimed).map((e) => note(e, d)).join('') + '</td>';
+          }).join('') + '</tr>').join('')
           : '<tr><th class="hs-who-col"></th><td colspan="7" class="muted">등록된 부서장이 없습니다.</td></tr>') +
-        '</tbody></table><div class="hs-tg-wrap">' + timeGrid(days) + '</div></div>';
+        '</tbody></table></div>';
     }
 
     const agendaRow = (e, d) => '<button type="button" class="hs-item hs-arow ' + phase(e, d) + '" style="--c:' + colorOf(e) + '" data-id="' + P.esc(e.id) + '">' +
@@ -858,6 +895,120 @@
       render();
     }
 
+    /* ---------- 전광판 모드: 사무실 TV용 전체 화면 ----------
+       오늘 · 내일을 번갈아(일정이 많으면 쪽을 나눠) 15초마다 넘기고, 1분마다 자료를 다시 읽음. Esc 로 나감 */
+    let kiosk = null;
+    const KIOSK_MS = 15000;
+    function openKiosk() {
+      if (kiosk) return;
+      const ov = document.createElement('div');
+      ov.className = 'hs-kiosk';
+      ov.setAttribute('role', 'dialog');
+      ov.setAttribute('aria-modal', 'true');
+      ov.setAttribute('aria-label', '전광판 모드. Esc 로 나갑니다');
+      ov.tabIndex = -1;
+      ov.innerHTML =
+        '<header class="hs-k-top"><div class="hs-k-title"><span class="hs-k-org">' + P.esc(P.brand().title) + ' · 부서장 일정</span><h2 class="hs-k-day"></h2></div>' +
+        '<div class="hs-k-clock"><b class="num"></b><span class="num"></span></div></header>' +
+        '<main class="hs-k-stage" aria-live="polite"></main>' +
+        '<footer class="hs-k-foot"><div class="hs-k-legend"></div><div class="hs-k-pages"></div></footer>' +
+        '<button type="button" class="hs-k-exit" data-k="exit">' + P.icons.close + '<span>나가기 (Esc)</span></button>';
+      document.body.appendChild(ov);
+      document.documentElement.classList.add('hs-kiosk-on');
+      const k = { ov, pages: [], idx: 0, at: Date.now(), paused: false, wasFull: false, timers: [], idle: 0 };
+      kiosk = k;
+
+      function build() {
+        const t = K.today();
+        const PER = window.innerHeight < 700 ? 4 : 6;
+        const pages = [];
+        [[t, '오늘'], [K.addDays(t, 1), '내일']].forEach(([d, rel]) => {
+          const list = dayEvents(d, true);
+          const n = Math.max(1, Math.ceil(list.length / PER));
+          for (let i = 0; i < n; i++) pages.push({ d, rel, list: list.slice(i * PER, (i + 1) * PER), part: n > 1 ? (i + 1) + '/' + n : '' });
+        });
+        k.pages = pages;
+        if (k.idx >= pages.length) k.idx = 0;
+      }
+      function rowHTML(e, d) {
+        const ph = phase(e, d);
+        const who = (e.heads || []).map((id) => personById(id)).filter(Boolean);
+        return '<li class="hs-k-row ' + ph + '" style="--stripe:' + stripes(e) + '">' +
+          '<span class="hs-k-time num">' + (isTimed(e) ? e.start + (e.end ? '<small>~' + e.end + '</small>' : '') : '종일') + '</span>' +
+          '<span class="hs-k-main"><strong>' + P.esc(e.title) + '</strong><span>' + [e.place, e.kind].filter(Boolean).map(P.esc).join(' · ') + '</span></span>' +
+          '<span class="hs-k-who">' + (who.length ? who.map((p) => '<span style="--c:' + K.safeColor(p.color) + '"><i></i>' + P.esc(p.name) + (p.title ? ' ' + P.esc(p.title) : '') + '</span>').join('') : '<span style="--c:' + COMMON + '"><i></i>공통</span>') + '</span>' +
+          (ph === 'now' ? '<em class="hs-k-live">진행 중</em>' : '') + '</li>';
+      }
+      function show(animate) {
+        const pg = k.pages[k.idx];
+        if (!pg) return;
+        const dt = K.parse(pg.d);
+        ov.querySelector('.hs-k-day').innerHTML = '<span class="hs-k-rel' + (pg.rel === '오늘' ? ' is-today' : '') + '">' + pg.rel + '</span>' + (dt.getMonth() + 1) + '월 ' + dt.getDate() + '일 ' + K.DOW[dt.getDay()] + '요일' + (pg.part ? '<small class="num">' + pg.part + '</small>' : '');
+        const stage = ov.querySelector('.hs-k-stage');
+        stage.innerHTML = pg.list.length
+          ? '<ol class="hs-k-list">' + pg.list.map((e) => rowHTML(e, pg.d)).join('') + '</ol>'
+          : '<p class="hs-k-none">' + pg.rel + ' 부서장 일정이 없습니다</p>';
+        if (animate && K.motionOK()) { stage.classList.remove('is-in'); void stage.offsetWidth; stage.classList.add('is-in'); }
+        ov.querySelector('.hs-k-pages').innerHTML = k.pages.map((p, i) => '<i class="' + (i === k.idx ? 'is-on' : '') + (i < k.idx ? ' is-done' : '') + '" style="--ms:' + KIOSK_MS + 'ms"></i>').join('') +
+          '<span>' + (k.paused ? '멈춤 · Space 다시 재생' : '다음 화면 ' + (k.pages[(k.idx + 1) % k.pages.length].rel)) + '</span>';
+        ov.classList.toggle('is-paused', k.paused);
+        const ps = people();
+        ov.querySelector('.hs-k-legend').innerHTML = ps.map((p) => '<span style="--c:' + K.safeColor(p.color) + '"><i></i>' + P.esc(personLabel(p)) + '</span>').join('');
+        k.at = Date.now();
+      }
+      function tick() {
+        const now = new Date();
+        ov.querySelector('.hs-k-clock b').textContent = K.nowHM();
+        ov.querySelector('.hs-k-clock span').textContent = K.md(K.today()) + ' ' + K.pad(now.getSeconds()) + '초';
+        if (!k.paused && Date.now() - k.at >= KIOSK_MS && k.pages.length > 1) { k.idx = (k.idx + 1) % k.pages.length; show(true); }
+        if (k.idle && Date.now() - k.idle > 2500) { ov.classList.remove('is-awake'); k.idle = 0; }
+      }
+      async function refresh() {
+        try { await repo.load(); } catch (e) { /* 그대로 둠 */ }
+        if (kiosk !== k) return;
+        build();
+        show(false);
+      }
+      function go(n) { k.idx = (k.idx + n + k.pages.length) % k.pages.length; show(true); }
+      function onKey(e) {
+        if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeKiosk(); }
+        else if (e.key === 'ArrowRight' || e.key === 'PageDown') { e.preventDefault(); e.stopPropagation(); go(1); }
+        else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); e.stopPropagation(); go(-1); }
+        else if (e.key === ' ') { e.preventDefault(); e.stopPropagation(); k.paused = !k.paused; show(false); }
+        else if (!e.ctrlKey && !e.metaKey) e.stopPropagation();
+      }
+      const wake = () => { ov.classList.add('is-awake'); k.idle = Date.now(); };
+      function onFs() { if (!document.fullscreenElement && k.wasFull) closeKiosk(); }
+      ov.addEventListener('pointermove', wake);
+      ov.addEventListener('click', (e) => { wake(); if (e.target.closest('[data-k="exit"]')) closeKiosk(); });
+      document.addEventListener('keydown', onKey, true);
+      document.addEventListener('fullscreenchange', onFs);
+      k.cleanup = () => {
+        k.timers.forEach(clearInterval);
+        document.removeEventListener('keydown', onKey, true);
+        document.removeEventListener('fullscreenchange', onFs);
+      };
+      build();
+      show(false);
+      tick();
+      k.timers.push(setInterval(tick, 1000), setInterval(refresh, 60000));
+      ov.focus();
+      if (ov.requestFullscreen) ov.requestFullscreen().then(() => { k.wasFull = true; }).catch(() => {});
+    }
+    function closeKiosk(quiet) {
+      const k = kiosk;
+      if (!k) return;
+      kiosk = null;
+      k.cleanup();
+      if (document.fullscreenElement) { try { document.exitFullscreen().catch(() => {}); } catch (e) { /* 무시 */ } }
+      k.ov.remove();
+      document.documentElement.classList.remove('hs-kiosk-on');
+      if (quiet === true || !root.isConnected) return;
+      render();
+      const b = page.querySelector('[data-act="kiosk"]');
+      if (b) b.focus();
+    }
+
     /* ---------- 이벤트 ---------- */
     function move(n) {
       if (n === 0) st.date = K.today();
@@ -878,12 +1029,13 @@
     }
 
     page.addEventListener('click', (ev) => {
-      const t = ev.target.closest('button, [data-id], td[data-day], .sch-cal-day, .hs-col');
+      const t = ev.target.closest('button, [data-id], td[data-day], .sch-cal-day');
       if (!t || !page.contains(t)) return;
       const d = t.dataset;
       if (d.act === 'new') openEvent(null, { date: st.date });
       else if (d.act === 'copy') copyShare();
       else if (d.act === 'print') printWeek();
+      else if (d.act === 'kiosk') openKiosk();
       else if (d.act === 'people') openPeople();
       else if (d.act === 'sample') addSample();
       else if (d.act === 'undo') doUndo(false);
@@ -891,6 +1043,7 @@
       else if (d.act === 'more') {
         K.popMenu(t, [
           { label: '부서장 관리', desc: '이름·직위·색·순서', icon: K.IC.users, onClick: openPeople },
+          { label: '전광판 모드', desc: '사무실 TV용 전체 화면 (K)', icon: K.IC.tv, onClick: openKiosk },
           { label: '주간표 인쇄 (A4 가로)', icon: K.IC.print, onClick: printWeek },
           { label: '주간표 이미지 저장', desc: 'PNG 파일', icon: K.IC.image, onClick: saveWeekImage },
           { label: '일정 내보내기', desc: 'JSON 백업 파일', icon: P.icons.download, onClick: exportJSON },
@@ -906,12 +1059,7 @@
         renderBody();
       } else if (d.new) openEvent(null, { date: d.new });
       else if (d.id) openEvent(d.id);
-      else if (t.matches('td[data-day]')) openEvent(null, { date: d.day, heads: d.head ? [d.head] : [], allDay: true });
-      else if (t.classList.contains('hs-col')) {
-        const r = t.getBoundingClientRect();
-        const m = Number(t.dataset.h0) * 60 + Math.max(0, Math.floor((ev.clientY - r.top) / HH * 2)) * 30;
-        openEvent(null, { date: d.colDay, allDay: false, start: hm(m), end: hm(Math.min(m + 60, 1439)) });
-      }
+      else if (t.matches('td[data-day]')) openEvent(null, { date: d.day, heads: d.head ? [d.head] : [] });
       else if (t.classList.contains('sch-cal-day')) {
         if (st.date === d.day && !st.narrow) openEvent(null, { date: d.day });
         else { st.date = d.day; renderBody(); }
@@ -921,6 +1069,7 @@
       if ((ev.key === 'Enter' || ev.key === ' ') && ev.target.matches('.hs-card[data-id]')) { ev.preventDefault(); openEvent(ev.target.dataset.id); }
     });
     function onKey(ev) {
+      if (kiosk) return;
       if ((ev.ctrlKey || ev.metaKey) && !ev.altKey && !K.isTyping(ev)) {
         const k = ev.key.toLowerCase();
         if (k === 'z' && !ev.shiftKey) { ev.preventDefault(); doUndo(false); }
@@ -928,7 +1077,7 @@
         return;
       }
       if (ev.ctrlKey || ev.metaKey || ev.altKey || K.isTyping(ev)) return;
-      const map = { n: () => openEvent(null, { date: st.date }), t: () => setView('today'), w: () => setView('week'), m: () => setView('month'), ArrowLeft: () => move(-1), ArrowRight: () => move(1) };
+      const map = { n: () => openEvent(null, { date: st.date }), k: openKiosk, t: () => setView('today'), w: () => setView('week'), m: () => setView('month'), ArrowLeft: () => move(-1), ArrowRight: () => move(1) };
       const fn = map[ev.key.length === 1 ? ev.key.toLowerCase() : ev.key];
       if (fn) { ev.preventDefault(); fn(); }
     }
@@ -950,6 +1099,7 @@
     });
 
     return () => {
+      closeKiosk(true);
       clearInterval(clock);
       stopRefresh();
       document.removeEventListener('keydown', onKey);

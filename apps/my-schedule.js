@@ -35,6 +35,7 @@
       tView: P.settings.get('my-schedule.tView', 'today'),
       ov: { head: [], dept: [], people: [], loaded: false },
       migrate: null,
+      page: 'day',
       narrow: false
     };
     if (!TVIEWS.some((x) => x[0] === st.tView)) st.tView = 'today';
@@ -189,17 +190,30 @@
     }
 
     /* ---------- 그리기 ---------- */
+    /* 머리 띠는 한 번만 그림(그림 자리가 다시 불러와지며 깜빡이지 않게), 나머지는 .sch-main 에 */
+    function frame() {
+      let main = page.querySelector(':scope > .sch-main');
+      if (!main) {
+        page.innerHTML = K.hero({
+          slot: 'tab-my-schedule', cls: 'my-hero', title: '내 일정',
+          kicker: '<span class="sch-hero-no">플래너</span><span class="my-hero-date num"></span>',
+          sub: '나만 보는 하루와 할 일',
+          acts:
+            '<button type="button" class="btn" data-act="brief" aria-label="아침 브리핑" title="오늘 내 일정과 할 일을 복사">' + K.IC.sun + '<span>아침 브리핑</span></button>' +
+            '<button type="button" class="btn btn-ghost p-icon-btn" data-act="more" aria-label="더보기" title="더보기">' + K.IC.more + '</button>' +
+            '<button type="button" class="btn btn-primary sch-hide-sm" data-act="new" title="새 일정 (N)">' + P.icons.plus + '<span>새 일정</span></button>'
+        }) + '<div class="sch-main"></div>';
+        main = page.querySelector(':scope > .sch-main');
+      }
+      const d = K.parse(K.today());
+      page.querySelector('.my-hero-date').textContent = d.getFullYear() + ' · ' + (d.getMonth() + 1) + '월';
+      return main;
+    }
     function render() {
       clearInterval(clock);
       st.narrow = window.matchMedia('(max-width: 760px)').matches;
       const canOv = hasHead || hasDept;
-      page.innerHTML =
-        '<div class="page-head sch-head"><div><h1>내 일정</h1></div>' +
-        '<div class="toolbar sch-actions">' +
-        '<button type="button" class="btn" data-act="brief" aria-label="아침 브리핑" title="오늘 내 일정과 할 일을 복사">' + K.IC.sun + '<span>아침 브리핑</span></button>' +
-        '<button type="button" class="btn btn-ghost p-icon-btn" data-act="more" aria-label="더보기" title="더보기">' + K.IC.more + '</button>' +
-        '<button type="button" class="btn btn-primary sch-hide-sm" data-act="new" title="새 일정 (N)">' + P.icons.plus + '<span>새 일정</span></button>' +
-        '</div></div>' +
+      frame().innerHTML =
         '<div class="my-local" role="note"><span class="my-local-ic">' + IC_DEVICE + '</span>' +
         '<p><b>이 기기에만 저장됩니다.</b> <span>저장 위치를 바꿔도 다른 사람에게 보이지 않습니다.</span></p>' +
         '<span class="my-local-btns"><button type="button" class="btn btn-ghost btn-sm" data-act="export" title="내 일정·할 일을 JSON 파일로">' + P.icons.download + '내보내기</button>' +
@@ -214,7 +228,9 @@
         VIEWS.map(([v, l, k]) => '<button type="button" role="radio" aria-checked="' + (st.view === v) + '" data-view="' + v + '" title="' + l + ' 보기 (' + k + ')">' + l + '</button>').join('') + '</div>' +
         (canOv ? '<button type="button" class="chip my-ov-toggle" data-act="overlay" aria-pressed="' + st.overlay + '" title="' + [hasHead ? '부서장 일정' : '', hasDept ? '부서 일정' : ''].filter(Boolean).join('·') + '을 회색으로 함께 보기 (O)">' + IC_LAYERS + '겹쳐 보기</button>' : '') +
         '</div>' +
-        '<div class="my-layout"><div class="sch-body"></div><aside class="my-side" aria-label="할 일"></aside></div>' +
+        '<div class="my-layout" data-page="' + st.page + '">' +
+        '<div class="my-flip" role="tablist" aria-label="펼친 쪽"><button type="button" role="tab" data-page="day" aria-selected="' + (st.page === 'day') + '">하루</button><button type="button" role="tab" data-page="todo" aria-selected="' + (st.page === 'todo') + '">할 일<span class="my-flip-n num"></span></button></div>' +
+        '<div class="sch-body"></div><aside class="my-side" aria-label="할 일"></aside></div>' +
         '<button type="button" class="sch-fab" data-act="new" aria-label="새 일정">' + P.icons.plus + '</button>';
       page.querySelector('.my-bar').appendChild(bar.el);
       renderMig();
@@ -254,11 +270,16 @@
       if (ovb) { ovb.setAttribute('aria-pressed', String(st.overlay)); ovb.hidden = todo; }
       const side = page.querySelector('.my-side');
       const showSide = st.view === 'today';
-      page.querySelector('.my-layout').classList.toggle('has-side', showSide);
+      const lay = page.querySelector('.my-layout');
+      lay.classList.toggle('has-side', showSide);
+      lay.classList.toggle('is-spread', showSide);
+      lay.dataset.view = st.view;
       side.hidden = !showSide;
       side.innerHTML = showSide ? sideHTML(st.date) : '';
+      const n = page.querySelector('.my-flip-n');
+      if (n) n.textContent = showSide ? String(todos().filter((x) => !x.done && x.due && x.due <= st.date).length || '') : '';
       if (todo) body.innerHTML = todosView();
-      else if (st.view === 'today') body.innerHTML = dayView(st.date);
+      else if (st.view === 'today') body.innerHTML = dayHead(st.date) + dayView(st.date);
       else if (st.view === 'week') { const s = K.weekStart(st.date); body.innerHTML = st.narrow ? weekList(s) : weekGrid(s); }
       else body.innerHTML = monthView(st.date);
     }
@@ -266,12 +287,21 @@
     const pill = (e, d) => '<button type="button" class="hs-card hs-pill ' + phase(e, d) + ovCls(e) + '" ' + keyOf(e) + ' style="--c:' + colorOf(e) + '">' +
       '<b>' + srcTag(e) + P.esc(e.title) + '</b><span>' + P.esc(timeText(e, d)) + (whoText(e) ? ' · ' + P.esc(whoText(e)) : '') + (e.place ? ' · ' + P.esc(e.place) : '') + '</span></button>';
 
+    /* 플래너 왼쪽 쪽 머리: 큰 날짜 숫자 + 요일 + 지금 */
+    function dayHead(d) {
+      const dt = K.parse(d);
+      const t = K.today();
+      const rel = d === t ? '오늘' : d === K.addDays(t, 1) ? '내일' : d === K.addDays(t, -1) ? '어제' : '';
+      const own = mine(d).length;
+      return '<div class="my-pg-hd"><b class="my-pg-day num">' + dt.getDate() + '</b><span class="my-pg-dt"><strong>' + K.DOW[dt.getDay()] + '요일' + (rel ? '<em>' + rel + '</em>' : '') + '</strong><small class="num">' + dt.getFullYear() + '년 ' + (dt.getMonth() + 1) + '월 · 일정 ' + own + '건</small></span></div>';
+    }
     function dayView(d) {
       const list = dayAll(d);
       const own = list.filter((e) => !e.src).length;
       const allDay = list.filter((e) => !isTimed(e));
+      const blank = !mineAll().length && !todos().length;
       return '<div class="hs-panel hs-dayview">' +
-        (own ? '' : '<div class="hs-empty"><span>' + (d === K.today() ? '오늘' : K.md(d)) + ' 내 일정이 없습니다.</span><button type="button" class="btn btn-sm" data-new="' + d + '">' + P.icons.plus + '일정 추가</button></div>') +
+        (own ? '' : '<div class="hs-empty"><span>' + (d === K.today() ? '오늘' : K.md(d)) + ' 내 일정이 없습니다.</span><span class="toolbar"><button type="button" class="btn btn-sm" data-new="' + d + '">' + P.icons.plus + '일정 추가</button>' + (blank ? '<button type="button" class="btn btn-sm btn-ghost" data-act="sample">예시 데이터</button>' : '') + '</span></div>') +
         (allDay.length ? '<div class="hs-allday"><span class="hs-allday-l">종일</span><div class="hs-allday-items">' + allDay.map((e) => pill(e, d)).join('') + '</div></div>' : '') +
         '<div class="hs-tg-wrap">' + timeGrid([d]) + '</div></div>';
     }
@@ -359,10 +389,14 @@
           : '<p class="sc-todo-empty">' + (st.tView === 'today' ? '오늘 할 일이 없습니다.' : st.tView === 'done' ? '완료한 일이 없습니다.' : '할 일이 없습니다.') + '</p>') +
         '</div></div>';
     }
+    /* 플래너 오른쪽 쪽: 그날까지 할 일 + 그날 끝낸 일(줄 그은 채로) */
     function sideHTML(d) {
-      const list = todos().filter((x) => !x.done && x.due && x.due <= d).sort(dueSort);
-      return '<div class="sch-glance-head"><h2>할 일</h2><span class="num">' + (d === K.today() ? '오늘까지' : K.md(d) + '까지') + ' · ' + list.length + '건</span></div>' +
-        (list.length ? '<ul class="sc-todos my-side-list">' + list.slice(0, 8).map(todoLi).join('') + '</ul>' : '<p class="hs-none">기한이 닥친 할 일이 없습니다.</p>') +
+      const open = todos().filter((x) => !x.done && x.due && x.due <= d).sort(dueSort);
+      const doneToday = d === K.today() ? todos().filter((x) => x.done && String(x.doneAt || '').slice(0, 10) === d) : [];
+      const list = open.slice(0, 12).concat(doneToday.slice(0, 6));
+      return '<span class="my-ribbon" aria-hidden="true"></span>' +
+        '<div class="sch-glance-head my-pg-rhd"><h2>할 일</h2><span class="num">' + (d === K.today() ? '오늘까지' : K.md(d) + '까지') + ' · ' + open.length + '건' + (doneToday.length ? ' · 끝 ' + doneToday.length : '') + '</span></div>' +
+        (list.length ? '<ul class="sc-todos my-side-list">' + list.map(todoLi).join('') + '</ul>' : '<p class="hs-none">기한이 닥친 할 일이 없습니다.</p>') +
         '<form class="sc-quick my-side-quick" data-form="quick" data-due="' + d + '"><span class="sc-quick-ic" aria-hidden="true">' + P.icons.plus + '</span><input name="title" maxlength="100" placeholder="이날까지 할 일" aria-label="새 할 일" autocomplete="off"></form>' +
         '<button type="button" class="btn-link my-side-all" data-view="todos">할 일 전체 (' + todos().filter((x) => !x.done).length + ')</button>';
     }
@@ -541,6 +575,62 @@
       renderBody();
     }
 
+    /* ---------- 예시 데이터 ---------- */
+    async function addSample() {
+      const td = K.today();
+      const ev = (o, title, kind, start, end, extra) => ({ col: COL_EV, id: P.store.uid(), data: Object.assign({ title, kind, date: K.addDays(td, o), endDate: '', allDay: !start, start: start || '', end: end || '', place: '', note: '' }, extra || {}) });
+      const tk = (title, due, extra) => ({ col: COL_TODO, id: P.store.uid(), data: Object.assign({ title, due: due == null ? '' : K.addDays(td, due), done: false, doneAt: '', note: '' }, extra || {}) });
+      try {
+        await repo.apply('예시 데이터', [
+          ev(0, '팀 주간 회의', '회의', '09:30', '10:30', { place: '2층 소회의실' }),
+          ev(0, '보고서 초안 작성', '업무', '13:00', '15:00', { note: '통계표 먼저' }),
+          ev(0, '민원 회신 전화', '업무', '15:30', '16:00'),
+          ev(0, '치과 예약', '개인', '18:30', '19:30', { place: '역 앞 치과' }),
+          ev(1, '현장 확인', '업무', '10:00', '12:00', { place: '관할 지역' }),
+          ev(3, '연가', '휴가', '', ''),
+          tk('출장비 정산 서류 제출', -1),
+          tk('회의록 정리해서 공유', 0),
+          tk('예산 요구서 검토 의견', 0, { note: '과장님께 보고 전' }),
+          tk('교육 신청서 작성', 0, { done: true, doneAt: new Date().toISOString() }),
+          tk('다음 주 일정 확인', 2),
+          tk('책상 정리', null)
+        ]);
+      } catch (e) { return; }
+      P.ui.toast('예시 데이터를 넣었습니다. 실행 취소(Ctrl+Z)로 되돌릴 수 있습니다.', 'ok');
+      renderBody();
+    }
+
+    /* ---------- 펼침면 쪽 넘기기 (좁은 화면: 한 쪽씩) ---------- */
+    function setPage(p) {
+      if ((p !== 'day' && p !== 'todo') || st.page === p) return;
+      const fwd = p === 'todo';
+      st.page = p;
+      const lay = page.querySelector('.my-layout');
+      if (!lay) return;
+      lay.dataset.page = p;
+      page.querySelectorAll('.my-flip [data-page]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.page === p)));
+      const inc = lay.querySelector(fwd ? '.my-side' : '.sch-body');
+      if (inc && K.motionOK() && window.matchMedia('(max-width: 1023px)').matches) {
+        inc.classList.remove('is-flip-f', 'is-flip-b');
+        void inc.offsetWidth;
+        inc.classList.add(fwd ? 'is-flip-f' : 'is-flip-b');
+        setTimeout(() => inc.classList.remove('is-flip-f', 'is-flip-b'), 800);
+      }
+    }
+    let swipe = null;
+    page.addEventListener('pointerdown', (ev) => {
+      swipe = ev.pointerType === 'touch' && ev.target.closest('.my-layout.is-spread') && !ev.target.closest('input, textarea, select') ? { x: ev.clientX, y: ev.clientY, id: ev.pointerId } : null;
+    });
+    page.addEventListener('pointerup', (ev) => {
+      const s = swipe;
+      swipe = null;
+      if (!s || ev.pointerId !== s.id || !window.matchMedia('(max-width: 1023px)').matches) return;
+      const dx = ev.clientX - s.x;
+      const dy = ev.clientY - s.y;
+      if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 2) setPage(dx < 0 ? 'todo' : 'day');
+    });
+    page.addEventListener('pointercancel', () => { swipe = null; });
+
     /* ---------- 동작 ---------- */
     function move(n) {
       if (st.view === 'todos') return;
@@ -578,11 +668,14 @@
       else if (d.act === 'import') importJSON();
       else if (d.act === 'undo') doUndo(false);
       else if (d.act === 'redo') doUndo(true);
+      else if (d.act === 'sample') addSample();
+      else if (d.page && t.tagName === 'BUTTON') setPage(d.page);
       else if (d.act === 'mig-skip') { const m = st.migrate; if (m) doMigrate(null, '', m.kind).then(() => { renderMig(); renderBody(); }); }
       else if (d.act === 'more') {
         K.popMenu(t, [
           { label: '내 일정 내보내기', desc: '다른 기기로 옮길 JSON 파일', icon: P.icons.download, onClick: exportJSON },
-          { label: '내 일정 가져오기', desc: '내보낸 파일 또는 예전 부서 스케줄러 파일', icon: P.icons.upload, onClick: importJSON }
+          { label: '내 일정 가져오기', desc: '내보낸 파일 또는 예전 부서 스케줄러 파일', icon: P.icons.upload, onClick: importJSON },
+          { label: '예시 데이터', desc: '하루 일정과 할 일 몇 개 넣기', icon: P.icons.plus, onClick: addSample }
         ]);
       } else if (d.mig != null) {
         const m = st.migrate;

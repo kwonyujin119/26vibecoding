@@ -3164,14 +3164,7 @@
     if (diff < 86400 * 7) return Math.floor(diff / 86400) + '일 전';
     return d.toLocaleDateString('ko-KR');
   }
-  const TPL_IC = {
-    blank: '<path d="M4 4h16v16H4zM4 9h16M4 14h16M9 4v16M14 4v16"/>',
-    budget: '<path d="M4 20V10M10 20V4M16 20v-7M21 20H3"/>',
-    travel: '<path d="M3 17h18M6 17l2-8h8l2 8M9 9V6h6v3"/>',
-    roster: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
-    assets: '<path d="M4 8l8-4 8 4-8 4zM4 8v8l8 4 8-4V8M12 12v8"/>',
-    attendance: '<path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/>'
-  };
+
   /* 템플릿 미리보기: 작은 격자 그림. 칸 기호 . 빈칸 H 머리 t 글 n 숫자 b 합계 T 제목(병합) S 강조 o 동그라미 x 가위표 f 색칸 */
   const TPL_PV = {
     blank: { cols: [26, 26, 26, 26, 26], rows: ['.....', '.....', '.....', '.....', '.....', '.....', '.....', '.....'] },
@@ -3239,19 +3232,64 @@
     return { name: bookName(b) + ' - ' + b.sheets[si].name.replace(/[\\/:*?"<>|]/g, '_') + '.csv', data: csvOf(b.sheets[si], si, engine, plainDisplay(b, engine)), mime: 'text/csv' };
   }
   const SHEET_ACCEPT = '.xlsx,.xls,.xlsm,.ods,.csv,.tsv,.txt';
-  function miniGrid(d) {
+  /* 목록: 장부 한 권 = 천 등(색) + 줄 친 쪽(첫 시트의 앞줄 실제 값). 수식은 계산 엔진을 불러 값으로 채움 */
+  const SPINES = ['var(--fb-cloth-1)', 'var(--fb-cloth-2)', 'var(--fb-cloth-3)', 'var(--fb-cloth-4)', 'var(--fb-cloth-5)'];
+  const spineOf = (it) => SPINES[P.files.hash(it.id) % SPINES.length];
+  const CALC_CACHE = new Map(); // id|updatedAt → { 'r,c': 보이는 값 }
+  const LB_R = 7, LB_C = 4;
+  function ledgerBook(it) {
+    const d = it.data || {};
     const sh = Array.isArray(d.sheets) && d.sheets[0];
     const cells = (sh && sh.cells) || {};
-    let h = '<span class="sheets-mini" aria-hidden="true"><table>';
-    for (let r = 0; r < 7; r++) {
-      h += '<tr>';
-      for (let c = 0; c < 4; c++) { const x = cells[r + ',' + c]; const v = x ? (x.f != null ? 'ƒ' : x.v) : ''; h += '<td>' + esc(String(v == null ? '' : v).slice(0, 10)) + '</td>'; }
-      h += '</tr>';
+    const key = it.id + '|' + (it.updatedAt || '');
+    const calc = CALC_CACHE.get(key);
+    let needCalc = false;
+    let rows = '';
+    for (let r = 0; r < LB_R; r++) {
+      rows += '<tr>';
+      for (let c = 0; c < LB_C; c++) {
+        const x = cells[K(r, c)];
+        let v = '';
+        let isNum = false;
+        if (x) {
+          if (calc && calc[K(r, c)] != null) v = calc[K(r, c)];
+          else if (x.f != null) { needCalc = true; v = '…'; }
+          else v = x.v == null ? '' : String(x.v);
+          isNum = typeof x.v === 'number' || x.f != null || /^-?[\d,.]+%?$/.test(v);
+        }
+        rows += '<td' + (isNum ? ' class="n"' : '') + (x ? ' data-rc="' + r + ',' + c + '"' : '') + '>' + esc(String(v).slice(0, 14)) + '</td>';
+      }
+      rows += '</tr>';
     }
-    return h + '</table></span>';
+    const nSheets = Array.isArray(d.sheets) ? d.sheets.length : 0;
+    return '<span class="sheets-book" style="--spine:' + spineOf(it) + '"' + (needCalc ? ' data-calc="' + esc(it.id) + '"' : '') + ' aria-hidden="true">' +
+      '<span class="sheets-book-spine"><i></i><i></i></span>' +
+      '<span class="sheets-book-pg"><span class="sheets-book-hd"><b>' + esc((sh && sh.name) || '시트1') + '</b><span class="tnum">' + (nSheets > 1 ? '시트 ' + nSheets + '개' : '') + '</span></span>' +
+      '<span class="sheets-book-cols"><em>A</em><em>B</em><em>C</em><em>D</em></span>' +
+      '<table class="sheets-ledger">' + rows + '</table></span>' +
+      '<span class="sheets-book-rib"></span></span>';
+  }
+  async function fillLedgerCalc(box, byId) {
+    const need = Array.from(box.querySelectorAll('.sheets-book[data-calc]'));
+    if (!need.length) return;
+    try { await P.loadScript(LIB.formula); } catch (e) { return; }
+    for (const el of need) {
+      const it = byId.get(el.dataset.calc);
+      if (!it || !el.isConnected) continue;
+      try {
+        const b = fixBook(JSON.parse(JSON.stringify(it.data)));
+        const disp = plainDisplay(b, makeEngine(b));
+        const out = {};
+        for (let r = 0; r < LB_R; r++) for (let c = 0; c < LB_C; c++) if (b.sheets[0].cells[K(r, c)]) out[K(r, c)] = disp(0, r, c);
+        CALC_CACHE.set(it.id + '|' + (it.updatedAt || ''), out);
+        el.querySelectorAll('td[data-rc]').forEach((td) => { const v = out[td.dataset.rc]; if (v != null) td.textContent = String(v).slice(0, 14); });
+        el.removeAttribute('data-calc');
+      } catch (e) { /* 미리보기는 그대로 */ }
+    }
   }
   async function mountList(root, ctx) {
     const folder = ctx.params[0] === 'f' ? ctx.params[1] || null : null;
+    const byId = new Map();
     const tile = (id, title, desc) => '<button type="button" class="sheets-tpl" data-tpl="' + id + '"' + (desc ? ' title="' + esc(desc) + '"' : '') + '><span class="sheets-tpl-pv">' + tplPreview(id) + '</span><b>' + esc(title) + '</b></button>';
     async function create(book, f) {
       const id = P.store.uid();
@@ -3271,16 +3309,19 @@
       await create(b, f);
     }
     const fb = P.files.browser(root, {
-      col: COL, kind: 'sheets', folder,
+      col: COL, kind: 'sheets', folder, defaultView: 'grid',
+      skin: 'ledger',
+      hero: { no: '05 · 장부', desc: '표 계산, 엑셀 파일 주고받기', slot: 'tab-sheets', seal: '장부' },
       title: '엑셀', itemName: '통합문서', newLabel: '새 통합문서', mineLabel: '내 통합문서', searchHint: '이름으로 찾기',
       pageClass: 'sheets-list', openClass: 'sheets-file-main', itemClass: 'sheets-file', newAttrs: { 'data-act': 'new' },
       templates: { title: '새로 만들기', cls: 'sheets-sec', html: '<div class="sheets-tpls">' + tile('blank', '빈 통합문서', '') + TEMPLATES.map((t) => tile(t.id, t.title, t.desc)).join('') + '</div>' },
       onTemplate: (id, f) => (id === 'blank' ? create(newBook('새 통합문서'), f) : create(bookFromTemplate(TEMPLATES.find((x) => x.id === id)), f)),
       newItem: (f) => create(newBook('새 통합문서'), f),
-      icon: () => '<span class="sheets-file-ic">' + I0(TPL_IC.blank) + '</span>',
+      icon: (it) => '<span class="sheets-spine" style="--spine:' + spineOf(it) + '"></span>',
       badge: (it) => '<span class="badge">시트 ' + (Array.isArray(it.data.sheets) ? it.data.sheets.length : 0) + '개</span>',
       meta: (it) => (Array.isArray(it.data.sheets) ? it.data.sheets.map((x) => x && x.name).filter(Boolean).slice(0, 4).join(' · ') : ''),
-      thumb: (it) => miniGrid(it.data),
+      thumb: (it) => { byId.set(it.id, it); return ledgerBook(it); },
+      afterRender: (box) => { fillLedgerCalc(box, byId); },
       empty: { slot: 'empty-sheets', title: '아직 통합문서가 없습니다', desc: '위 템플릿을 고르거나, 가지고 있는 XLSX·CSV 파일을 열어 이어서 작업하세요.' },
       io: {
         attrs: { import: { 'data-act': 'import' } },
@@ -3295,7 +3336,6 @@
   }
   const IC_PRINT = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 9V3h10v6"/><rect x="3" y="9" width="18" height="8" rx="1.5"/><path d="M7 14h10v7H7z"/></svg>';
   const IC_KEYS = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="6" width="19" height="12" rx="2"/><path d="M6.5 10h1M10.5 10h1M14.5 10h1M8 14h8"/></svg>';
-  function I0(d) { return '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + d + '</svg>'; }
 
   /* ================= 등록 ================= */
   async function mountEditor(root, ctx, id) {

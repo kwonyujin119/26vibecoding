@@ -85,3 +85,157 @@
   .my-local, .my-side, .my-mig { display: none !important; }
 }
 
+
+/* =====================================================================
+   2.1 내 일정 = 플래너 펼침면
+   넓은 화면(1024px 이상): 왼쪽 쪽은 하루(줄 친 시간 칸), 오른쪽 쪽은 할 일(여백 선 · 리본 책갈피)
+   좁은 화면: 한 쪽씩, 위 색인 탭이나 옆으로 밀어 넘김(효과 단계·동작 줄이기 따름)
+   ===================================================================== */
+.p-app-my-schedule .sch-page { --my-cover: #2E3450; --my-margin: color-mix(in srgb, var(--signal) 42%, transparent); --my-pitch: 44px; }
+:root[data-theme="dark"] .p-app-my-schedule .sch-page { --my-cover: #262833; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .p-app-my-schedule .sch-page { --my-cover: #262833; } }
+
+/* 쪽 공통: 종이 + 실선 */
+.p-app-my-schedule .hs-panel, .p-app-my-schedule .sch-cal, .p-app-my-schedule .hs-month-day, .p-app-my-schedule .sc-todo-box {
+  background: var(--pp-paper); border-color: var(--pp-edge); border-radius: 3px; box-shadow: var(--pp-shadow);
+}
+/* 시간 칸 = 플래너 줄: 정시는 진하게, 30분은 옅게, 왼쪽 여백 선은 인주색 */
+.p-app-my-schedule .hs-col {
+  border-left-color: var(--my-margin);
+  background-image:
+    linear-gradient(to bottom, color-mix(in srgb, var(--pp-rule-2) 62%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, transparent 24px, var(--pp-rule) 24px, var(--pp-rule) 25px, transparent 25px);
+  background-size: 100% 48px, 100% 48px;
+}
+.p-app-my-schedule .hs-col.weekend { background-color: color-mix(in srgb, var(--pp-paper-2) 60%, transparent); }
+.p-app-my-schedule .hs-blk:not(.ov) { border-radius: 2px; background: color-mix(in srgb, var(--c) 15%, var(--pp-paper)); box-shadow: inset 3px 0 0 var(--c); }
+.p-app-my-schedule .hs-blk:not(.ov):hover { background: color-mix(in srgb, var(--c) 22%, var(--pp-paper)); }
+.p-app-my-schedule .hs-tg-gut span { font-weight: 600; }
+.p-app-my-schedule .hs-week th, .p-app-my-schedule .hs-week td { border-color: var(--pp-rule); }
+.p-app-my-schedule .hs-week thead th { border-bottom: 3px double var(--pp-rule-2); }
+.p-app-my-schedule .hs-week thead th.today .hs-dnum { background: none; color: var(--signal); box-shadow: inset 0 -2px 0 var(--signal); border-radius: 0; }
+.p-app-my-schedule .sch-cal-dow { border-bottom: 3px double var(--pp-rule-2); letter-spacing: .08em; }
+.p-app-my-schedule .sch-cal-day { border-color: var(--pp-rule); }
+.p-app-my-schedule .sch-cal-num { font-size: 14px; font-weight: 750; }
+.p-app-my-schedule .sch-cal-day.out { background: color-mix(in srgb, var(--pp-paper-2) 70%, transparent); }
+.p-app-my-schedule .sch-cal-day.today .sch-cal-num { background: none; color: var(--signal); box-shadow: 0 0 0 1.5px var(--signal); }
+
+/* 색인 탭 (좁은 화면에서만) */
+.my-flip { display: none; }
+
+/* 펼침면 */
+.my-layout.is-spread {
+  position: relative; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0; align-items: stretch;
+  padding: 12px; border-radius: 12px; background: var(--my-cover);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, .06) inset, 0 24px 44px -28px rgba(20, 16, 40, .8);
+}
+.my-layout.is-spread::after { /* 가운데 제본 그늘 */
+  content: ""; position: absolute; left: 50%; top: 12px; bottom: 12px; width: 40px; margin-left: -20px; pointer-events: none; z-index: 1;
+  background: linear-gradient(90deg, transparent, rgba(40, 30, 10, .14) 46%, rgba(40, 30, 10, .22) 50%, rgba(40, 30, 10, .1) 54%, transparent);
+}
+.my-layout.is-spread > .sch-body, .my-layout.is-spread > .my-side {
+  position: relative; min-width: 0; min-height: 620px; background: var(--pp-paper); border: 0; box-shadow: none;
+}
+.my-layout.is-spread > .sch-body { padding: 20px 18px 14px 14px; border-radius: 3px 0 0 3px; box-shadow: inset -10px 0 16px -14px rgba(40, 30, 10, .4); }
+.my-layout.is-spread > .my-side {
+  position: relative; top: 0; padding: 0 22px 0 0; border-radius: 0 3px 3px 0; box-shadow: inset 10px 0 16px -14px rgba(40, 30, 10, .4);
+  background:
+    linear-gradient(90deg, transparent 51px, var(--my-margin) 51px 52px, transparent 52px),
+    repeating-linear-gradient(180deg, transparent 0 calc(var(--my-pitch) - 1px), var(--pp-rule) calc(var(--my-pitch) - 1px) var(--my-pitch)) 0 0 / 100% 100%,
+    var(--pp-paper);
+}
+/* 왼쪽 쪽: 큰 날짜 */
+.my-pg-hd { display: flex; align-items: flex-end; gap: 14px; padding: 0 4px 12px 6px; margin-bottom: 4px; border-bottom: 3px double var(--pp-rule-2); }
+.my-pg-day { font-size: 56px; font-weight: 800; line-height: .9; letter-spacing: -0.05em; }
+.my-pg-dt { display: flex; flex-direction: column; gap: 3px; padding-bottom: 3px; min-width: 0; }
+.my-pg-dt strong { display: flex; align-items: center; gap: 8px; font-size: 18px; font-weight: 750; }
+.my-pg-dt em { padding: 0 6px; border: 1.5px solid var(--signal); border-radius: 3px; color: var(--signal); font-style: normal; font-size: 11.5px; font-weight: 800; line-height: 18px; }
+.my-pg-dt small { font-size: 12.5px; color: var(--muted); }
+.my-layout.is-spread .hs-dayview { background: transparent; border: 0; box-shadow: none; border-radius: 0; }
+.my-layout.is-spread .hs-dayview .hs-empty { border-bottom-color: var(--pp-rule); padding-left: 6px; }
+.my-layout.is-spread .hs-dayview .hs-empty .toolbar { gap: 4px; }
+.my-layout.is-spread .hs-allday { border-bottom-color: var(--pp-rule); }
+/* 오른쪽 쪽: 할 일 (줄 간격 = --my-pitch, 머리 2줄) */
+.my-layout.is-spread .my-pg-rhd {
+  display: flex; align-items: flex-end; justify-content: space-between; height: calc(var(--my-pitch) * 2); margin: 0; padding: 0 76px 10px 62px; border: 0;
+}
+.my-layout.is-spread .my-pg-rhd h2 { font-size: 22px; font-weight: 800; letter-spacing: .02em; color: var(--text); }
+.my-layout.is-spread .my-pg-rhd span { font-size: 12.5px; }
+.my-layout.is-spread .my-side-list { border: 0; padding: 0; }
+.my-layout.is-spread .my-side .sc-todo { height: var(--my-pitch); min-height: 0; padding: 0 0 0 7px; gap: 0; border: 0; }
+.my-layout.is-spread .my-side .sc-todo + .sc-todo { border: 0; }
+.my-layout.is-spread .my-side .sc-todo-main { flex-direction: row; align-items: baseline; gap: 10px; padding: 0 0 0 9px; height: 100%; align-items: center; }
+.my-layout.is-spread .my-side .sc-todo-title { font-size: 15.5px; font-weight: 550; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 0 1 auto; }
+.my-layout.is-spread .my-side .sc-todo-note { flex: 1 1 0; min-width: 0; font-size: 12.5px; }
+.my-layout.is-spread .my-side .sc-pdue { flex-direction: row; gap: 6px; align-items: baseline; }
+.my-layout.is-spread .my-side .hs-none { height: var(--my-pitch); display: flex; align-items: center; margin: 0; padding: 0 0 0 62px; border: 0; }
+.my-layout.is-spread .my-side-quick { height: var(--my-pitch); padding: 0 0 0 19px; gap: 0 19px; border: 0; background: transparent; }
+.my-layout.is-spread .my-side-quick input { height: 34px; min-height: 0; font-size: 15px; }
+.my-layout.is-spread .my-side-all { height: var(--my-pitch); display: flex; align-items: center; margin: 0; padding-left: 62px; }
+/* 손으로 긋는 듯한 네모 칸 */
+.my-layout.is-spread .my-side .sc-check input, .my-todos .sc-check input { border-radius: 3px; width: 19px; height: 19px; border-color: color-mix(in srgb, var(--text) 55%, transparent); background: transparent; }
+.my-layout.is-spread .my-side .sc-check input:checked, .my-todos .sc-check input:checked { background: transparent; border-color: color-mix(in srgb, var(--text) 40%, transparent); }
+.my-layout.is-spread .my-side .sc-check input:checked::after, .my-todos .sc-check input:checked::after {
+  left: 5px; top: -3px; width: 7px; height: 14px; border-color: var(--signal); border-width: 0 2.5px 2.5px 0; transform: rotate(40deg) skewX(-6deg);
+}
+.my-layout.is-spread .my-side .sc-todo.done .sc-todo-title, .my-todos .sc-todo.done .sc-todo-title { text-decoration-color: color-mix(in srgb, var(--signal) 70%, transparent); text-decoration-thickness: 1.5px; }
+/* 리본 책갈피 */
+.my-ribbon {
+  position: absolute; z-index: 2; right: 30px; top: -12px; width: 18px; height: calc(100% + 34px); pointer-events: none;
+  background: linear-gradient(90deg, rgba(0, 0, 0, .12), transparent 30% 70%, rgba(0, 0, 0, .12)), var(--signal);
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% calc(100% - 9px), 0 100%); box-shadow: 0 2px 6px rgba(0, 0, 0, .2);
+}
+
+/* 주 · 월 · 할 일 = 플래너 낱장 */
+.my-layout[data-view="week"] .hs-weekgrid, .my-layout[data-view="month"] .sch-cal, .my-layout[data-view="todos"] .sc-todo-box { box-shadow: 0 0 0 1px var(--pp-edge), 6px 6px 0 -1px var(--pp-paper-2), 6px 6px 0 0 var(--pp-edge), var(--pp-shadow); }
+.my-todos .sc-todo-box {
+  position: relative; overflow: hidden;
+  background: linear-gradient(90deg, transparent 51px, var(--my-margin) 51px 52px, transparent 52px), var(--pp-paper);
+}
+.my-todos .sc-quick { border-bottom: 3px double var(--pp-rule-2); padding-left: 24px; }
+.my-todos .sc-todo { min-height: var(--my-pitch); padding-left: 7px; }
+.my-todos .sc-todo + .sc-todo { border-top-color: var(--pp-rule); }
+.my-todos .sc-todo-main { padding-left: 9px; }
+
+@media (max-width: 1023px) {
+  .my-layout.is-spread { grid-template-columns: minmax(0, 1fr); padding: 44px 8px 10px; perspective: 1600px; touch-action: pan-y; }
+  .my-layout.is-spread::after { display: none; }
+  .my-layout.is-spread[data-page="day"] > .my-side, .my-layout.is-spread[data-page="todo"] > .sch-body { display: none; }
+  .my-layout.is-spread > .sch-body, .my-layout.is-spread > .my-side { min-height: 520px; border-radius: 3px; box-shadow: none; }
+  .my-layout.is-spread > .my-side { padding-right: 12px; }
+  .my-layout.is-spread .my-flip { position: absolute; left: 14px; top: 8px; display: flex; gap: 4px; }
+  .my-flip button {
+    display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 16px; border: 0; border-radius: 6px 6px 0 0; cursor: pointer;
+    background: color-mix(in srgb, var(--pp-paper) 22%, transparent); color: rgba(255, 255, 255, .82); font: inherit; font-size: 14px; font-weight: 700;
+  }
+  .my-flip button[aria-selected="true"] { background: var(--pp-paper); color: var(--text); }
+  .my-flip button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .my-flip-n:not(:empty) { min-width: 20px; height: 18px; padding: 0 5px; border-radius: 9px; display: inline-grid; place-items: center; background: var(--signal); color: #fff; font-size: 11px; }
+  .my-ribbon { top: -44px; height: calc(100% + 60px); right: 22px; }
+  .my-layout.is-spread .my-pg-rhd { padding-right: 56px; }
+  /* 쪽 넘김: 풍부하게 = 3D 넘김, 기본 = 옆으로 살짝 */
+  :root[data-fx-level="rich"] .my-layout .is-flip-f { animation: my-flip-f 640ms var(--ease-expressive) both; transform-origin: 0 50%; }
+  :root[data-fx-level="rich"] .my-layout .is-flip-b { animation: my-flip-b 640ms var(--ease-expressive) both; transform-origin: 100% 50%; }
+  :root[data-fx-level="basic"] .my-layout .is-flip-f { animation: my-slide-f 260ms var(--ease-entrance) both; }
+  :root[data-fx-level="basic"] .my-layout .is-flip-b { animation: my-slide-b 260ms var(--ease-entrance) both; }
+}
+@keyframes my-flip-f { from { transform: rotateY(-72deg); opacity: .35; box-shadow: -30px 0 40px -20px rgba(0, 0, 0, .4); } 70% { opacity: 1; } }
+@keyframes my-flip-b { from { transform: rotateY(72deg); opacity: .35; box-shadow: 30px 0 40px -20px rgba(0, 0, 0, .4); } 70% { opacity: 1; } }
+@keyframes my-slide-f { from { transform: translateX(18px); opacity: 0; } }
+@keyframes my-slide-b { from { transform: translateX(-18px); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .my-layout .is-flip-f, .my-layout .is-flip-b { animation: none !important; } }
+@media (max-width: 760px) {
+  .my-pg-day { font-size: 44px; }
+  .my-layout.is-spread > .sch-body { padding: 14px 8px 10px 6px; }
+  .my-layout.is-spread .my-pg-rhd { padding-left: 62px; }
+  .my-layout.is-spread .my-side .sc-todo-note { display: none; }
+}
+/* 리본은 쪽 오른쪽 바깥 여백에 (기한 글자와 겹치지 않게) */
+.my-layout.is-spread > .my-side { padding-right: 44px; }
+.my-ribbon { right: 14px; width: 14px; }
+.my-layout.is-spread .my-pg-rhd { padding-right: 12px; }
+@media (max-width: 1023px) {
+  .my-layout.is-spread > .my-side { padding-right: 36px; }
+  .my-ribbon { right: 10px; }
+  .my-layout.is-spread .my-pg-rhd { padding-right: 8px; }
+}

@@ -793,13 +793,66 @@
       return { name: name + '.docx', blob: await exportDOCX(body, pg, name) };
     });
   }
+  /* 목록의 A4 미리보기: 본문 첫 줄들을 구조(제목·가운데·표 줄)대로. 수정 시각으로 기억해 다시 읽지 않음 */
+  const LINES_CACHE = new Map();
+  function docLines(it) {
+    const key = it.id + '|' + (it.updatedAt || '');
+    if (LINES_CACHE.has(key)) return LINES_CACHE.get(key);
+    const out = [];
+    try {
+      const doc = new DOMParser().parseFromString('<body>' + String((it.data && it.data.html) || '') + '</body>', 'text/html');
+      let gap = false;
+      for (const n of doc.body.querySelectorAll('h1, h2, h3, h4, p, li, tr')) {
+        if (out.length >= 12) break;
+        if (n.tagName === 'P' && n.closest('td, th, li')) continue;
+        if (n.tagName === 'LI' && n.querySelector('p')) continue;
+        if (n.tagName === 'TR') {
+          const cells = Array.from(n.cells).map((c) => (c.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 18));
+          if (cells.some(Boolean)) { out.push({ tr: cells.slice(0, 4) }); gap = false; }
+          continue;
+        }
+        const t = (n.textContent || '').replace(/\s+/g, ' ').trim();
+        if (!t) { if (out.length && !gap) { out.push({ gap: 1 }); gap = true; } continue; }
+        gap = false;
+        const st = (n.getAttribute('style') || '') + ' ' + Array.from(n.querySelectorAll('[style]')).slice(0, 2).map((x) => x.getAttribute('style')).join(' ');
+        const big = /^H[12]$/.test(n.tagName) || /font-size:\s*(1[6-9]|[2-9]\d)pt/.test(st);
+        const cls = (big ? 'h' : /^H/.test(n.tagName) || n.querySelector('b, strong') && n.querySelector('b, strong').textContent.trim() === t ? 'b' : '') +
+          (/text-align:\s*center/.test(n.getAttribute('style') || '') ? ' c' : /text-align:\s*right/.test(n.getAttribute('style') || '') ? ' r' : '');
+        out.push({ t: t.slice(0, 90), cls: cls.trim() });
+      }
+    } catch (e) { /* 미리보기만 비움 */ }
+    while (out.length && out[out.length - 1].gap) out.pop();
+    if (LINES_CACHE.size > 400) LINES_CACHE.clear();
+    LINES_CACHE.set(key, out);
+    return out;
+  }
+  function shortDate(iso) {
+    const d = new Date(iso);
+    if (isNaN(d)) return '';
+    return d.getFullYear() + '. ' + (d.getMonth() + 1) + '. ' + d.getDate() + '.';
+  }
+  function a4Thumb(it, kindLabel) {
+    const d = it.data || {};
+    const lines = docLines(it);
+    const body = lines.length ? lines.map((l) => (l.gap ? '<i class="g"></i>'
+      : l.tr ? '<span class="docs-a4-tr">' + l.tr.map((c) => '<em>' + esc(c) + '</em>').join('') + '</span>'
+        : '<span class="docs-a4-l' + (l.cls ? ' ' + l.cls.split(' ').map((c) => 'is-' + c).join(' ') : '') + '">' + esc(l.t) + '</span>')).join('')
+      : '<span class="docs-a4-l is-empty">빈 문서</span>';
+    return '<span class="docs-a4" aria-hidden="true">' +
+      '<span class="docs-a4-hd"><b>' + esc(kindLabel) + '</b><span>' + esc(shortDate(d.createdAt || it.updatedAt)) + '</span></span>' +
+      '<span class="docs-a4-p">' + body + '</span>' +
+      '<span class="docs-a4-ft"><span>시행 ' + esc(shortDate(it.updatedAt || d.createdAt)) + '</span><span class="tnum">' + (d.pages || 1) + '쪽</span></span>' +
+      '</span>';
+  }
   function mountList(root, ctx) {
     const tpls = templates();
     const folder = ctx.params[0] === 'f' ? ctx.params[1] || null : null;
     const tplHTML = '<div class="docs-tpl-row">' +
       tpls.map((t) => '<button type="button" class="docs-tpl" data-tpl="' + t.id + '" title="' + esc(t.desc) + '"><span class="docs-tpl-thumb docs-thumb-' + t.id + '" aria-hidden="true">' + thumbLines(t.id) + '</span><b>' + esc(t.name) + '</b></button>').join('') + '</div>';
     const fb = P.files.browser(root, {
-      col: COL, kind: APP_ID, folder,
+      col: COL, kind: APP_ID, folder, defaultView: 'grid',
+      skin: 'cabinet',
+      hero: { no: '03 · 서류 캐비닛', desc: '공문서 작성, 한글·워드로 주고받기', slot: 'tab-docs', seal: '문서' },
       title: '문서', itemName: '문서', newLabel: '새 문서', mineLabel: '내 문서', searchHint: '제목·내용 검색',
       pageClass: 'docs-list', itemClass: 'docs-card', newAttrs: { 'data-act': 'new' },
       templates: { title: '서식', html: tplHTML, cls: 'docs-tpls' },
@@ -807,8 +860,8 @@
       newItem: (f) => createDoc(ctx, tpls[0], null, f),
       icon: () => '<span class="docs-glyph"></span>',
       badge: (it) => '<span class="badge">' + esc(kindName(tpls, it.data.kind)) + '</span>',
-      meta: (it) => [(it.data.pages || 1) + '쪽', String(it.data.preview || '').slice(0, 80)].filter(Boolean).join(' · '),
-      thumb: (it) => '<span class="docs-a4" aria-hidden="true"><span class="docs-a4-t">' + esc(it.data.title || '') + '</span><span class="docs-a4-p">' + esc(String(it.data.preview || '').slice(0, 220)) + '</span></span>',
+      meta: (it, view) => (view === 'grid' ? kindName(tpls, it.data.kind) + ' · ' + (it.data.pages || 1) + '쪽' : [(it.data.pages || 1) + '쪽', String(it.data.preview || '').slice(0, 80)].filter(Boolean).join(' · ')),
+      thumb: (it) => a4Thumb(it, kindName(tpls, it.data.kind)),
       empty: { slot: 'empty-docs', title: '아직 문서가 없습니다', desc: '위 서식에서 고르거나 빈 문서로 시작하세요. HWPX·DOCX 파일은 가져오기로 엽니다.' },
       io: {
         attrs: { import: { 'data-act': 'import' } },
