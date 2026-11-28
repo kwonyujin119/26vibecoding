@@ -213,4 +213,4 @@ assets/               아이콘, img/ 그림 자리 이미지
 빌드 도구 없이 정적 파일만으로 동작합니다. 로컬 확인: `python3 -m http.server 8000` 후 http://localhost:8000
 
 
-그림은 GPT(`gpt-image-2.6-sunburst`, 품질 high)로 만듭니다. 설정은 `CLAUDE.md`의 이미지 규칙을 따릅니다.
+그림은 GPT(`gpt-image-2.6-sunburst`)로 만듭니다. 새로 만들 때 품질은 기본 low이고, 설정은 `CLAUDE.md`의 이미지 규칙을 따릅니다. (현재 그림 18장은 max 15장·high 3장으로 만들어졌습니다.)
